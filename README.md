@@ -1,2 +1,2 @@
 # online-offline
-online/offline magazine creation platform
+online//offline magazine creation platform
