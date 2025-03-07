@@ -23,15 +23,70 @@ export async function getCurrentPeriod() {
   const supabase = createClientComponentClient();
   
   try {
+    console.log("Fetching current period...");
+    
+    // First, check how many active periods we have
+    const { data: activePeriods, error: countError } = await supabase
+      .from('periods')
+      .select('id')
+      .eq('is_active', true);
+    
+    if (countError) {
+      console.error('Error checking active periods:', countError);
+      return { success: false, error: countError };
+    }
+    
+    console.log(`Found ${activePeriods?.length || 0} active periods`);
+    
+    // If there are multiple active periods, let's see what they are
+    if (activePeriods && activePeriods.length > 1) {
+      const { data: multipleActive } = await supabase
+        .from('periods')
+        .select('id, name, season, year')
+        .eq('is_active', true);
+        
+      console.log('Multiple active periods found:', multipleActive);
+    }
+    
+    // Get the single active period with most recent end_date
     const { data, error } = await supabase
       .from('periods')
-      .select('*')
-      .filter('start_date', 'lte', new Date().toISOString())
-      .filter('end_date', 'gte', new Date().toISOString())
+      .select('id, name, season, year, start_date, end_date, is_active')
+      .eq('is_active', true)
+      .order('end_date', { ascending: false })
+      .limit(1)
       .single();
-
-    if (error) throw error;
-    return { success: true, period: data as Period };
+    
+    if (error) {
+      console.error('Error fetching current period:', error);
+      
+      // If the error is "No rows found" but we know there are active periods,
+      // it could be because .single() expects exactly one row
+      if (activePeriods && activePeriods.length > 0) {
+        // Try again without .single()
+        const { data: fallback, error: fallbackError } = await supabase
+          .from('periods')
+          .select('id, name, season, year, start_date, end_date, is_active')
+          .eq('is_active', true)
+          .order('end_date', { ascending: false })
+          .limit(1);
+          
+        if (fallbackError) {
+          console.error('Error in fallback query:', fallbackError);
+          return { success: false, error: fallbackError };
+        }
+        
+        if (fallback && fallback.length > 0) {
+          console.log('Retrieved period using fallback:', fallback[0]);
+          return { success: true, period: fallback[0] };
+        }
+      }
+      
+      return { success: false, error };
+    }
+    
+    console.log('Successfully retrieved current period:', data);
+    return { success: true, period: data };
   } catch (error) {
     console.error('Error fetching current period:', error);
     return { success: false, error };
@@ -196,51 +251,139 @@ export async function getPastContributions() {
   
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('No user found');
-
-    // Get current period to exclude it
-    const { period: currentPeriod } = await getCurrentPeriod();
+    if (!user) {
+      console.log("No authenticated user found");
+      return { success: false, error: "No authenticated user found" };
+    }
     
-    // Get past published content
+    console.log("Fetching past contributions for user:", user.id);
+    
+    // Get the current active period to exclude it
+    const { data: activePeriod, error: periodError } = await supabase
+      .from('periods')
+      .select('id')
+      .eq('is_active', true)
+      .order('end_date', { ascending: false })
+      .limit(1)
+      .single();
+      
+    if (periodError) {
+      console.error("Error fetching active period:", periodError);
+      // Continue anyway - we'll include all periods
+    }
+    
+    const activePeriodId = activePeriod?.id;
+    console.log("Active period ID:", activePeriodId);
+    
+    // Get all submissions (not drafts) 
     const { data, error } = await supabase
-      .from('content')
-      .select(`
-        id,
-        status,
-        updated_at,
-        periods!inner(
-          id,
-          name,
-          season,
-          year,
-          end_date
-        ),
-        content_entries(
-          id,
-          title,
-          caption,
-          media_url
-        )
-      `)
-      .eq('creator_id', user.id)
-      .in('status', ['submitted', 'published'])
-      .neq('period_id', currentPeriod?.id || '')
-      .order('updated_at', { ascending: false });
+  .from('content')
+  .select(`
+    id,
+    status,
+    updated_at,
+    period_id,
+    type,
+    content_entries (
+      id,
+      title,
+      caption,
+      media_url
+    ),
+    periods!inner (
+      id,
+      name,
+      season,
+      year,
+      end_date
+    )
+  `)
+  .eq('creator_id', user.id)
+  .in('status', ['submitted', 'published'])
+  .neq('period_id', activePeriodId || '')
+  .order('updated_at', { ascending: false })
+  .limit(1, { foreignTable: 'periods' }); 
+      
+    if (error) {
+      console.error("Error fetching past content:", error);
+      return { success: false, error: error.message };
+    }
+    
+    if (!data || data.length === 0) {
+      console.log("No past content found");
+      return { success: true, pastContent: [] };
+    }
+    
+    console.log(`Found ${data.length} content items`);
+    
+    // Log detailed information about each item for debugging
+    data.forEach((item, index) => {
+      const period = Array.isArray(item.periods) ? item.periods[0] as Period : undefined;
+    
+      console.log(`Item ${index + 1}:`, {
+        id: item.id,
+        title: item.content_entries?.[0]?.title || 'No title',
+        period: period ? `${period.season} ${period.year}` : 'No period',
+        periodId: item.period_id,
+        status: item.status,
+        type: item.type,
+        updatedAt: item.updated_at
+      });
+    });
+    
+    // Separate regular content and collab content
+    const regularContent = data.filter(item => item.type !== 'collab');
+    const collabContent = data.filter(item => item.type === 'collab');
+    
+    console.log(`Regular content: ${regularContent.length}, Collab content: ${collabContent.length}`);
+    
+    // Filter to get only the latest entry per period for regular content
+    const periodMap = new Map();
+    
+    regularContent.forEach(item => {
+      const periodId = item.period_id;
+      
+      // If we haven't seen this period yet, or this item is newer than what we have
+      if (!periodMap.has(periodId) || 
+          new Date(item.updated_at) > new Date(periodMap.get(periodId).updated_at)) {
+        periodMap.set(periodId, item);
+      }
+    });
+    
+    // Convert to array
+    const filteredRegularContent = Array.from(periodMap.values());
+    
+    // Combine regular content with all collab content
+    const combinedContent = [...filteredRegularContent, ...collabContent];
+    
+    // Sort by year and season
+    type Season = 'Winter' | 'Fall' | 'Summer' | 'Spring';
+    const seasonOrder: Record<Season, number> = { 'Winter': 0, 'Fall': 1, 'Summer': 2, 'Spring': 3 };
+    
+    const sortedContent = combinedContent.sort((a, b) => {
+      // Sort by year descending, then by season
+      const yearA = Array.isArray(a.periods) ? a.periods[0]?.year || 0 : a.periods?.year || 0;
+      const yearB = Array.isArray(b.periods) ? b.periods[0]?.year || 0 : b.periods?.year || 0;
+      
+      if (yearB !== yearA) {
+        return yearB - yearA;
+      }
+      
+      // For same year, sort by season with type safety
+      const seasonA = Array.isArray(a.periods) 
+  ? (a.periods[0]?.season ? seasonOrder[a.periods[0].season as Season] || 0 : 0)
+  : (a.periods?.season ? seasonOrder[a.periods.season as Season] || 0 : 0);
 
-    if (error) throw error;
+const seasonB = Array.isArray(b.periods) 
+  ? (b.periods[0]?.season ? seasonOrder[b.periods[0].season as Season] || 0 : 0)
+  : (b.periods?.season ? seasonOrder[b.periods.season as Season] || 0 : 0);
+      return seasonA - seasonB;
+    });
     
-    // Transform the data to match the expected structure
-    const pastContent = data.map(item => ({
-      id: item.id,
-      status: item.status,
-      updated_at: item.updated_at,
-      periods: item.periods,  // This should be a single object, not an array
-      content_entries: item.content_entries || []
-    }));
-    
-    return { success: true, pastContent };
+    console.log(`Returning ${sortedContent.length} past content items`);
+    return { success: true, pastContent: sortedContent };
   } catch (error) {
-    console.error('Error fetching past contributions:', error);
-    return { success: false, error };
+    console.error("Error in getPastContributions:", error);
+    return { success: false, error: String(error) };
   }
 }

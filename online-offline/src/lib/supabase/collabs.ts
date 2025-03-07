@@ -13,6 +13,8 @@ interface ParticipantData {
   role: string;
   profile_id: string;
   collab_id: string;
+  participation_mode?: 'community' | 'local' | 'private';
+  location?: string | null;
   profiles?: ProfileData;
 }
 
@@ -26,9 +28,13 @@ interface CollabData {
   total_phases: number | null;
   created_at: string;
   updated_at: string;
+  metadata?: {
+    participation_mode?: 'community' | 'local' | 'private';
+    location?: string | null;
+  };
 }
 
-// getUserCollabs function with improved private/community detection
+// getUserCollabs function with improved private/community/local detection
 export async function getUserCollabs() {
   const supabase = createClientComponentClient();
   
@@ -36,7 +42,7 @@ export async function getUserCollabs() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     console.error("No authenticated user found");
-    return { private: [], community: [] };
+    return { private: [], community: [], local: [] };
   }
   
   console.log("Getting collabs for user ID:", user.id);
@@ -51,21 +57,23 @@ export async function getUserCollabs() {
         role,
         status,
         collab_id,
-        profile_id
+        profile_id,
+        participation_mode,
+        location
       `)
       .eq('profile_id', user.id)
       .eq('status', 'active');
       
     if (participantsError) {
       console.error("Error fetching participant data:", participantsError);
-      return { private: [], community: [] };
+      return { private: [], community: [], local: [] };
     }
     
     console.log("Participant records found:", participantsData?.length || 0);
     
     if (!participantsData || participantsData.length === 0) {
       console.log("No participant records found for user");
-      return { private: [], community: [] };
+      return { private: [], community: [], local: [] };
     }
     
     // Extract collab IDs from participant records
@@ -85,13 +93,14 @@ export async function getUserCollabs() {
         current_phase,
         total_phases,
         created_at,
-        updated_at
+        updated_at,
+        metadata
       `)
       .in('id', collabIds);
       
     if (collabsError) {
       console.error("Error fetching collab data:", collabsError);
-      return { private: [], community: [] };
+      return { private: [], community: [], local: [] };
     }
     
     console.log("Collabs data found:", collabsData?.length || 0);
@@ -99,7 +108,7 @@ export async function getUserCollabs() {
     
     if (!collabsData || collabsData.length === 0) {
       console.log("No collab records found");
-      return { private: [], community: [] };
+      return { private: [], community: [], local: [] };
     }
     
     // Now get all participants for these collabs for display
@@ -111,6 +120,8 @@ export async function getUserCollabs() {
         role,
         profile_id,
         collab_id,
+        participation_mode,
+        location,
         profiles (
           id,
           first_name,
@@ -126,6 +137,7 @@ export async function getUserCollabs() {
     // Format the data for the frontend
     const privateCollabs = [];
     const communityCollabs = [];
+    const localCollabs = [];
     
     for (const collab of collabsData || []) {
       // Log raw collab data for debugging
@@ -161,31 +173,40 @@ export async function getUserCollabs() {
         lastActive = 'Unknown';
       }
       
-      // Check user's role in this collab
+      // Check user's participation in this collab
       const userParticipation = participantsData.find(p => p.collab_id === collab.id);
-      const isOrganizer = userParticipation?.role === 'organizer';
       
-      // Determine if collab is private based ONLY on the is_private field
-      // Don't force private based on role anymore
-      let isPrivate = false;
+      // Check for participation mode first
+      let participationMode = userParticipation?.participation_mode || 'community';
       
-      // Type-safe comparison for is_private field
-      if (typeof collab.is_private === 'boolean') {
-        isPrivate = collab.is_private;
-      } else if (typeof collab.is_private === 'string') {
-        isPrivate = collab.is_private === 'true' || collab.is_private === 't';
-      } else if (typeof collab.is_private === 'number') {
-        isPrivate = collab.is_private === 1;
+      // For backward compatibility, also check is_private
+      let isPrivate = participationMode === 'private';
+      if (!userParticipation?.participation_mode) {
+        // Type-safe comparison for is_private field
+        if (typeof collab.is_private === 'boolean') {
+          isPrivate = collab.is_private;
+        } else if (typeof collab.is_private === 'string') {
+          isPrivate = collab.is_private === 'true' || collab.is_private === 't';
+        } else if (typeof collab.is_private === 'number') {
+          isPrivate = collab.is_private === 1;
+        }
+        
+        // If is_private is true but no participation_mode, assume 'private'
+        if (isPrivate) {
+          participationMode = 'private';
+        }
       }
       
-      console.log(`Collab is_private value: ${isPrivate}`);
-      console.log(`User is an organizer: ${isOrganizer}`);
+      console.log(`Participation mode: ${participationMode}`);
+      console.log(`Is private: ${isPrivate}`);
       
       const formattedCollab = {
         id: collab.id,
         title: collab.title,
         type: collab.type,
-        is_private: isPrivate, // Use our interpreted boolean
+        is_private: isPrivate,
+        participation_mode: participationMode,
+        location: userParticipation?.location || null,
         participants: participants,
         participantCount: participants.length,
         current_phase: collab.current_phase,
@@ -193,9 +214,13 @@ export async function getUserCollabs() {
         last_active: lastActive
       };
       
-      if (isPrivate) {
+      // Add to appropriate array based on participation mode
+      if (participationMode === 'private') {
         console.log(`Adding to PRIVATE collabs array`);
         privateCollabs.push(formattedCollab);
+      } else if (participationMode === 'local') {
+        console.log(`Adding to LOCAL collabs array`);
+        localCollabs.push(formattedCollab);
       } else {
         console.log(`Adding to COMMUNITY collabs array`);
         communityCollabs.push(formattedCollab);
@@ -204,11 +229,13 @@ export async function getUserCollabs() {
     
     console.log("\nFinal counts:");
     console.log("Private collabs:", privateCollabs.length);
+    console.log("Local collabs:", localCollabs.length);
     console.log("Community collabs:", communityCollabs.length);
     
     return {
       private: privateCollabs,
-      community: communityCollabs
+      community: communityCollabs,
+      local: localCollabs
     };
     
   } catch (error: unknown) {
@@ -216,7 +243,7 @@ export async function getUserCollabs() {
     if (error instanceof Error) {
       console.error(error.stack);
     }
-    return { private: [], community: [] };
+    return { private: [], community: [], local: [] };
   }
 }
 
@@ -278,5 +305,159 @@ export async function leaveCollab(collabId: string) {
       errorMessage = String(error);
     }
     return { success: false, error: errorMessage };
+  }
+}
+
+// Update the getCollabById function to include participation_mode
+export async function getCollabById(collabId: string) {
+  const supabase = createClientComponentClient();
+  
+  try {
+    console.log("Fetching collab details for ID:", collabId);
+    
+    // First, check if the collab exists with a simpler query
+    const { data: collabExists, error: existsError } = await supabase
+      .from('collabs')
+      .select('id, title')
+      .eq('id', collabId)
+      .single();
+      
+    if (existsError) {
+      console.error("Error checking if collab exists:", existsError);
+      return { success: false, error: `Collab not found: ${existsError.message}` };
+    }
+
+    if (!collabExists) {
+      console.log("No collab found with ID:", collabId);
+      return { success: false, error: "Collab not found" };
+    }
+    
+    console.log("Found basic collab info:", collabExists);
+    
+    // Now fetch the full collab data
+    const { data, error } = await supabase
+      .from('collabs')
+      .select(`
+        id,
+        title,
+        type,
+        is_private,
+        created_by,
+        current_phase,
+        total_phases,
+        created_at,
+        updated_at,
+        description,
+        prompt_text,
+        metadata
+      `)
+      .eq('id', collabId)
+      .single();
+      
+    if (error) {
+      console.error("Error fetching full collab details:", error);
+      return { success: false, error: `Failed to fetch details: ${error.message}` };
+    }
+
+    if (!data) {
+      console.log("No collab data found with ID:", collabId);
+      return { success: false, error: "Collab details not found" };
+    }
+    
+    console.log("Full collab data found:", data);
+    
+    // Get participants for this collab including participation_mode
+    const { data: participantsData, error: participantsError } = await supabase
+      .from('collab_participants')
+      .select(`
+        id,
+        role,
+        profile_id,
+        collab_id,
+        participation_mode,
+        location,
+        profiles (
+          id,
+          first_name,
+          last_name
+        )
+      `)
+      .eq('collab_id', collabId);
+      
+    if (participantsError) {
+      console.error("Error fetching participants:", participantsError);
+      // Continue anyway, just without participants data
+    }
+    
+    // Format participant data
+    const participants = (participantsData || []).map((p: any) => {
+      let name = 'Unknown User';
+      if (p.profiles) {
+        const firstName = p.profiles.first_name || '';
+        const lastName = p.profiles.last_name || '';
+        name = `${firstName} ${lastName}`.trim();
+        if (!name) name = 'User';  // Fallback if both names are empty
+      }
+      
+      return {
+        id: p.profile_id,
+        name: name,
+        role: p.role,
+        participation_mode: p.participation_mode || 'community',
+        location: p.location
+      };
+    });
+    
+    // Determine if collab is private, using the same type-safe approach
+    let isPrivate = false;
+    if (typeof data.is_private === 'boolean') {
+      isPrivate = data.is_private;
+    } else if (typeof data.is_private === 'string') {
+      isPrivate = data.is_private === 'true' || data.is_private === 't';
+    } else if (typeof data.is_private === 'number') {
+      isPrivate = data.is_private === 1;
+    }
+
+    // Get the last active date
+    let lastActive = data.updated_at || data.created_at;
+    if (lastActive) {
+      const date = new Date(lastActive);
+      lastActive = date.toLocaleDateString();
+    } else {
+      lastActive = 'Unknown';
+    }
+    
+    // Get participation mode from metadata
+    const participationMode = data.metadata?.participation_mode || (isPrivate ? 'private' : 'community');
+    
+    // Create the formatted collab object with all details
+    const formattedCollab = {
+      id: data.id,
+      title: data.title,
+      type: data.type || 'theme', // Default to theme if not specified
+      is_private: isPrivate,
+      participation_mode: participationMode,
+      location: data.metadata?.location || null,
+      description: data.description || '',
+      prompt_text: data.prompt_text || '',
+      metadata: data.metadata || {},
+      participants: participants,
+      participantCount: participants.length,
+      current_phase: data.current_phase,
+      total_phases: data.total_phases,
+      last_active: lastActive,
+      created_at: data.created_at,
+      updated_at: data.updated_at
+    };
+    
+    console.log("Formatted collab data:", formattedCollab);
+    return { success: true, collab: formattedCollab };
+    
+  } catch (error) {
+    console.error("Unexpected error in getCollabById:", error);
+    if (error instanceof Error) {
+      console.error(error.stack);
+    }
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
