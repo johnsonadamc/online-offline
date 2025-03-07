@@ -135,6 +135,7 @@ export default function ProfilePage() {
       setLoading(false);
     }
   }
+  
   const updateBankInfo = (field: string, value: string) => {
     setProfile(prev => ({
       ...prev,
@@ -421,362 +422,344 @@ export default function ProfilePage() {
           <TabsTrigger value="subscribers">Subscribers</TabsTrigger>
         </TabsList>
 
-    <TabsContent value="profile">
-         
+        <TabsContent value="profile">
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Profile Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input 
+                    id="firstName"
+                    value={profile.firstName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setProfile({ ...profile, firstName: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input 
+                    id="lastName"
+                    value={profile.lastName}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
+                      setProfile({ ...profile, lastName: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              {/* Profile Visibility Toggle */}
+              <div className="space-y-2">
+                <Label>Profile Visibility</Label>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-sm">
+                      {profile.isPublic ? 'Public Profile' : 'Private Profile'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {profile.isPublic 
+                        ? 'Your profile is visible to everyone' 
+                        : 'Your profile is only visible to approved followers'}
+                    </div>
+                  </div>
+                  <div 
+                    onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer ${
+                      profile.isPublic ? 'bg-blue-500' : 'bg-gray-300'
+                    }`}
+                  >
+                    <div 
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${
+                        profile.isPublic ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Profile Type</Label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={profile.profileTypes.includes('contributor')}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        const newTypes = e.target.checked
+                          ? [...profile.profileTypes, 'contributor']
+                          : profile.profileTypes.filter(t => t !== 'contributor');
+                        setProfile({ ...profile, profileTypes: newTypes });
+                      }}
+                    />
+                    Contributor
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={profile.profileTypes.includes('curator')}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                        const newTypes = e.target.checked
+                          ? [...profile.profileTypes, 'curator']
+                          : profile.profileTypes.filter(t => t !== 'curator');
+                        setProfile({ ...profile, profileTypes: newTypes });
+                      }}
+                    />
+                    Curator
+                  </label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Contributor Payment Section */}
           {profile.profileTypes.includes('contributor') && (
             <Card className="mb-6">
-              {/* Your existing contributor payment content */}
+              <CardHeader>
+                <CardTitle>Payment Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="accountNumber">Account Number</Label>
+                    <Input 
+                      id="accountNumber"
+                      type="text"
+                      value={profile.bankInfo.accountNumber}
+                      onChange={(e) => updateBankInfo('accountNumber', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="routingNumber">Routing Number</Label>
+                    <Input 
+                      id="routingNumber"
+                      type="text"
+                      value={profile.bankInfo.routingNumber}
+                      onChange={(e) => updateBankInfo('routingNumber', e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="accountType">Account Type</Label>
+                    <select
+                      id="accountType"
+                      value={profile.bankInfo.accountType}
+                      onChange={(e) => updateBankInfo('accountType', e.target.value)}
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="checking">Checking</option>
+                      <option value="savings">Savings</option>
+                    </select>
+                  </div>
+                </div>
+              </CardContent>
             </Card>
           )}
 
           {/* Curator Payment Section */}
           {profile.profileTypes.includes('curator') && (
             <Card className="mb-6">
-              {/* Your existing curator payment content */}
+              <CardHeader>
+                <CardTitle>Subscription Payment</CardTitle>
+                <p className="text-sm text-gray-500">$25.00 per period subscription fee</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cardNumber">Card Number</Label>
+                    <Input 
+                      id="cardNumber"
+                      type="text"
+                      placeholder="1234 5678 9012 3456"
+                      value={profile.curatorPaymentInfo.cardNumber}
+                      onChange={(e) => updateCuratorPayment('cardNumber', e.target.value)}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="expiryDate">Expiry Date</Label>
+                      <Input 
+                        id="expiryDate"
+                        type="text"
+                        placeholder="MM/YY"
+                        value={profile.curatorPaymentInfo.expiryDate}
+                        onChange={(e) => updateCuratorPayment('expiryDate', e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cvv">CVV</Label>
+                      <Input 
+                        id="cvv"
+                        type="text"
+                        placeholder="123"
+                        value={profile.curatorPaymentInfo.cvv}
+                        onChange={(e) => updateCuratorPayment('cvv', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Moved Save All Changes button to the bottom of the profile tab */}
+          <div className="mt-6">
+            <Button onClick={updateProfile} className="w-full">
+              Save All Changes
+            </Button>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="subscribers">
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Search Curators</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="relative">
+                <Input
+                  placeholder="Search curators by name..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    searchCurators(e.target.value);
+                  }}
+                  className="pl-10"
+                />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+              </div>
+              <div className="mt-4 space-y-2">
+                {searchResults.map(curator => (
+                  <div key={curator.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={curator.avatar}
+                        alt={`${curator.firstName}'s avatar`}
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <div>
+                        <p className="font-medium">{curator.firstName} {curator.lastName}</p>
+                      </div>
+                    </div>
+                    <Button 
+                      onClick={() => handleFollowCurator(curator.id)}
+                      className="bg-blue-500 hover:bg-blue-600"
+                    >
+                      Follow
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Subscribers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {subscribers.length === 0 ? (
+                  <p className="text-gray-500">No subscribers yet</p>
+                ) : (
+                  subscribers.map(subscriber => (
+                    <div key={subscriber.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={subscriber.avatar}
+                          alt={`${subscriber.firstName}'s avatar`}
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div>
+                          <p className="font-medium">{subscriber.firstName} {subscriber.lastName}</p>
+                          <p className="text-sm text-gray-500">Following for {subscriber.duration}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={() => handleBlockUser(subscriber.id)}
+                        className="bg-red-500 hover:bg-red-600"
+                      >
+                        Block
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {followRequests.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Follow Requests</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {followRequests.map(request => (
+                    <div key={request.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={request.avatar}
+                          alt={`${request.firstName}'s avatar`}
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div>
+                          <p className="font-medium">{request.firstName} {request.lastName}</p>
+                          <p className="text-sm text-gray-500">Requested on {request.requestDate}</p>
+                        </div>
+                      </div>
+                      <div className="space-x-2">
+                        <Button 
+                          onClick={() => handleApproveRequest(request.id)}
+                          className="bg-green-500 hover:bg-green-600"
+                        >
+                          Approve
+                        </Button>
+                        <Button 
+                          onClick={() => handleDenyRequest(request.id)}
+                          className="bg-red-500 hover:bg-red-600"
+                        >
+                          Deny
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
             </Card>
           )}
 
-      <div className="mt-6">
-          <Button onClick={updateProfile} className="w-full">
-            Save All Changes
-          </Button>
-       </div>
-    </TabsContent>
-
-<TabsContent value="subscribers">
-<Card className="mb-6">
-  <CardHeader>
-    <CardTitle>Search Curators</CardTitle>
-  </CardHeader>
-  <CardContent>
-    <div className="relative">
-      <Input
-        placeholder="Search curators by name..."
-        value={searchQuery}
-        onChange={(e) => {
-          setSearchQuery(e.target.value);
-          searchCurators(e.target.value);
-        }}
-        className="pl-10"
-      />
-      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
-    </div>
-    <div className="mt-4 space-y-2">
-      {searchResults.map(curator => (
-        <div key={curator.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-4">
-            <img
-              src={curator.avatar}
-              alt={`${curator.firstName}'s avatar`}
-              className="w-10 h-10 rounded-full"
-            />
-            <div>
-              <p className="font-medium">{curator.firstName} {curator.lastName}</p>
-            </div>
-          </div>
-          <Button 
-            onClick={() => handleFollowCurator(curator.id)}
-            className="bg-blue-500 hover:bg-blue-600"
-          >
-            Follow
-          </Button>
-        </div>
-      ))}
-    </div>
-  </CardContent>
-</Card>
-
-  <Card className="mb-6">
-    <CardHeader>
-      <CardTitle>Subscribers</CardTitle>
-    </CardHeader>
-    <CardContent>
-      <div className="space-y-4">
-        {subscribers.length === 0 ? (
-          <p className="text-gray-500">No subscribers yet</p>
-        ) : (
-          subscribers.map(subscriber => (
-            <div key={subscriber.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <img
-                  src={subscriber.avatar}
-                  alt={`${subscriber.firstName}'s avatar`}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <p className="font-medium">{subscriber.firstName} {subscriber.lastName}</p>
-                  <p className="text-sm text-gray-500">Following for {subscriber.duration}</p>
+          {blockedUsers.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Blocked Users</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {blockedUsers.map(user => (
+                    <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-4">
+                        <img
+                          src={user.avatar}
+                          alt={`${user.firstName}'s avatar`}
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div>
+                          <p className="font-medium">{user.firstName} {user.lastName}</p>
+                          <p className="text-sm text-gray-500">Blocked on {user.blockedDate}</p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={() => handleUnblockUser(user.id)}
+                      >
+                        Unblock
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <Button 
-                onClick={() => handleBlockUser(subscriber.id)}
-                className="bg-red-500 hover:bg-red-600"
-              >
-                Block
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
-    </CardContent>
-  </Card>
-
-  {followRequests.length > 0 && (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Follow Requests</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {followRequests.map(request => (
-            <div key={request.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <img
-                  src={request.avatar}
-                  alt={`${request.firstName}'s avatar`}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <p className="font-medium">{request.firstName} {request.lastName}</p>
-                  <p className="text-sm text-gray-500">Requested on {request.requestDate}</p>
-                </div>
-              </div>
-              <div className="space-x-2">
-                <Button 
-                  onClick={() => handleApproveRequest(request.id)}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  Approve
-                </Button>
-                <Button 
-                  onClick={() => handleDenyRequest(request.id)}
-                  className="bg-red-500 hover:bg-red-600"
-                >
-                  Deny
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )}
-
-  {blockedUsers.length > 0 && (
-    <Card>
-      <CardHeader>
-        <CardTitle>Blocked Users</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {blockedUsers.map(user => (
-            <div key={user.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <div className="flex items-center gap-4">
-                <img
-                  src={user.avatar}
-                  alt={`${user.firstName}'s avatar`}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div>
-                  <p className="font-medium">{user.firstName} {user.lastName}</p>
-                  <p className="text-sm text-gray-500">Blocked on {user.blockedDate}</p>
-                </div>
-              </div>
-              <Button 
-                onClick={() => handleUnblockUser(user.id)}
-              >
-                Unblock
-              </Button>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  )}
-</TabsContent>
-
-<TabsContent value="profile">
-  <Card className="mb-6">
-    <CardHeader>
-      <CardTitle>Profile Information</CardTitle>
-    </CardHeader>
-    <CardContent className="space-y-4">
-      <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="firstName">First Name</Label>
-          <Input 
-            id="firstName"
-            value={profile.firstName}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-              setProfile({ ...profile, firstName: e.target.value })}
-          />
-        </div>
-        <div className="flex-1 space-y-2">
-          <Label htmlFor="lastName">Last Name</Label>
-          <Input 
-            id="lastName"
-            value={profile.lastName}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-              setProfile({ ...profile, lastName: e.target.value })}
-          />
-        </div>
-      </div>
-
-      {/* Profile Visibility Toggle */}
-      <div className="space-y-2">
-        <Label>Profile Visibility</Label>
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <div className="text-sm">
-              {profile.isPublic ? 'Public Profile' : 'Private Profile'}
-            </div>
-            <div className="text-xs text-gray-500">
-              {profile.isPublic 
-                ? 'Your profile is visible to everyone' 
-                : 'Your profile is only visible to approved followers'}
-            </div>
-          </div>
-          <div 
-            onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))}
-            className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer ${
-              profile.isPublic ? 'bg-blue-500' : 'bg-gray-300'
-            }`}
-          >
-            <div 
-              className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${
-                profile.isPublic ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            ></div>
-          </div>
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Profile Type</Label>
-        <div className="flex gap-4">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={profile.profileTypes.includes('contributor')}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const newTypes = e.target.checked
-                  ? [...profile.profileTypes, 'contributor']
-                  : profile.profileTypes.filter(t => t !== 'contributor');
-                setProfile({ ...profile, profileTypes: newTypes });
-              }}
-            />
-            Contributor
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={profile.profileTypes.includes('curator')}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                const newTypes = e.target.checked
-                  ? [...profile.profileTypes, 'curator']
-                  : profile.profileTypes.filter(t => t !== 'curator');
-                setProfile({ ...profile, profileTypes: newTypes });
-              }}
-            />
-            Curator
-          </label>
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-
-  {/* Contributor Payment Section */}
-  {profile.profileTypes.includes('contributor') && (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Payment Details</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="accountNumber">Account Number</Label>
-            <Input 
-              id="accountNumber"
-              type="text"
-              value={profile.bankInfo.accountNumber}
-              onChange={(e) => updateBankInfo('accountNumber', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="routingNumber">Routing Number</Label>
-            <Input 
-              id="routingNumber"
-              type="text"
-              value={profile.bankInfo.routingNumber}
-              onChange={(e) => updateBankInfo('routingNumber', e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="accountType">Account Type</Label>
-            <select
-              id="accountType"
-              value={profile.bankInfo.accountType}
-              onChange={(e) => updateBankInfo('accountType', e.target.value)}
-              className="w-full px-3 py-2 border rounded-md"
-            >
-              <option value="checking">Checking</option>
-              <option value="savings">Savings</option>
-            </select>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )}
-
-  {/* Curator Payment Section */}
-  {profile.profileTypes.includes('curator') && (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Subscription Payment</CardTitle>
-        <p className="text-sm text-gray-500">$25.00 per period subscription fee</p>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="cardNumber">Card Number</Label>
-            <Input 
-              id="cardNumber"
-              type="text"
-              placeholder="1234 5678 9012 3456"
-              value={profile.curatorPaymentInfo.cardNumber}
-              onChange={(e) => updateCuratorPayment('cardNumber', e.target.value)}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="expiryDate">Expiry Date</Label>
-              <Input 
-                id="expiryDate"
-                type="text"
-                placeholder="MM/YY"
-                value={profile.curatorPaymentInfo.expiryDate}
-                onChange={(e) => updateCuratorPayment('expiryDate', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cvv">CVV</Label>
-              <Input 
-                id="cvv"
-                type="text"
-                placeholder="123"
-                value={profile.curatorPaymentInfo.cvv}
-                onChange={(e) => updateCuratorPayment('cvv', e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )}
-
-  
-</TabsContent>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
       </Tabs>
     </div>
   );
