@@ -9,6 +9,12 @@ import { fetchCurrentPeriodDraft, getPastContributions, getCurrentPeriod } from 
 import { getSubscriptionStats } from '@/lib/supabase/subscriptions';
 import { getUserCollabs, leaveCollab } from '@/lib/supabase/collabs';
 import { 
+  getDraftCommunications, 
+  getSubmittedCommunications, 
+  withdrawCommunication,
+  getReceivedCommunications
+} from '@/lib/supabase/communications';
+import { 
   Users, Link2, X, Plus, Clock, Globe, MapPin, Lock, User, History, 
   ChevronDown, ChevronUp, MessageCircle, Edit, Star, RotateCcw 
 } from 'lucide-react';
@@ -107,6 +113,17 @@ interface CommunicationSubmission {
   periods: {
     season: string;
     year: number;
+  };
+}
+
+interface ReceivedCommunication {
+  id: string;
+  subject: string;
+  sender_id: string;
+  is_selected: boolean;
+  profiles: {
+    first_name: string;
+    last_name: string;
   };
 }
 
@@ -380,6 +397,7 @@ export default function Dashboard() {
   const [touchEnd, setTouchEnd] = useState(0);
   const [draftCommunications, setDraftCommunications] = useState<CommunicationDraft[]>([]);
   const [submittedCommunications, setSubmittedCommunications] = useState<CommunicationSubmission[]>([]);
+  const [receivedCommunications, setReceivedCommunications] = useState<ReceivedCommunication[]>([]);
   const [loadingCommunications, setLoadingCommunications] = useState(false);
 
   // Function to handle leaving a collab
@@ -405,17 +423,67 @@ export default function Dashboard() {
     }
   };
 
+  // Handle withdrawing a communication
+  const handleWithdrawCommunication = async (commId: string) => {
+    try {
+      const result = await withdrawCommunication(commId);
+      
+      if (result.success) {
+        // Remove the communication from submitted list
+        setSubmittedCommunications(prev => 
+          prev.filter(comm => comm.id !== commId)
+        );
+        
+        // Add it back to drafts list
+        if (result.communication) {
+          const comm = result.communication;
+          setDraftCommunications(prev => [
+            {
+              id: comm.id,
+              subject: comm.subject,
+              status: comm.status,
+              updated_at: comm.updated_at,
+              recipient_id: comm.recipient_id,
+              profiles: comm.profiles
+            },
+            ...prev
+          ]);
+        }
+        
+        // Show success message (optional)
+        alert("Communication successfully withdrawn");
+      } else {
+        alert(`Error withdrawing communication: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error withdrawing communication:", error);
+      alert("An unexpected error occurred");
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       try {
         // Using getCurrentPeriod from your content.ts file
         const periodResult = await getCurrentPeriod();
         
-        const [draftResult, statsResult, collabsResult, pastResult] = await Promise.all([
+        setLoadingCommunications(true);
+        
+        // Load all data in parallel
+        const [
+          draftResult, 
+          statsResult, 
+          collabsResult, 
+          pastResult,
+          draftCommsResult,
+          submittedCommsResult
+        ] = await Promise.all([
           fetchCurrentPeriodDraft(),
           getSubscriptionStats(),
           getUserCollabs(),
-          getPastContributions()
+          getPastContributions(),
+          getDraftCommunications(),
+          getSubmittedCommunications()
         ]);
 
         if (draftResult.success && draftResult.draft) {
@@ -443,25 +511,82 @@ export default function Dashboard() {
           setPastContributions(pastResult.pastContent as unknown as PastContribution[]);
         }
         
-        // TODO: Load communications data when the API is implemented
-        // setLoadingCommunications(true);
-        // const draftsResult = await getDraftCommunications();
-        // const submittedResult = await getSubmittedCommunications();
+        // Handle communications data
+if (draftCommsResult.success && draftCommsResult.drafts) {
+  // Convert data to match expected interface
+  const typedDrafts = draftCommsResult.drafts.map(draft => ({
+    id: draft.id,
+    subject: draft.subject,
+    status: draft.status,
+    updated_at: draft.updated_at,
+    recipient_id: draft.recipient_id,
+    profiles: {
+      first_name: draft.profiles && draft.profiles[0]?.first_name || '',
+      last_name: draft.profiles && draft.profiles[0]?.last_name || ''
+    }
+  }));
+  setDraftCommunications(typedDrafts);
+}
+
+if (submittedCommsResult.success && submittedCommsResult.submissions) {
+  // Convert data to match expected interface
+  const typedSubmissions = submittedCommsResult.submissions.map(submission => ({
+    id: submission.id,
+    subject: submission.subject,
+    status: submission.status,
+    is_selected: submission.is_selected || false,
+    recipient_id: submission.recipient_id,
+    profiles: {
+      first_name: submission.profiles && submission.profiles[0]?.first_name || '',
+      last_name: submission.profiles && submission.profiles[0]?.last_name || ''
+    },
+    periods: {
+      season: submission.periods && submission.periods[0]?.season || '',
+      year: submission.periods && submission.periods[0]?.year || 0
+    }
+  }));
+  setSubmittedCommunications(typedSubmissions);
+}
         
-        // if (draftsResult.success) {
-        //   setDraftCommunications(draftsResult.drafts);
-        // }
+        setLoadingCommunications(false);
         
-        // if (submittedResult.success) {
-        //   setSubmittedCommunications(submittedResult.submissions);
-        // }
-        // setLoadingCommunications(false);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
+        setLoadingCommunications(false);
       }
     };
+    
     loadData();
   }, []);
+  
+  // Load curator-specific data when on curator tab
+  useEffect(() => {
+    if (activeTab === 'curate' && currentPeriod) {
+      const loadCuratorData = async () => {
+        try {
+          const receivedResult = await getReceivedCommunications(currentPeriod.id);
+          if (receivedResult.success && receivedResult.received) {
+            // Convert data to match expected interface
+            const typedReceived = receivedResult.received.map(comm => ({
+              id: comm.id,
+              subject: comm.subject,
+              sender_id: comm.sender_id,
+              is_selected: comm.is_selected || false,
+              profiles: {
+                first_name: comm.profiles && comm.profiles[0]?.first_name || '',
+                last_name: comm.profiles && comm.profiles[0]?.last_name || ''
+              }
+            }));
+            setReceivedCommunications(typedReceived);
+          }
+        } catch (error) {
+          console.error("Error loading curator communications data:", error);
+        }
+      };
+      
+      loadCuratorData();
+    }
+  }, [activeTab, currentPeriod]);
   
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -494,38 +619,38 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto">
         
-<div className="flex justify-between items-center mb-8">
-  <h1 className="text-3xl font-bold">online//offline</h1>
-  
-  {/* User menu with avatar */}
-  <div className="relative group">
-    <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-600 transition-colors">
-      <User size={20} />
-    </div>
-    
-    {/* Dropdown menu */}
-    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-      <Link
-        href="/profile"
-        className="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-      >
-        <User size={16} />
-        Profile
-      </Link>
-      <button
-        onClick={handleSignOut}
-        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 flex items-center gap-2"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-          <polyline points="16 17 21 12 16 7"></polyline>
-          <line x1="21" y1="12" x2="9" y2="12"></line>
-        </svg>
-        Sign Out
-      </button>
-    </div>
-  </div>
-</div>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">online//offline</h1>
+          
+          {/* User menu with avatar */}
+          <div className="relative group">
+            <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-600 transition-colors">
+              <User size={20} />
+            </div>
+            
+            {/* Dropdown menu */}
+            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+              <Link
+                href="/profile"
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <User size={16} />
+                Profile
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div className="mb-8">
           <div className="flex space-x-8 border-b border-gray-200">
@@ -703,240 +828,265 @@ export default function Dashboard() {
                                     </p>
                                     {content.content_entries?.[0]?.caption && (
                                       <p className="text-sm text-gray-600 mt-2">
-                                        {content.content_entries[0].caption}
-                                      </p>
-                                    )}
-                                  </div>
-                                  <div className="flex flex-col items-end gap-2">
-                                    <div className={`px-2 py-1 rounded-full text-xs ${
-                                      content.status === 'submitted' 
-                                        ? 'bg-green-100 text-green-700' 
-                                        : 'bg-blue-100 text-blue-700'
-                                    }`}>
-                                      {content.status === 'submitted' 
-                                        ? 'Submitted'
-                                        : 'Published'}
-                                    </div>
-                                    <p className="text-xs text-gray-500">
-                                      Last updated: {new Date(content.updated_at).toLocaleDateString()}
+                                      {content.content_entries[0].caption}
                                     </p>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              
-                {/* Collab Section */}
-                <Card className="p-6 mt-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl font-semibold">Collaborate</h2>
-                    <Link 
-                      href="/collabs"
-                      className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800"
-                    >
-                      <Plus size={14} />
-                      Browse Collabs
-                    </Link>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-6">
-                    Participate in collaborative projects with other creators across various themes and formats.
-                  </p>
-                  
-                  {/* Private Collabs */}
-                  <div className="mb-6">
-                    <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Private</h3>
-                    <div className="space-y-3">
-                      {collabs.private?.length > 0 ? (
-                        collabs.private.map(collab => (
-                          <ActiveCollabCard 
-                            key={collab.id} 
-                            collab={collab} 
-                            onLeave={handleLeaveCollab} 
-                          />
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500">No private collabs yet</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Local Collabs */}
-                  {collabs.local?.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Local</h3>
-                      <div className="space-y-3">
-                        {collabs.local.map(collab => (
-                          <ActiveCollabCard 
-                            key={collab.id} 
-                            collab={collab} 
-                            onLeave={handleLeaveCollab} 
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Community Collabs */}
-                  <div>
-                    <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Community</h3>
-                    <div className="space-y-3">
-                      {collabs.community?.length > 0 ? (
-                        collabs.community.map(collab => (
-                          <ActiveCollabCard 
-                            key={collab.id} 
-                            collab={collab} 
-                            onLeave={handleLeaveCollab} 
-                          />
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500">No community collabs yet</p>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-                
-                {/* Communicate Card - Added as a card within the Contribute tab */}
-                <Card className="p-6 mt-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-semibold">Private Communications</h2>
-                    <Link 
-                      href="/communicate/new"
-                      className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800"
-                    >
-                      <Plus size={14} />
-                      New Communication
-                    </Link>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-6">
-                    Send private messages directly to curators. Selected messages may appear in their printed magazine.
-                  </p>
-                  
-                  {/* Draft Communications */}
-                  <div className="mb-6">
-                    <h3 className="text-base font-medium mb-3">Drafts</h3>
-                    <div className="space-y-3">
-                      {loadingCommunications ? (
-                        <p className="text-sm text-gray-500 py-4">Loading drafts...</p>
-                      ) : draftCommunications.length > 0 ? (
-                        draftCommunications.map(comm => (
-                          <div 
-                            key={comm.id}
-                            className="bg-white border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                            onClick={() => router.push(`/communicate/${comm.id}`)}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium">{comm.subject}</p>
-                                <p className="text-sm text-gray-500">
-                                  To: {comm.profiles.first_name} {comm.profiles.last_name}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  Last edited: {new Date(comm.updated_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
-                                  Draft
-                                </span>
-                                <Edit size={14} className="text-gray-400" />
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500 py-4">No draft communications</p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Submitted Communications */}
-                  <div>
-                    <h3 className="text-base font-medium mb-3">Submitted</h3>
-                    <div className="space-y-3">
-                      {loadingCommunications ? (
-                        <p className="text-sm text-gray-500 py-4">Loading submissions...</p>
-                      ) : submittedCommunications.length > 0 ? (
-                        submittedCommunications.map(comm => (
-                          <div 
-                            key={comm.id}
-                            className="bg-white border rounded-lg p-4"
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">{comm.subject}</p>
-                                  {comm.is_selected && (
-                                    <Star size={16} className="text-yellow-500 fill-yellow-500" />
                                   )}
                                 </div>
-                                <p className="text-sm text-gray-500">
-                                  To: {comm.profiles.first_name} {comm.profiles.last_name}
-                                </p>
-                                <p className="text-xs text-gray-400 mt-1">
-                                  {comm.periods.season} {comm.periods.year}
-                                </p>
-                              </div>
-                              <div className="flex flex-col items-end gap-2">
-                                <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
-                                  Submitted
-                                </span>
-                                
-                                {/* Withdraw button - only show if period is still active */}
-                                {currentPeriod && new Date(currentPeriod.end_date) > new Date() && (
-                                  <button 
-                                    className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      // TODO: Implement withdraw functionality
-                                      // This requires the withdrawCommunication function
-                                      alert('Withdraw functionality will be implemented');
-                                    }}
-                                  >
-                                    <RotateCcw size={12} />
-                                    Withdraw
-                                  </button>
-                                )}
+                                <div className="flex flex-col items-end gap-2">
+                                  <div className={`px-2 py-1 rounded-full text-xs ${
+                                    content.status === 'submitted' 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : 'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {content.status === 'submitted' 
+                                      ? 'Submitted'
+                                      : 'Published'}
+                                  </div>
+                                  <p className="text-xs text-gray-500">
+                                    Last updated: {new Date(content.updated_at).toLocaleDateString()}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-sm text-gray-500 py-4">No submitted communications</p>
+                          ))}
+                        </div>
                       )}
                     </div>
+                  )}
+                </div>
+              </Card>
+            
+              {/* Collab Section */}
+              <Card className="p-6 mt-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-semibold">Collaborate</h2>
+                  <Link 
+                    href="/collabs"
+                    className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800"
+                  >
+                    <Plus size={14} />
+                    Browse Collabs
+                  </Link>
+                </div>
+                
+                <p className="text-gray-600 mb-6">
+                  Participate in collaborative projects with other creators across various themes and formats.
+                </p>
+                
+                {/* Private Collabs */}
+                <div className="mb-6">
+                  <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Private</h3>
+                  <div className="space-y-3">
+                    {collabs.private?.length > 0 ? (
+                      collabs.private.map(collab => (
+                        <ActiveCollabCard 
+                          key={collab.id} 
+                          collab={collab} 
+                          onLeave={handleLeaveCollab} 
+                        />
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No private collabs yet</p>
+                    )}
                   </div>
-                </Card>
-              </div>
-            </div>
-          </motion.div>
+                </div>
 
-          <motion.div
-            animate={{ x: activeTab === 'curate' ? 0 : '100%' }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className={`${activeTab === 'curate' ? 'block' : 'hidden'}`}
-          >
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Curate</h2>
-              <p className="text-gray-600 mb-4">
-                Create your personalized magazine by selecting content from our community of contributors.
-              </p>
+                {/* Local Collabs */}
+                {collabs.local?.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Local</h3>
+                    <div className="space-y-3">
+                      {collabs.local.map(collab => (
+                        <ActiveCollabCard 
+                          key={collab.id} 
+                          collab={collab} 
+                          onLeave={handleLeaveCollab} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Community Collabs */}
+                <div>
+                  <h3 className="text-base font-medium uppercase text-gray-500 mb-3">Community</h3>
+                  <div className="space-y-3">
+                    {collabs.community?.length > 0 ? (
+                      collabs.community.map(collab => (
+                        <ActiveCollabCard 
+                          key={collab.id} 
+                          collab={collab} 
+                          onLeave={handleLeaveCollab} 
+                        />
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500">No community collabs yet</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+              
+              {/* Communicate Card - Added as a card within the Contribute tab */}
+              <Card className="p-6 mt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Communications</h2>
+                  <Link 
+                    href="/communicate/new"
+                    className="text-sm text-blue-600 flex items-center gap-1 hover:text-blue-800"
+                  >
+                    <Plus size={14} />
+                    New Communication
+                  </Link>
+                </div>
+                
+                <p className="text-gray-600 mb-6">
+                  Send private messages directly to curators. Selected messages may appear in their printed magazine.
+                </p>
+                
+                {/* Draft Communications */}
+                <div className="mb-6">
+                  <h3 className="text-base font-medium mb-3">Drafts</h3>
+                  <div className="space-y-3">
+                    {loadingCommunications ? (
+                      <p className="text-sm text-gray-500 py-4">Loading drafts...</p>
+                    ) : draftCommunications.length > 0 ? (
+                      draftCommunications.map(comm => (
+                        <div 
+                          key={comm.id}
+                          className="bg-white border rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                          onClick={() => router.push(`/communicate/${comm.id}`)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">{comm.subject}</p>
+                              <p className="text-sm text-gray-500">
+                                To: {comm.profiles.first_name} {comm.profiles.last_name}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                Last edited: {new Date(comm.updated_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-1 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                                Draft
+                              </span>
+                              <Edit size={14} className="text-gray-400" />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 py-4">No draft communications</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Submitted Communications */}
+                <div>
+                  <h3 className="text-base font-medium mb-3">Submitted</h3>
+                  <div className="space-y-3">
+                    {loadingCommunications ? (
+                      <p className="text-sm text-gray-500 py-4">Loading submissions...</p>
+                    ) : submittedCommunications.length > 0 ? (
+                      submittedCommunications.map(comm => (
+                        <div 
+                          key={comm.id}
+                          className="bg-white border rounded-lg p-4"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{comm.subject}</p>
+                                {comm.is_selected && (
+                                  <Star size={16} className="text-yellow-500 fill-yellow-500" />
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-500">
+                                To: {comm.profiles.first_name} {comm.profiles.last_name}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                {comm.periods.season} {comm.periods.year}
+                              </p>
+                            </div>
+                            <div className="flex flex-col items-end gap-2">
+                              <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-700">
+                                Submitted
+                              </span>
+                              
+                              {/* Withdraw button - only show if period is still active */}
+                              {currentPeriod && new Date(currentPeriod.end_date) > new Date() && (
+                                <button 
+                                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleWithdrawCommunication(comm.id);
+                                  }}
+                                >
+                                  <RotateCcw size={12} />
+                                  Withdraw
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-500 py-4">No submitted communications</p>
+                    )}
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div
+          animate={{ x: activeTab === 'curate' ? 0 : '100%' }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className={`${activeTab === 'curate' ? 'block' : 'hidden'}`}
+        >
+          <Card className="p-6">
+            <h2 className="text-xl font-semibold mb-4">Curate</h2>
+            <p className="text-gray-600 mb-4">
+              Create your personalized magazine by selecting content from our community of contributors.
+            </p>
+            <Link 
+              href="/curate"
+              className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Start Curating
+            </Link>
+          </Card>
+          
+          {/* Communications Card for Curators */}
+          <Card className="p-6 mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Communications</h2>
+              {receivedCommunications.length > 0 && (
+                <div className="px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-600">
+                  {receivedCommunications.length} messages
+                </div>
+              )}
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Select messages from contributors to include in your printed magazine.
+            </p>
+            
+            {receivedCommunications.length > 0 ? (
               <Link 
-                href="/curate"
+                href="/curate/communications" 
                 className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
-                Start Curating
+                Manage Communications
               </Link>
-            </Card>
-          </motion.div>
-        </div>
+            ) : (
+              <p className="text-sm text-gray-500">No communications received yet</p>
+            )}
+          </Card>
+        </motion.div>
       </div>
     </div>
-  );
+  </div>
+);
 }

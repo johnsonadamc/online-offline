@@ -25,11 +25,14 @@ import {
   Camera,
   Music,
   Pen,
-  History as HistoryIcon
+  History as HistoryIcon,
+  MessageCircle,
+  ExternalLink
 } from 'lucide-react';
 
 // Import your getCurrentPeriod function to show the current magazine period
 import { getCurrentPeriod } from '@/lib/supabase/content';
+import { getReceivedCommunications } from '@/lib/supabase/communications';
 
 interface Creator {
   id: string;
@@ -66,19 +69,35 @@ interface Period {
   end_date: string;
 }
 
+interface Communication {
+  id: string;
+  subject: string;
+  sender_id: string;
+  is_selected: boolean;
+  profiles: {
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  };
+}
+
 export default function CurationInterface() {
   const router = useRouter();
   const supabase = createClientComponentClient();
   const baseQuarterlyPrice = 25;
   const adDiscountAmount = 2;
+  const communicationDiscount = 0; // No discount for communications
   const maxContentPieces = 20;
 
   const [loading, setLoading] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [creators, setCreators] = useState<Creator[]>([]);
   const [ads, setAds] = useState<Ad[]>([]);
+  const [communications, setCommunications] = useState<Communication[]>([]);
   const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
+  // We only have one communications page option - it's either selected or not
+  const [selectedCommunications, setSelectedCommunications] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [followRequests, setFollowRequests] = useState<Record<string, boolean>>({});
@@ -93,7 +112,7 @@ export default function CurationInterface() {
   ];
 
   // Calculate remaining content slots
-  const remainingContent = maxContentPieces - (selectedCreators.length + selectedAds.length);
+  const remainingContent = maxContentPieces - (selectedCreators.length + selectedAds.length + selectedCommunications.length);
 
   // Calculate price with discounts
   const calculatePrice = () => {
@@ -126,7 +145,6 @@ export default function CurationInterface() {
     }
   };
 
-  // Load creators, ads, and current period data
   useEffect(() => {
     async function loadData() {
       setLoading(true);
@@ -135,6 +153,41 @@ export default function CurationInterface() {
         const periodResult = await getCurrentPeriod();
         if (periodResult && periodResult.success && periodResult.period) {
           setCurrentPeriod(periodResult.period as Period);
+          
+          // Fetch communications for the current period
+          try {
+            const commsResult = await getReceivedCommunications(periodResult.period.id);
+            if (commsResult && commsResult.success && commsResult.received) {
+              // Safe casting to avoid TypeScript errors
+              const receivedData = (commsResult.received || []) as any[];
+              
+              // Create properly structured data
+              const processedCommunications = receivedData.map(comm => {
+                return {
+                  id: comm.id || '',
+                  subject: comm.subject || '',
+                  sender_id: comm.sender_id || '',
+                  is_selected: !!comm.is_selected,
+                  profiles: {
+                    first_name: Array.isArray(comm.profiles) 
+                      ? (comm.profiles[0]?.first_name || '') 
+                      : (comm.profiles?.first_name || ''),
+                    last_name: Array.isArray(comm.profiles)
+                      ? (comm.profiles[0]?.last_name || '')
+                      : (comm.profiles?.last_name || ''),
+                    // Fix: make sure avatar_url is handled properly
+                    avatar_url: Array.isArray(comm.profiles)
+                      ? comm.profiles[0]?.avatar_url
+                      : comm.profiles?.avatar_url
+                  }
+                };
+              });
+              
+              setCommunications(processedCommunications);
+            }
+          } catch (error) {
+            console.error("Error loading communications:", error);
+          }
         }
 
         // In a real implementation, fetch creators from your database
@@ -324,23 +377,26 @@ export default function CurationInterface() {
                 )}
               </div>
               {creator.isPrivate && (
-                <div className="flex flex-col items-center text-center w-16 gap-2">
+                <div className="flex flex-col items-center text-center w-16">
                   <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs flex items-center gap-1 text-gray-600 justify-center w-full">
                     <Lock size={12} />
-                    Private
+                    <span className="truncate">Private</span>
                   </span>
+                  
+                  {/* Improved follow request button */}
                   {!followRequests[creator.id] ? (
                     <button
                       onClick={(e) => handleFollowRequest(creator.id, e)}
-                      className="px-2 py-0.5 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-xs flex items-center gap-1 transition-colors w-full justify-center"
+                      className="mt-1 w-16 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-[9px] flex items-center justify-center transition-colors"
+                      title="Request to follow this creator"
                     >
-                      <Send size={12} />
-                      Request Follow
+                      <Send size={8} className="mr-1" />
+                      Request
                     </button>
                   ) : (
-                    <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs flex items-center gap-1 justify-center w-full">
-                      <Clock size={12} />
-                      Requested
+                    <span className="mt-1 w-16 h-6 bg-gray-100 text-gray-600 rounded-full text-[9px] flex items-center justify-center">
+                      <Clock size={8} className="mr-1" />
+                      Pending
                     </span>
                   )}
                 </div>
@@ -446,9 +502,9 @@ export default function CurationInterface() {
           </Link>
         </div>
 
-        {/* Price Display */}
+        {/* Price Display - Added more padding to the top */}
         <Card className="mb-4">
-          <CardContent className="p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg">
+          <CardContent className="pt-6 px-6 pb-6 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg">
             <div className="flex justify-between items-center">
               <div>
                 <h1 className="text-2xl font-light mb-1">
@@ -478,9 +534,9 @@ export default function CurationInterface() {
           </CardContent>
         </Card>
 
-        {/* Content Count Banner */}
+        {/* Content Count Banner - Added more padding to the top */}
         <Card className="mb-8">
-          <CardContent className="p-4 bg-blue-50 border-blue-200 rounded-lg">
+          <CardContent className="pt-5 px-6 pb-5 bg-blue-50 border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
                 <div>
@@ -491,8 +547,11 @@ export default function CurationInterface() {
                     <span className="inline-block mr-4">
                       <span className="font-medium">{selectedCreators.length}</span> creator pieces
                     </span>
-                    <span className="inline-block">
+                    <span className="inline-block mr-4">
                       <span className="font-medium">{selectedAds.length}</span> ad pieces
+                    </span>
+                    <span className="inline-block">
+                      <span className="font-medium">{selectedCommunications.length}</span> communications
                     </span>
                   </div>
                 </div>
@@ -556,6 +615,68 @@ export default function CurationInterface() {
                 No creators match your filters. Try adjusting your search criteria.
               </p>
             )}
+          </div>
+        </div>
+
+        {/* Communications Section - Single card option */}
+        <div className="space-y-6 mb-8">
+          <h2 className="text-xl font-medium px-2">Communications Page</h2>
+          <p className="text-gray-600 text-sm px-2 mb-2">
+            Include a communications page with personal messages from contributors in your printed magazine.
+          </p>
+          <div className="space-y-4">
+            {/* Single Communications Card */}
+            <div 
+              onClick={() => {
+                // Toggle selection of the Communications page
+                if (selectedCommunications.includes('communications-page')) {
+                  setSelectedCommunications([]);
+                } else if (remainingContent > 0) {
+                  setSelectedCommunications(['communications-page']);
+                }
+              }}
+              className={`bg-blue-50 rounded-lg shadow-sm border p-6 cursor-pointer transition-all hover:bg-blue-100 ${
+                selectedCommunications.includes('communications-page') ? "ring-2 ring-blue-500" : ""
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-start">
+                  <div className="relative mr-6">
+                    <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center text-blue-600">
+                      <MessageCircle size={24} />
+                    </div>
+                    {communications.length > 0 && (
+                      <div className="absolute -top-1 -right-1 h-6 min-w-6 px-1 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                        {communications.length}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-lg mb-1">Communications</h3>
+                    <p className="text-sm text-gray-600 mb-2">
+                      {communications.length > 0 
+                        ? `${communications.length} personal messages available from contributors` 
+                        : "No messages received yet"}
+                    </p>
+                    <Link 
+                      href="/curate/communications"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs text-blue-600 flex items-center hover:underline"
+                    >
+                      <ExternalLink size={12} className="mr-1" />
+                      Manage communications
+                    </Link>
+                  </div>
+                </div>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  selectedCommunications.includes('communications-page') 
+                    ? "bg-blue-500 text-white" 
+                    : "bg-gray-100"
+                }`}>
+                  {selectedCommunications.includes('communications-page') && <Check size={16} />}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
