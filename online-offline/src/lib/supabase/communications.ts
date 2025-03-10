@@ -457,3 +457,37 @@ export const selectCommunications = async (
     return { success: false, error };
   }
 };
+// Get a count of communications for a specific curator
+export const getCommunicationCount = async (curatorId: string) => {
+  try {
+    const supabase = createClientComponentClient();
+    
+    // Get active period
+    const { data: activePeriod, error: periodError } = await supabase
+      .from('periods')
+      .select('id')
+      .eq('is_active', true)
+      .single();
+    
+    if (periodError || !activePeriod) {
+      return { success: false, error: 'No active period found' };
+    }
+    
+    // Count communications for this curator in the current period
+    const { count, error } = await supabase
+      .from('communications')
+      .select('id', { count: 'exact', head: true })
+      .eq('recipient_id', curatorId)
+      .eq('period_id', activePeriod.id)
+      .eq('status', 'submitted');
+      
+    if (error) {
+      throw error;
+    }
+    
+    return { success: true, count };
+  } catch (error) {
+    console.error('Error counting communications:', error);
+    return { success: false, error };
+  }
+};

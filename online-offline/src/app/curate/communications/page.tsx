@@ -15,7 +15,8 @@ import {
   Check, 
   AlertCircle, 
   Info, 
-  User
+  User,
+  Files
 } from 'lucide-react';
 import { getReceivedCommunications, selectCommunications } from '@/lib/supabase/communications';
 
@@ -55,9 +56,15 @@ export default function CuratorCommunicationsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [pageCount, setPageCount] = useState(1);
   
-  // Maximum communications to include
-  const MAX_COMMUNICATIONS = 10;
+  // Maximum communications per page
+  const MAX_COMMUNICATIONS_PER_PAGE = 10;
+  
+  // Calculate number of pages required for all communications
+  const calculatePageCount = (commCount: number) => {
+    return Math.ceil(commCount / MAX_COMMUNICATIONS_PER_PAGE);
+  };
   
   // Get data
   useEffect(() => {
@@ -88,16 +95,20 @@ export default function CuratorCommunicationsPage() {
           sender_id: comm.sender_id,
           is_selected: comm.is_selected,
           profiles: {
-            first_name: comm.profiles.first_name,
-            last_name: comm.profiles.last_name,
-            avatar_url: comm.profiles.avatar_url
+            first_name: comm.profiles?.first_name || '',
+            last_name: comm.profiles?.last_name || '',
+            avatar_url: comm.profiles?.avatar_url
           }
         }));
         
         setReceivedComms(typedReceivedComms);
         
+        // Calculate initial page count
+        const initialPageCount = calculatePageCount(typedReceivedComms.length);
+        setPageCount(initialPageCount);
+        
         // Set default selection method based on count
-        if (typedReceivedComms.length > MAX_COMMUNICATIONS) {
+        if (typedReceivedComms.length > MAX_COMMUNICATIONS_PER_PAGE) {
           setSelectionMethod('random');
         } else {
           setSelectionMethod('all');
@@ -118,8 +129,8 @@ export default function CuratorCommunicationsPage() {
       if (prev.includes(commId)) {
         return prev.filter(id => id !== commId);
       } else {
-        // Only allow selecting up to MAX_COMMUNICATIONS
-        if (prev.length >= MAX_COMMUNICATIONS) {
+        // Only allow selecting up to MAX_COMMUNICATIONS_PER_PAGE
+        if (prev.length >= MAX_COMMUNICATIONS_PER_PAGE) {
           return prev;
         }
         return [...prev, commId];
@@ -129,6 +140,14 @@ export default function CuratorCommunicationsPage() {
   
   const handleSelectionMethodChange = (value: SelectionMethod) => {
     setSelectionMethod(value);
+    
+    // Update page count based on selection method
+    if (value === 'all') {
+      setPageCount(calculatePageCount(receivedComms.length));
+    } else {
+      // For random or manual selection, always 1 page
+      setPageCount(1);
+    }
     
     // Clear selected comms if switching to all or random
     if (value === 'all' || value === 'random') {
@@ -147,16 +166,12 @@ export default function CuratorCommunicationsPage() {
     
     try {
       let commIds: string[] = [];
+      let pagesRequired = 1;
       
       if (selectionMethod === 'all') {
-        // If "all" is selected and there are <= MAX_COMMUNICATIONS messages, select all
-        if (receivedComms.length <= MAX_COMMUNICATIONS) {
-          commIds = receivedComms.map(comm => comm.id);
-        } else {
-          setError(`Cannot select all - you have more than ${MAX_COMMUNICATIONS} communications`);
-          setSaving(false);
-          return;
-        }
+        // For "all", include all communications
+        commIds = receivedComms.map(comm => comm.id);
+        pagesRequired = calculatePageCount(receivedComms.length);
       } else if (selectionMethod === 'select') {
         // For manual selection, use selected IDs
         commIds = selectedComms;
@@ -166,8 +181,16 @@ export default function CuratorCommunicationsPage() {
           setSaving(false);
           return;
         }
+        
+        pagesRequired = 1;
+      } else {
+        // For random selection, pass empty array - backend will handle random selection
+        pagesRequired = 1;
       }
-      // For random selection, pass empty array - backend will handle random selection
+      
+      // Save the selection to the database
+      // Store the page count in metadata
+      const metadata = { pageCount: pagesRequired };
       
       const result = await selectCommunications(
         commIds, 
@@ -180,6 +203,9 @@ export default function CuratorCommunicationsPage() {
       }
       
       setSuccess(true);
+      
+      // Store the page count in localStorage to use on the curation page
+      localStorage.setItem('communicationPageCount', pagesRequired.toString());
       
       // Redirect after short delay
       setTimeout(() => {
@@ -252,9 +278,9 @@ export default function CuratorCommunicationsPage() {
                   <Info size={20} className="text-blue-500 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-blue-700 text-sm">
-                      You can include up to {MAX_COMMUNICATIONS} communications in your printed magazine.
-                      {receivedComms.length > MAX_COMMUNICATIONS && (
-                        <span className="font-medium"> Since you've received more than {MAX_COMMUNICATIONS}, you'll need to choose how to select them.</span>
+                      You can include up to {MAX_COMMUNICATIONS_PER_PAGE} communications per page in your printed magazine.
+                      {receivedComms.length > MAX_COMMUNICATIONS_PER_PAGE && (
+                        <span className="font-medium"> Since you've received more than {MAX_COMMUNICATIONS_PER_PAGE}, you'll need to choose how to select them.</span>
                       )}
                     </p>
                   </div>
@@ -272,15 +298,25 @@ export default function CuratorCommunicationsPage() {
                       <RadioGroupItem 
                         value="all" 
                         id="all" 
-                        disabled={receivedComms.length > MAX_COMMUNICATIONS}
                       />
                       <Label 
                         htmlFor="all" 
-                        className={`flex-1 ${receivedComms.length > MAX_COMMUNICATIONS ? 'text-gray-400' : ''}`}
+                        className="flex-1"
                       >
-                        <span className="font-medium block mb-1">Include All</span>
+                        <div className="font-medium block mb-1 flex items-center gap-2">
+                          Include All
+                          {receivedComms.length > MAX_COMMUNICATIONS_PER_PAGE && (
+                            <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                              <Files size={12} className="mr-1" />
+                              <span>{calculatePageCount(receivedComms.length)} pages</span>
+                            </div>
+                          )}
+                        </div>
                         <span className="text-sm text-gray-500 block">
-                          Include all communications. Only available if you have {MAX_COMMUNICATIONS} or fewer.
+                          Include all {receivedComms.length} communications
+                          {receivedComms.length > MAX_COMMUNICATIONS_PER_PAGE && (
+                            <span> across {calculatePageCount(receivedComms.length)} pages (uses {calculatePageCount(receivedComms.length)} slots in your magazine)</span>
+                          )}.
                         </span>
                       </Label>
                     </div>
@@ -291,9 +327,15 @@ export default function CuratorCommunicationsPage() {
                         id="random" 
                       />
                       <Label htmlFor="random" className="flex-1">
-                        <span className="font-medium block mb-1">Random Selection</span>
+                        <div className="font-medium block mb-1 flex items-center gap-2">
+                          Random Selection
+                          <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            <Files size={12} className="mr-1" />
+                            <span>1 page</span>
+                          </div>
+                        </div>
                         <span className="text-sm text-gray-500 block">
-                          Randomly select {MAX_COMMUNICATIONS} communications from all those received.
+                          Randomly select {MAX_COMMUNICATIONS_PER_PAGE} communications from all those received (uses 1 slot in your magazine).
                         </span>
                       </Label>
                     </div>
@@ -304,9 +346,15 @@ export default function CuratorCommunicationsPage() {
                         id="select" 
                       />
                       <Label htmlFor="select" className="flex-1">
-                        <span className="font-medium block mb-1">Manual Selection</span>
+                        <div className="font-medium block mb-1 flex items-center gap-2">
+                          Manual Selection
+                          <div className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                            <Files size={12} className="mr-1" />
+                            <span>1 page</span>
+                          </div>
+                        </div>
                         <span className="text-sm text-gray-500 block">
-                          Choose up to {MAX_COMMUNICATIONS} specific communications to include.
+                          Choose up to {MAX_COMMUNICATIONS_PER_PAGE} specific communications to include (uses 1 slot in your magazine).
                         </span>
                       </Label>
                     </div>
@@ -317,7 +365,7 @@ export default function CuratorCommunicationsPage() {
                   <div className="mt-6">
                     <h3 className="text-lg font-medium mb-4">Select Communications</h3>
                     <p className="text-sm text-gray-500 mb-4">
-                      Selected: {selectedComms.length}/{Math.min(MAX_COMMUNICATIONS, receivedComms.length)}
+                      Selected: {selectedComms.length}/{Math.min(MAX_COMMUNICATIONS_PER_PAGE, receivedComms.length)}
                     </p>
                     
                     <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
@@ -355,11 +403,11 @@ export default function CuratorCommunicationsPage() {
                                 id={`comm-${comm.id}`} 
                                 checked={selectedComms.includes(comm.id)}
                                 onCheckedChange={() => {
-                                  if (selectedComms.includes(comm.id) || selectedComms.length < MAX_COMMUNICATIONS) {
+                                  if (selectedComms.includes(comm.id) || selectedComms.length < MAX_COMMUNICATIONS_PER_PAGE) {
                                     handleCheckboxChange(comm.id);
                                   }
                                 }}
-                                disabled={selectedComms.length >= MAX_COMMUNICATIONS && !selectedComms.includes(comm.id)}
+                                disabled={selectedComms.length >= MAX_COMMUNICATIONS_PER_PAGE && !selectedComms.includes(comm.id)}
                                 className="mt-1"
                               />
                             </div>
@@ -369,6 +417,21 @@ export default function CuratorCommunicationsPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Summary of selection impact */}
+                <div className="mt-6 bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Magazine slots used:</span>
+                    <span className="font-medium">{pageCount}</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2">
+                    {pageCount === 1 ? (
+                      'Your selection will use 1 slot in your magazine'
+                    ) : (
+                      `Your selection will use ${pageCount} slots in your magazine`
+                    )}
+                  </div>
+                </div>
                 
                 <div className="mt-8 pt-4 border-t border-gray-200">
                   <Button
