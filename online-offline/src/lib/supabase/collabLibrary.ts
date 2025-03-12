@@ -1,231 +1,371 @@
-// lib/supabase/collabLibrary.ts (complete updated file)
+// src/lib/supabase/collabLibrary.ts
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getUserCollabs } from './collabs';
 
-export type ParticipationMode = 'community' | 'local' | 'private';
-
-export interface CollabTemplate {
+/**
+ * Interface for collaboration data
+ */
+export interface CollabData {
   id: string;
-  name: string;
-  display_text: string;
+  title: string;
   type: 'chain' | 'theme' | 'narrative';
-  participant_count?: number;
-  tags?: string[];
-  phases?: number;
-  duration?: string;
-  internal_reference?: any;
-  requirements?: any;
-  connection_rules?: any;
+  participation_mode: 'community' | 'local' | 'private';
+  location?: string | null;
+  description?: string;
+  participant_count: number;
+  is_joined?: boolean;
 }
 
-export async function getAvailableCollabs() {
+/**
+ * Interface for collab template data
+ */
+export interface CollabTemplate {
+  id: string;
+  title: string;
+  type: 'chain' | 'theme' | 'narrative';
+  display_text?: string;
+  instructions?: string;
+  requirements?: string;
+  connection_rules?: string;
+  internal_reference?: string;
+}
+
+/**
+ * Get all collaborations for the current period organized by type
+ */
+export async function getCollaborationsForCuration(periodId: string): Promise<{
+  success: boolean;
+  error?: string;
+  joinedCollabs?: CollabData[];
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // First, get the user's joined collabs using the existing function
+    const userCollabsResult = await getUserCollabs();
+    
+    if (!userCollabsResult) {
+      return { success: false, error: "Failed to fetch user collaborations" };
+    }
+    
+    // Create typed arrays to avoid 'never' type issues
+    type CollabItem = {
+      id: string;
+      title: string;
+      type?: string;
+      is_private?: boolean;
+      participation_mode?: string;
+      location?: string | null;
+      description?: string;
+      participantCount?: number;
+      [key: string]: any; // Allow other properties
+    };
+    
+    // Convert to typed arrays
+    const privateCollabs: CollabItem[] = userCollabsResult.private || [];
+    const communityCollabs: CollabItem[] = userCollabsResult.community || [];
+    const localCollabs: CollabItem[] = userCollabsResult.local || [];
+    
+    // Combine all types of collabs
+    const allUserCollabs = [
+      ...privateCollabs.map(c => ({ ...c, sourceType: 'private' })),
+      ...communityCollabs.map(c => ({ ...c, sourceType: 'community' })),
+      ...localCollabs.map(c => ({ ...c, sourceType: 'local' }))
+    ];
+    
+    // Format the collabs for the curation interface
+    const formattedCollabs: CollabData[] = allUserCollabs.map(collab => {
+      // Determine participation mode
+      let participationMode: 'private' | 'local' | 'community' = 'community';
+      
+      if (collab.sourceType === 'private') {
+        participationMode = 'private';
+      } else if (collab.sourceType === 'local') {
+        participationMode = 'local';
+      } else if (collab.participation_mode) {
+        if (['private', 'local', 'community'].includes(collab.participation_mode)) {
+          participationMode = collab.participation_mode as 'private' | 'local' | 'community';
+        }
+      } else if (collab.is_private) {
+        participationMode = 'private';
+      }
+      
+      // Build the formatted collab object with safe defaults
+      return {
+        id: collab.id || '',
+        title: collab.title || '',
+        type: (collab.type as 'chain' | 'theme' | 'narrative') || 'chain',
+        participation_mode: participationMode,
+        participant_count: collab.participantCount || 0,
+        location: collab.location || null,
+        description: '', // Default empty string
+        is_joined: true
+      };
+    });
+    
+    return { success: true, joinedCollabs: formattedCollabs };
+    
+  } catch (error) {
+    console.error("Error getting collaborations for curation:", error);
+    return { success: false, error: "Failed to fetch collaborations data" };
+  }
+}
+
+/**
+ * Get collaboration templates available for the period
+ */
+export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
+  success: boolean;
+  error?: string;
+  templates?: CollabTemplate[];
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // Get templates assigned to this period
+    const { data, error } = await supabase
+      .from('period_templates')
+      .select(`
+        template_id,
+        collab_templates:template_id (
+          id,
+          title,
+          type,
+          instructions,
+          requirements,
+          connection_rules,
+          display_text,
+          internal_reference
+        )
+      `)
+      .eq('period_id', periodId);
+
+    if (error) {
+      console.error("Error fetching collab templates:", error);
+      return { success: false, error: error.message };
+    }
+
+    // Extract the templates from the nested structure
+    let templates: CollabTemplate[] = [];
+    
+    if (data) {
+      data.forEach(item => {
+        if (!item.collab_templates) return;
+        
+        const template = item.collab_templates;
+        
+        // Handle if it's an array or single object
+        const templateItems = Array.isArray(template) ? template : [template];
+        
+        templateItems.forEach(item => {
+          if (!item) return;
+          
+          templates.push({
+            id: item.id || '',
+            title: item.title || '',
+            type: (item.type as 'chain' | 'theme' | 'narrative') || 'chain',
+            display_text: item.display_text,
+            instructions: item.instructions,
+            requirements: item.requirements,
+            connection_rules: item.connection_rules,
+            internal_reference: item.internal_reference
+          });
+        });
+      });
+    }
+    
+    return { success: true, templates };
+    
+  } catch (error) {
+    console.error("Error getting collab templates:", error);
+    return { success: false, error: "Failed to fetch collaboration templates" };
+  }
+}
+
+/**
+ * Save curator's selected collaborations
+ */
+export async function saveCuratorCollabSelections(
+  curatorId: string,
+  periodId: string,
+  selectedCollabIds: string[]
+): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // First, delete existing selections
+    const { error: deleteError } = await supabase
+      .from('curator_collab_selections')
+      .delete()
+      .eq('curator_id', curatorId)
+      .eq('period_id', periodId);
+      
+    if (deleteError) {
+      console.error("Error deleting existing selections:", deleteError);
+      return { success: false, error: deleteError.message };
+    }
+    
+    // If there are no selections, we're done
+    if (selectedCollabIds.length === 0) {
+      return { success: true };
+    }
+    
+    // Create selection records for each selected collab
+    const selectionRecords = selectedCollabIds.map(collabId => ({
+      curator_id: curatorId,
+      collab_id: collabId,
+      period_id: periodId,
+      selected_at: new Date().toISOString()
+    }));
+    
+    // Insert the new records
+    const { error: insertError } = await supabase
+      .from('curator_collab_selections')
+      .insert(selectionRecords);
+      
+    if (insertError) {
+      console.error("Error inserting collab selections:", insertError);
+      return { success: false, error: insertError.message };
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error("Error saving collab selections:", error);
+    return { success: false, error: "Failed to save collaboration selections" };
+  }
+}
+
+/**
+ * Get curator's selected collaborations for a period
+ */
+export async function getCuratorCollabSelections(
+  curatorId: string,
+  periodId: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  selectedCollabIds?: string[];
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    const { data, error } = await supabase
+      .from('curator_collab_selections')
+      .select('collab_id')
+      .eq('curator_id', curatorId)
+      .eq('period_id', periodId);
+      
+    if (error) {
+      console.error("Error fetching collab selections:", error);
+      return { success: false, error: error.message };
+    }
+    
+    const selectedCollabIds = data.map(item => item.collab_id);
+    
+    return { success: true, selectedCollabIds };
+    
+  } catch (error) {
+    console.error("Error getting collab selections:", error);
+    return { success: false, error: "Failed to fetch collaboration selections" };
+  }
+}
+
+/**
+ * Get all available collaborations for a period (that the user hasn't already joined)
+ */
+export async function getAvailableCollabsForPeriod(
+  periodId: string
+): Promise<{
+  success: boolean;
+  error?: string;
+  availableCollabs?: CollabData[];
+}> {
   const supabase = createClientComponentClient();
   
   try {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log("No authenticated user found");
-      return { chain: [], theme: [], narrative: [] };
+      return { success: false, error: "No authenticated user found" };
     }
     
-    // Get active period
-    const { data: activePeriod, error: periodError } = await supabase
-      .from('periods')
-      .select('id, name, season, year')
-      .eq('is_active', true)
-      .order('end_date', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (periodError) {
-      console.error("Error fetching active period:", periodError);
-      return { chain: [], theme: [], narrative: [] };
+    // Get collabs that user has already joined
+    const userCollabsResult = await getUserCollabs();
+    if (!userCollabsResult) {
+      return { success: false, error: "Failed to fetch user collaborations" };
     }
-
-    console.log("Active period for templates:", activePeriod);
-
-    // Get templates linked to this period through period_templates junction table
-    const { data: periodTemplates, error: templatesError } = await supabase
-      .from('period_templates')
-      .select('template_id')
-      .eq('period_id', activePeriod.id);
-
-    if (templatesError) {
-      console.error("Error fetching templates for period:", templatesError);
-      return { chain: [], theme: [], narrative: [] };
-    }
-
-    // If no templates are assigned to this period, return empty
-    if (!periodTemplates || periodTemplates.length === 0) {
-      console.log("No templates assigned to the current period");
-      return { chain: [], theme: [], narrative: [] };
-    }
-
-    console.log(`Found ${periodTemplates?.length || 0} templates for period:`, activePeriod.id);
     
-    // Extract template IDs for this period
-    const periodTemplateIds = periodTemplates.map(pt => pt.template_id);
-    console.log("Templates for this period:", periodTemplateIds);
+    // Extract IDs of joined collabs
+    const joinedCollabIds: string[] = [];
     
-    // Get user's active participations and filter out templates they're already participating in
-    const { data: activeParticipations } = await supabase
-      .from('collab_participants')
+    // Safely extract IDs from each array
+    if (Array.isArray(userCollabsResult.private)) {
+      joinedCollabIds.push(...userCollabsResult.private.map(c => c.id || '').filter(Boolean));
+    }
+    if (Array.isArray(userCollabsResult.community)) {
+      joinedCollabIds.push(...userCollabsResult.community.map(c => c.id || '').filter(Boolean));
+    }
+    if (Array.isArray(userCollabsResult.local)) {
+      joinedCollabIds.push(...userCollabsResult.local.map(c => c.id || '').filter(Boolean));
+    }
+    
+    // Get all community and local collabs for the period
+    const { data: availableCollabsData, error } = await supabase
+      .from('collabs')
       .select(`
-        collab_id,
-        status
+        id,
+        title,
+        type,
+        participation_mode,
+        location,
+        metadata
       `)
-      .eq('profile_id', user.id)
-      .eq('status', 'active');
-    
-    const activeCollabIds = activeParticipations?.map(p => p.collab_id) || [];
-    let userActiveTemplateIds: string[] = [];
-    
-    if (activeCollabIds.length > 0) {
-      const { data: activeCollabs } = await supabase
-        .from('collabs')
-        .select('metadata')
-        .in('id', activeCollabIds);
-        
-      if (activeCollabs) {
-        userActiveTemplateIds = activeCollabs
-          .map(c => {
-            if (c && c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata) {
-              const templateId = c.metadata.template_id;
-              if (typeof templateId === 'string') {
-                return templateId;
-              }
-            }
-            return null;
-          })
-          .filter((id): id is string => id !== null);
-      }
+      .eq('period_id', periodId)
+      .in('participation_mode', ['community', 'local']);
+      
+    if (error) {
+      console.error("Error fetching available collabs:", error);
+      return { success: false, error: error.message };
     }
     
-    // Filter out templates the user is already participating in
-    const availableTemplateIds = periodTemplateIds.filter(id => 
-      !userActiveTemplateIds.includes(id)
+    // Filter out already joined collabs
+    const filteredCollabs = (availableCollabsData || []).filter(
+      collab => !joinedCollabIds.includes(collab.id)
     );
     
-    // Get the actual template data directly using the template IDs
-    const { data, error } = await supabase
-      .from('collab_templates')
-      .select('*')
-      .in('id', availableTemplateIds);
+    // Format the collabs
+    const availableCollabs: CollabData[] = filteredCollabs.map(collab => ({
+      id: collab.id,
+      title: collab.title,
+      type: collab.type as 'chain' | 'theme' | 'narrative',
+      participation_mode: collab.participation_mode as 'community' | 'local' | 'private',
+      location: collab.location,
+      description: collab.metadata?.description || '',
+      participant_count: 0,  // We'll update this below
+      is_joined: false
+    }));
     
-    if (error) {
-      console.error("Error fetching templates:", error);
-      return { chain: [], theme: [], narrative: [] };
-    }
-    
-    // Group by type with safe defaults
-    interface Template {
-      id: string;
-      name: string;
-      display_text: string;
-      type: 'chain' | 'theme' | 'narrative' | null;
-      [key: string]: any;
-    }
-    
-    const availableTemplates = data as Template[];
-    
-    // Handle null types by assigning a default based on template name
-    const normalizedTemplates = availableTemplates.map(template => {
-      if (!template.type) {
-        // Assign a type based on template name if possible
-        const name = template.name.toLowerCase();
-        if (name.includes('chain')) {
-          template.type = 'chain';
-        } else if (name.includes('theme')) {
-          template.type = 'theme';
-        } else {
-          // Default to narrative if can't determine
-          template.type = 'narrative';
-        }
+    // Get participant counts for each collab
+    for (const collab of availableCollabs) {
+      const { count, error: countError } = await supabase
+        .from('collab_participants')
+        .select('*', { count: 'exact', head: true })
+        .eq('collab_id', collab.id)
+        .eq('status', 'active');
+        
+      if (!countError && count !== null) {
+        collab.participant_count = count;
       }
-      return template;
-    });
+    }
     
-    const result = {
-      chain: normalizedTemplates.filter(c => c.type === 'chain'),
-      theme: normalizedTemplates.filter(c => c.type === 'theme'),
-      narrative: normalizedTemplates.filter(c => c.type === 'narrative' || !c.type)
-    };
+    return { success: true, availableCollabs };
     
-    return result;
   } catch (error) {
-    console.error('Error fetching available collabs:', error);
-    return { chain: [], theme: [], narrative: [] };
-  }
-}
-
-// Rest of your file stays the same...
-export async function joinCollab(
-  collabTemplateId: string, 
-  isPrivate: boolean = false, 
-  invitedProfiles: string[] = [],
-  participationMode: ParticipationMode = 'community'
-) {
-  // Keep existing implementation
-}
-
-export async function getUserCollabs() {
-  // Keep existing implementation
-}
-
-export async function leaveCollab(collabId: string) {
-  // Keep existing implementation
-}
-
-// Add new helper function to check and update template types
-export async function updateNullTemplateTypes() {
-  const supabase = createClientComponentClient();
-  
-  try {
-    // Get templates with null type
-    const { data: templatesWithoutType, error: fetchError } = await supabase
-      .from('collab_templates')
-      .select('*')
-      .is('type', null);
-    
-    if (fetchError) {
-      console.error("Error fetching templates without types:", fetchError);
-      return { success: false, error: fetchError.message };
-    }
-    
-    if (!templatesWithoutType || templatesWithoutType.length === 0) {
-      return { success: true, updated: 0 };
-    }
-    
-    // Update each template with a type
-    let updateCount = 0;
-    const types = ['chain', 'theme', 'narrative'];
-    
-    for (const template of templatesWithoutType) {
-      // Try to determine type from name or default to random
-      let type = types[Math.floor(Math.random() * types.length)];
-      const name = template.name.toLowerCase();
-      
-      if (name.includes('chain')) {
-        type = 'chain';
-      } else if (name.includes('theme')) {
-        type = 'theme';
-      } else if (name.includes('narrative') || name.includes('story')) {
-        type = 'narrative';
-      }
-      
-      const { error } = await supabase
-        .from('collab_templates')
-        .update({ type })
-        .eq('id', template.id);
-      
-      if (!error) {
-        updateCount++;
-      }
-    }
-    
-    return { success: true, updated: updateCount };
-  } catch (error) {
-    console.error("Error updating template types:", error);
-    return { success: false, error };
+    console.error("Error getting available collabs:", error);
+    return { success: false, error: "Failed to fetch available collaborations" };
   }
 }
