@@ -14,6 +14,7 @@ export interface CollabData {
   description?: string;
   participant_count: number;
   is_joined?: boolean;
+  template_id?: string;
 }
 
 /**
@@ -21,13 +22,22 @@ export interface CollabData {
  */
 export interface CollabTemplate {
   id: string;
-  title: string;
+  name: string; // Changed from title to match actual schema
   type: 'chain' | 'theme' | 'narrative';
   display_text?: string;
   instructions?: string;
   requirements?: string;
   connection_rules?: string;
   internal_reference?: string;
+}
+
+/**
+ * Interface for city participant data
+ */
+export interface CityParticipantData {
+  name: string;
+  state?: string;
+  participant_count: number;
 }
 
 /**
@@ -58,6 +68,7 @@ export async function getCollaborationsForCuration(periodId: string): Promise<{
       location?: string | null;
       description?: string;
       participantCount?: number;
+      template_id?: string;
       [key: string]: any; // Allow other properties
     };
     
@@ -98,8 +109,9 @@ export async function getCollaborationsForCuration(periodId: string): Promise<{
         participation_mode: participationMode,
         participant_count: collab.participantCount || 0,
         location: collab.location || null,
-        description: '', // Default empty string
-        is_joined: true
+        description: collab.description || '',
+        is_joined: true,
+        template_id: collab.template_id || ''
       };
     });
     
@@ -129,7 +141,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
         template_id,
         collab_templates:template_id (
           id,
-          title,
+          name,
           type,
           instructions,
           requirements,
@@ -162,7 +174,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
           
           templates.push({
             id: item.id || '',
-            title: item.title || '',
+            name: item.name || '', // Changed from title to name
             type: (item.type as 'chain' | 'theme' | 'narrative') || 'chain',
             display_text: item.display_text,
             instructions: item.instructions,
@@ -183,63 +195,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
 }
 
 /**
- * Save curator's selected collaborations
- */
-export async function saveCuratorCollabSelections(
-  curatorId: string,
-  periodId: string,
-  selectedCollabIds: string[]
-): Promise<{
-  success: boolean;
-  error?: string;
-}> {
-  const supabase = createClientComponentClient();
-  
-  try {
-    // First, delete existing selections
-    const { error: deleteError } = await supabase
-      .from('curator_collab_selections')
-      .delete()
-      .eq('curator_id', curatorId)
-      .eq('period_id', periodId);
-      
-    if (deleteError) {
-      console.error("Error deleting existing selections:", deleteError);
-      return { success: false, error: deleteError.message };
-    }
-    
-    // If there are no selections, we're done
-    if (selectedCollabIds.length === 0) {
-      return { success: true };
-    }
-    
-    // Create selection records for each selected collab
-    const selectionRecords = selectedCollabIds.map(collabId => ({
-      curator_id: curatorId,
-      collab_id: collabId,
-      period_id: periodId,
-      selected_at: new Date().toISOString()
-    }));
-    
-    // Insert the new records
-    const { error: insertError } = await supabase
-      .from('curator_collab_selections')
-      .insert(selectionRecords);
-      
-    if (insertError) {
-      console.error("Error inserting collab selections:", insertError);
-      return { success: false, error: insertError.message };
-    }
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error("Error saving collab selections:", error);
-    return { success: false, error: "Failed to save collaboration selections" };
-  }
-}
-
-/**
+ /**
  * Get curator's selected collaborations for a period
  */
 export async function getCuratorCollabSelections(
@@ -253,9 +209,10 @@ export async function getCuratorCollabSelections(
   const supabase = createClientComponentClient();
   
   try {
+    // Updated to fetch source_id as well
     const { data, error } = await supabase
       .from('curator_collab_selections')
-      .select('collab_id')
+      .select('collab_id, source_id')
       .eq('curator_id', curatorId)
       .eq('period_id', periodId);
       
@@ -264,8 +221,10 @@ export async function getCuratorCollabSelections(
       return { success: false, error: error.message };
     }
     
-    const selectedCollabIds = data.map(item => item.collab_id);
+    // Use source_id if available, otherwise fallback to collab_id
+    const selectedCollabIds = data.map(item => item.source_id || item.collab_id).filter(Boolean);
     
+    console.log("Selected collab IDs from database:", selectedCollabIds);
     return { success: true, selectedCollabIds };
     
   } catch (error) {
@@ -322,7 +281,8 @@ export async function getAvailableCollabsForPeriod(
         type,
         participation_mode,
         location,
-        metadata
+        metadata,
+        template_id
       `)
       .eq('period_id', periodId)
       .in('participation_mode', ['community', 'local']);
@@ -346,7 +306,8 @@ export async function getAvailableCollabsForPeriod(
       location: collab.location,
       description: collab.metadata?.description || '',
       participant_count: 0,  // We'll update this below
-      is_joined: false
+      is_joined: false,
+      template_id: collab.template_id
     }));
     
     // Get participant counts for each collab
@@ -367,5 +328,108 @@ export async function getAvailableCollabsForPeriod(
   } catch (error) {
     console.error("Error getting available collabs:", error);
     return { success: false, error: "Failed to fetch available collaborations" };
+  }
+}
+
+/**
+ * Get cities with participant counts for local collaborations
+ */
+export async function getCitiesWithParticipantCounts(): Promise<{
+  success: boolean;
+  error?: string;
+  cities?: CityParticipantData[];
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // Fetch cities from collab_participants table
+    const { data: cityData, error: cityError } = await supabase
+      .from('collab_participants')
+      .select(`
+        city,
+        location
+      `)
+      .eq('participation_mode', 'local')
+      .eq('status', 'active');
+      
+    if (cityError) {
+      console.error("Error fetching cities:", cityError);
+      return { success: false, error: cityError.message };
+    }
+    
+    // Compile a list of cities with participant counts
+    const cityCountMap: Record<string, number> = {};
+    
+    // Process city and location fields
+    for (const record of cityData || []) {
+      // Use city field first, fall back to location
+      const cityName = record.city || record.location;
+      
+      if (cityName) {
+        if (cityCountMap[cityName]) {
+          cityCountMap[cityName]++;
+        } else {
+          cityCountMap[cityName] = 1;
+        }
+      }
+    }
+    
+    // Also fetch location data from collabs table
+    const { data: collabLocationData, error: collabLocationError } = await supabase
+      .from('collabs')
+      .select('location')
+      .eq('participation_mode', 'local')
+      .not('location', 'is', null);
+      
+    if (!collabLocationError && collabLocationData) {
+      for (const record of collabLocationData) {
+        if (record.location) {
+          // Add locations from the collabs table, but don't count participants
+          // This ensures we have the location in our list even if it has no participants yet
+          if (!cityCountMap[record.location]) {
+            cityCountMap[record.location] = 0;
+          }
+        }
+      }
+    }
+    
+    // Format the result
+    const cities = Object.entries(cityCountMap).map(([cityName, count]) => {
+      const parts = cityName.split(',').map(part => part.trim());
+      return {
+        name: parts[0],
+        state: parts[1] || undefined,
+        participant_count: count
+      };
+    });
+    
+    // Sort by participant count (highest first), then by name
+    cities.sort((a, b) => {
+      if (b.participant_count !== a.participant_count) {
+        return b.participant_count - a.participant_count;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    
+    // If no cities found, provide default list
+    if (cities.length === 0) {
+      return {
+        success: true,
+        cities: [
+          { name: 'New York', state: 'NY', participant_count: 0 },
+          { name: 'Los Angeles', state: 'CA', participant_count: 0 },
+          { name: 'Chicago', state: 'IL', participant_count: 0 },
+          { name: 'San Francisco', state: 'CA', participant_count: 0 },
+          { name: 'Miami', state: 'FL', participant_count: 0 },
+          { name: 'Austin', state: 'TX', participant_count: 0 }
+        ]
+      };
+    }
+    
+    return { success: true, cities };
+    
+  } catch (error) {
+    console.error("Error getting cities with participant counts:", error);
+    return { success: false, error: "Failed to fetch city participant data" };
   }
 }

@@ -62,7 +62,7 @@ interface Communication {
 
 interface CollabTemplate {
   id: string;
-  title: string;
+  name: string; // Changed from title to match actual schema
   type: 'chain' | 'theme' | 'narrative';
   instructions?: string;
   display_text?: string;
@@ -246,60 +246,89 @@ export async function getCurationData(): Promise<CurationResult> {
     let formattedJoinedCollabs: Collaboration[] = [];
     
     try {
-      const { data: joinedCollabsData, error: collabsError } = await supabase
+      // First, get the collab IDs the user has joined
+      const { data: participantData, error: participantError } = await supabase
         .from('collab_participants')
         .select(`
-          collabs:collab_id (
-            id,
-            title,
-            type,
-            participation_mode,
-            location,
-            metadata
-          )
+          collab_id,
+          participation_mode,
+          location
         `)
         .eq('profile_id', user.id)
         .eq('status', 'active');
         
-      if (collabsError) {
-        console.error("Error fetching collaborations:", collabsError);
+      if (participantError) {
+        console.error("Error fetching participant data:", participantError);
         // Continue with empty array
-      } else if (joinedCollabsData && joinedCollabsData.length > 0) {
-        // Format joined collabs data
-        formattedJoinedCollabs = joinedCollabsData.map(item => {
-          const collab = item.collabs || {};
-          const collabData = Array.isArray(collab) ? collab[0] || {} : collab;
-          const metadata = collabData.metadata || {};
-          
-          return {
-            id: collabData.id || '',
-            title: collabData.title || '',
-            type: collabData.type as 'chain' | 'theme' | 'narrative' || 'chain',
-            participation_mode: collabData.participation_mode as 'private' | 'local' | 'community' || 'community',
-            participant_count: 0, // We'll update this below
-            location: collabData.location || null,
-            description: metadata.description || '',
-            is_joined: true
-          };
-        });
+      } else if (participantData && participantData.length > 0) {
+        const collabIds = participantData.map(p => p.collab_id);
         
-        // Get participant counts for each collab
-        for (const collab of formattedJoinedCollabs) {
-          if (!collab.id) continue;
+        // Now get the actual collab details
+        const { data: collabsData, error: collabsError } = await supabase
+          .from('collabs')
+          .select(`
+            id,
+            title,
+            description,
+            type,
+            is_private,
+            metadata,
+            template_id
+          `)
+          .in('id', collabIds);
           
-          try {
-            const { count, error: countError } = await supabase
-              .from('collab_participants')
-              .select('*', { count: 'exact', head: true })
-              .eq('collab_id', collab.id)
-              .eq('status', 'active');
-              
-            if (!countError && count !== null) {
-              collab.participant_count = count;
+        if (collabsError) {
+          console.error("Error fetching collaborations:", collabsError);
+          // Continue with empty array
+        } else if (collabsData && collabsData.length > 0) {
+          // Format joined collabs data
+          formattedJoinedCollabs = collabsData.map(collab => {
+            // Find the participant record that matches this collab
+            const participantRecord = participantData.find(p => p.collab_id === collab.id);
+            
+            // Determine participation mode
+            let participationMode: 'private' | 'local' | 'community';
+            if (participantRecord?.participation_mode) {
+              participationMode = participantRecord.participation_mode as 'private' | 'local' | 'community';
+            } else if (collab.is_private) {
+              participationMode = 'private';
+            } else {
+              participationMode = 'community';
             }
-          } catch (countError) {
-            console.error(`Error counting participants for collab ${collab.id}:`, countError);
-            // Continue with default count (0)
+            
+            // Get description from metadata or from description field
+            const description = collab.metadata?.description || collab.description || '';
+            
+            return {
+              id: collab.id,
+              title: collab.title || '',
+              type: collab.type as 'chain' | 'theme' | 'narrative',
+              participation_mode: participationMode,
+              participant_count: 0, // Will be updated below
+              location: participantRecord?.location || null,
+              description: description,
+              is_joined: true
+            };
+          });
+          
+          // Get participant counts for each collab
+          for (const collab of formattedJoinedCollabs) {
+            if (!collab.id) continue;
+            
+            try {
+              const { count, error: countError } = await supabase
+                .from('collab_participants')
+                .select('*', { count: 'exact', head: true })
+                .eq('collab_id', collab.id)
+                .eq('status', 'active');
+                
+              if (!countError && count !== null) {
+                collab.participant_count = count;
+              }
+            } catch (countError) {
+              console.error(`Error counting participants for collab ${collab.id}:`, countError);
+              // Continue with default count (0)
+            }
           }
         }
       }
@@ -309,14 +338,15 @@ export async function getCurationData(): Promise<CurationResult> {
     }
     
     // STEP 4: Get available (community and local) collaborations for the period
+    // Note: Since your schema doesn't have period_id on collabs, we'll skip period filtering
     let formattedAvailableCollabs: Collaboration[] = [];
     
     try {
+      // Get all community and local collaborations
       const { data: availableCollabsData, error: availableCollabsError } = await supabase
         .from('collabs')
         .select('*')
-        .in('participation_mode', ['community', 'local'])
-        .eq('period_id', periodData.id);
+        .in('participation_mode', ['community', 'local']);
         
       if (availableCollabsError) {
         console.error("Error fetching available collaborations:", availableCollabsError);
@@ -326,16 +356,16 @@ export async function getCurationData(): Promise<CurationResult> {
         formattedAvailableCollabs = availableCollabsData
           .filter(collab => !formattedJoinedCollabs.some(joined => joined.id === collab.id))
           .map(collab => {
-            const metadata = collab.metadata || {};
+            const description = collab.metadata?.description || collab.description || '';
             
             return {
               id: collab.id || '',
               title: collab.title || '',
               type: collab.type as 'chain' | 'theme' | 'narrative' || 'chain',
               participation_mode: collab.participation_mode as 'private' | 'local' | 'community' || 'community',
-              participant_count: 0, // We'll update this below
+              participant_count: 0, // Will be updated below
               location: collab.location || null,
-              description: metadata.description || '',
+              description: description,
               is_joined: false
             };
           });
@@ -364,7 +394,6 @@ export async function getCurationData(): Promise<CurationResult> {
       console.error("Unexpected error fetching available collaborations:", availableCollabsError);
       // Continue with empty array
     }
-    
     // STEP 5: Get communications for the period
     let communications: Communication[] = [];
     
@@ -436,7 +465,7 @@ export async function getCurationData(): Promise<CurationResult> {
         // Get collab selections
         supabase
           .from('curator_collab_selections')
-          .select('collab_id')
+          .select('collab_id, source_id')
           .eq('curator_id', user.id)
           .eq('period_id', periodData.id),
           
@@ -463,8 +492,9 @@ export async function getCurationData(): Promise<CurationResult> {
       }
       
       if (collabSelections.data) {
+        // Use source_id if available, otherwise use collab_id
         selectedCollabs = collabSelections.data
-          .map(s => s.collab_id)
+          .map(s => s.source_id || s.collab_id)
           .filter(Boolean);
       }
       
@@ -541,7 +571,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
         template_id,
         collab_templates:template_id (
           id,
-          title,
+          name,
           type,
           instructions,
           requirements,
@@ -574,7 +604,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
             if (item) {
               templates.push({
                 id: item.id || '',
-                title: item.title || '',
+                name: item.name || '', // Changed from title to name
                 type: (item.type as 'chain' | 'theme' | 'narrative') || 'chain',
                 instructions: item.instructions,
                 display_text: item.display_text,
@@ -602,11 +632,31 @@ export async function getAvailableCollaborations(periodId: string): Promise<{ su
   const supabase = createClientComponentClient();
   
   try {
-    // Fetch collaborations that are either community or local
+    // Get user for checking joins
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: "User not authenticated" };
+    }
+    
+    // First get the user's joined collaborations to filter them out
+    const { data: joinedData, error: joinedError } = await supabase
+      .from('collab_participants')
+      .select('collab_id')
+      .eq('profile_id', user.id)
+      .eq('status', 'active');
+      
+    if (joinedError) {
+      console.error("Error fetching joined collaborations:", joinedError);
+      return { success: false, error: joinedError.message };
+    }
+    
+    const joinedIds = joinedData?.map(item => item.collab_id) || [];
+    
+    // Fetch collaborations that are either community or local and not joined by the user
+    // Note: Removed period_id filter as it's not in your schema
     const { data, error } = await supabase
       .from('collabs')
       .select('*')
-      .eq('period_id', periodId)
       .in('participation_mode', ['community', 'local']);
       
     if (error) {
@@ -614,20 +664,22 @@ export async function getAvailableCollaborations(periodId: string): Promise<{ su
       return { success: false, error: error.message };
     }
     
-    const collaborations: Collaboration[] = (data || []).map(collab => {
-      const metadata = collab.metadata || {};
-      
-      return {
-        id: collab.id || '',
-        title: collab.title || '',
-        type: collab.type as 'chain' | 'theme' | 'narrative' || undefined,
-        participation_mode: collab.participation_mode as 'private' | 'local' | 'community' || 'community',
-        participant_count: 0, // This will be updated separately
-        location: collab.location,
-        description: metadata.description || '',
-        is_joined: false
-      };
-    });
+    const collaborations: Collaboration[] = (data || [])
+      .filter(collab => !joinedIds.includes(collab.id))
+      .map(collab => {
+        const description = collab.metadata?.description || collab.description || '';
+        
+        return {
+          id: collab.id || '',
+          title: collab.title || '',
+          type: collab.type as 'chain' | 'theme' | 'narrative' || 'chain',
+          participation_mode: collab.participation_mode as 'private' | 'local' | 'community' || 'community',
+          participant_count: 0, // This will be updated separately
+          location: collab.location,
+          description: description,
+          is_joined: false
+        };
+      });
     
     // Get participant counts for each collaboration
     if (collaborations.length > 0) {
@@ -656,262 +708,564 @@ export async function getAvailableCollaborations(periodId: string): Promise<{ su
 /**
  * Save all curation selections to the database
  */
-export async function saveCuratorSelections(selections: SaveSelectionsParams): Promise<{ success: boolean; error?: string }> {
+export async function saveCuratorSelections({
+  curator_id,
+  period_id,
+  selected_contributors,
+  selected_collaborations,
+  selected_communications,
+  selected_ads
+}: {
+  curator_id: string;
+  period_id: string;
+  selected_contributors: string[];
+  selected_collaborations: string[];
+  selected_communications: string[];
+  selected_ads: string[];
+}): Promise<{ success: boolean; error?: string }> {
   const supabase = createClientComponentClient();
   
   try {
-    // Start a transaction (sort of - we'll just handle errors and rollback manually)
-    let success = true;
+    console.log("Starting to save selections with:", {
+      curator_id,
+      period_id,
+      collabs_count: selected_collaborations.length,
+      contributors_count: selected_contributors.length,
+      comms_count: selected_communications.length,
+      ads_count: selected_ads.length
+    });
+
+    console.log("Selected collaborations:", selected_collaborations);
+    const localCollabs = selected_collaborations.filter(id => id.startsWith('local_'));
+    console.log("Local collaboration IDs:", localCollabs);
+
+    // Create a map to store real IDs and their virtual sources to avoid conflicts
+    // This helps track where each selection came from (community vs local)
+    interface CollabSelection {
+      collab_id: string;
+      source_id: string; // Original virtual ID or real ID
+      participation_mode: 'community' | 'local' | 'private';
+      location?: string;
+    }
+    
+    const collaborationSelections: CollabSelection[] = [];
+    
+    // Process virtual collaboration IDs first
+    for (const id of selected_collaborations) {
+      try {
+        if (id.startsWith('community_')) {
+          // Community collaboration - extract template ID
+          const templateId = id.replace('community_', '');
+          console.log(`Processing community virtual ID for template: ${templateId}`);
+          
+          // Check if a community collab for this template already exists
+          try {
+            const { data: existingCollab, error: findError } = await supabase
+              .from('collabs')
+              .select('id')
+              .eq('template_id', templateId)
+              .eq('participation_mode', 'community')
+              .maybeSingle();
+              
+            if (findError) {
+              const errorMsg = findError.message || JSON.stringify(findError);
+              console.error(`Error finding community collab for template ${templateId}:`, errorMsg);
+            }
+            
+            if (existingCollab) {
+              // Use existing collaboration
+              console.log(`Using existing community collab: ${existingCollab.id} for template ${templateId}`);
+              collaborationSelections.push({
+                collab_id: existingCollab.id,
+                source_id: id, // Keep track of original virtual ID
+                participation_mode: 'community'
+              });
+            } else {
+              console.log(`No existing community collab found for template ${templateId}, will create new one`);
+              
+              // Need to create a new community collaboration
+              // First get template details
+              const { data: template, error: templateError } = await supabase
+                .from('collab_templates')
+                .select('id, name, type')
+                .eq('id', templateId)
+                .maybeSingle();
+                
+              if (templateError) {
+                const errorMsg = templateError.message || JSON.stringify(templateError);
+                console.error(`Error fetching template ${templateId}:`, errorMsg);
+                continue;
+              }
+              
+              if (!template) {
+                console.error(`Template ${templateId} not found in database`);
+                continue;
+              }
+              
+              console.log(`Found template details:`, template);
+              
+              // Validate template data
+              const title = template.name || 'Untitled Collaboration';
+              const type = template.type || 'chain';
+              
+              // Create new community collaboration
+              const newCollabData = {
+                title: title,
+                type: type,
+                participation_mode: 'community',
+                template_id: templateId,
+                period_id: period_id,
+                created_at: new Date().toISOString()
+              };
+              
+              console.log(`Attempting to create community collab with data:`, newCollabData);
+              
+              try {
+                const { data: newCollab, error: createError } = await supabase
+                  .from('collabs')
+                  .insert(newCollabData)
+                  .select('id')
+                  .single();
+                  
+                if (createError) {
+                  const errorMsg = createError.message || JSON.stringify(createError);
+                  console.error(`Error creating community collab for template ${templateId}:`, errorMsg);
+                  continue;
+                }
+                
+                if (newCollab) {
+                  console.log(`Successfully created new community collab: ${newCollab.id}`);
+                  collaborationSelections.push({
+                    collab_id: newCollab.id,
+                    source_id: id, // Keep track of original virtual ID
+                    participation_mode: 'community'
+                  });
+                } else {
+                  console.error(`Failed to create community collab: no data returned`);
+                }
+              } catch (innerError) {
+                console.error(`Exception creating community collab:`, innerError);
+              }
+            }
+          } catch (findCollabError) {
+            console.error(`Exception finding community collab:`, findCollabError);
+          }
+        } else if (id.startsWith('local_')) {
+          console.log("Processing local ID:", id);
+          
+          const parts = id.split('_');
+          console.log("  Parts:", parts);
+          
+          if (parts.length < 3) {
+            console.error(`Invalid local collab ID format: ${id}`);
+            continue;
+          }
+          
+          const templateId = parts[1];
+          const cityEncoded = parts.slice(2).join('_');
+          const city = cityEncoded.replace(/_/g, ' ');
+          
+          console.log("  Template ID:", templateId);
+          console.log("  City (encoded):", cityEncoded);
+          console.log("  City (decoded):", city);
+          
+          console.log(`Processing local virtual ID for template: ${templateId}, city: ${city}`);
+          
+          // Check if a local collab for this template and city already exists
+          try {
+            const { data: existingCollab, error: findError } = await supabase
+              .from('collabs')
+              .select('id')
+              .eq('template_id', templateId)
+              .eq('participation_mode', 'local')
+              .eq('location', city)
+              .maybeSingle();
+              
+            if (findError) {
+              const errorMsg = findError.message || JSON.stringify(findError);
+              console.error(`Error finding local collab for template ${templateId}, city ${city}:`, errorMsg);
+            }
+            
+            if (existingCollab) {
+              // Use existing collaboration
+              console.log(`Using existing local collab: ${existingCollab.id} for template ${templateId}, city ${city}`);
+              collaborationSelections.push({
+                collab_id: existingCollab.id,
+                source_id: id, // Keep track of original virtual ID
+                participation_mode: 'local',
+                location: city
+              });
+            } else {
+              console.log(`No existing local collab found for template ${templateId}, city ${city}, will create new one`);
+              
+              // Need to create a new local collaboration
+              // First get template details
+              const { data: template, error: templateError } = await supabase
+                .from('collab_templates')
+                .select('id, name, type')
+                .eq('id', templateId)
+                .maybeSingle();
+                
+              if (templateError) {
+                const errorMsg = templateError.message || JSON.stringify(templateError);
+                console.error(`Error fetching template ${templateId}:`, errorMsg);
+                continue;
+              }
+              
+              if (!template) {
+                console.error(`Template ${templateId} not found in database`);
+                continue;
+              }
+              
+              console.log(`Found template details:`, template);
+              
+              // Validate template data
+              const title = template.name || 'Untitled Collaboration';
+              const type = template.type || 'chain';
+              
+              // Create new local collaboration
+              const newCollabData = {
+                title: `${title} - ${city}`,
+                type: type,
+                participation_mode: 'local',
+                location: city,
+                template_id: templateId,
+                period_id: period_id,
+                created_at: new Date().toISOString()
+              };
+              
+              console.log(`Attempting to create local collab with data:`, newCollabData);
+              
+              try {
+                const { data: newCollab, error: createError } = await supabase
+                  .from('collabs')
+                  .insert(newCollabData)
+                  .select('id')
+                  .single();
+                  
+                if (createError) {
+                  const errorMsg = createError.message || JSON.stringify(createError);
+                  console.error(`Error creating local collab for template ${templateId}, city ${city}:`, errorMsg);
+                  continue;
+                }
+                
+                if (newCollab) {
+                  console.log(`Successfully created new local collab: ${newCollab.id}`);
+                  collaborationSelections.push({
+                    collab_id: newCollab.id,
+                    source_id: id, // Keep track of original virtual ID
+                    participation_mode: 'local',
+                    location: city
+                  });
+                } else {
+                  console.error(`Failed to create local collab: no data returned`);
+                }
+              } catch (innerError) {
+                console.error(`Exception creating local collab:`, innerError);
+              }
+            }
+          } catch (findCollabError) {
+            console.error(`Exception finding local collab:`, findCollabError);
+          }
+        } else {
+          // Regular collab ID - add directly
+          console.log(`Adding regular collab ID: ${id}`);
+          
+          // For direct IDs, we need to determine their participation mode
+          try {
+            const { data: collab, error: collabError } = await supabase
+              .from('collabs')
+              .select('id, participation_mode, location')
+              .eq('id', id)
+              .maybeSingle();
+              
+            if (collabError) {
+              console.error(`Error fetching collab info for ${id}:`, collabError);
+              // Default to adding without mode info
+              collaborationSelections.push({
+                collab_id: id,
+                source_id: id,
+                participation_mode: 'community' // Default assumption
+              });
+              continue;
+            }
+            
+            if (collab) {
+              // Use real participation mode info
+              collaborationSelections.push({
+                collab_id: id,
+                source_id: id,
+                participation_mode: collab.participation_mode as 'community' | 'local' | 'private',
+                location: collab.location
+              });
+            } else {
+              console.error(`Collab with ID ${id} not found in database`);
+              // Add anyway with default info
+              collaborationSelections.push({
+                collab_id: id,
+                source_id: id,
+                participation_mode: 'community' // Default assumption
+              });
+            }
+          } catch (error) {
+            console.error(`Exception fetching collab info:`, error);
+            // Add anyway with default info
+            collaborationSelections.push({
+              collab_id: id,
+              source_id: id,
+              participation_mode: 'community' // Default assumption
+            });
+          }
+        }
+      } catch (processError) {
+        console.error(`Error processing collaboration ID ${id}:`, processError);
+      }
+    }
+    
+    console.log(`Processed all collaborative selections, total selections: ${collaborationSelections.length}`);
+    
+    // Now continue with saving using the collaboration selections
     
     // 1. Save creator selections
     // First delete existing selections
-    const { error: deleteCreatorError } = await supabase
-      .from('curator_creator_selections')
-      .delete()
-      .eq('curator_id', selections.curator_id)
-      .eq('period_id', selections.period_id);
-      
-    if (deleteCreatorError) {
-      console.error("Error deleting existing creator selections:", deleteCreatorError);
-      return { success: false, error: deleteCreatorError.message };
-    }
-    
-    // Then add new selections
-    const creatorSelections = selections.selected_contributors.map(creatorId => ({
-      curator_id: selections.curator_id,
-      creator_id: creatorId,
-      period_id: selections.period_id,
-      selected_at: new Date().toISOString()
-    }));
-    
-    if (creatorSelections.length > 0) {
-      const { error: insertCreatorError } = await supabase
+    try {
+      const { error: deleteCreatorError } = await supabase
         .from('curator_creator_selections')
-        .insert(creatorSelections);
+        .delete()
+        .eq('curator_id', curator_id)
+        .eq('period_id', period_id);
         
-      if (insertCreatorError) {
-        console.error("Error inserting creator selections:", insertCreatorError);
-        success = false;
+      if (deleteCreatorError) {
+        const errorMsg = deleteCreatorError.message || JSON.stringify(deleteCreatorError);
+        console.error(`Error deleting existing creator selections:`, errorMsg);
+        return { success: false, error: errorMsg };
       }
+      
+      console.log(`Successfully deleted existing creator selections`);
+      
+      // Then add new selections
+      if (selected_contributors.length > 0) {
+        const creatorSelections = selected_contributors.map(creatorId => ({
+          curator_id,
+          creator_id: creatorId,
+          period_id,
+          selected_at: new Date().toISOString()
+        }));
+        
+        console.log(`Inserting ${creatorSelections.length} creator selections`);
+        
+        const { error: insertCreatorError } = await supabase
+          .from('curator_creator_selections')
+          .insert(creatorSelections);
+          
+        if (insertCreatorError) {
+          const errorMsg = insertCreatorError.message || JSON.stringify(insertCreatorError);
+          console.error(`Error inserting creator selections:`, errorMsg);
+          return { success: false, error: errorMsg };
+        }
+        
+        console.log(`Successfully inserted creator selections`);
+      } else {
+        console.log(`No creator selections to insert`);
+      }
+    } catch (creatorError) {
+      console.error(`Exception during creator selections:`, creatorError);
+      return { success: false, error: String(creatorError) };
     }
     
     // 2. Save campaign (ad) selections
-    const { error: deleteCampaignError } = await supabase
-      .from('curator_campaign_selections')
-      .delete()
-      .eq('curator_id', selections.curator_id)
-      .eq('period_id', selections.period_id);
-      
-    if (deleteCampaignError) {
-      console.error("Error deleting existing campaign selections:", deleteCampaignError);
-      success = false;
-    }
-    
-    const campaignSelections = selections.selected_ads.map(campaignId => ({
-      curator_id: selections.curator_id,
-      campaign_id: campaignId,
-      period_id: selections.period_id,
-      selected_at: new Date().toISOString()
-    }));
-    
-    if (campaignSelections.length > 0) {
-      const { error: insertCampaignError } = await supabase
+    try {
+      const { error: deleteCampaignError } = await supabase
         .from('curator_campaign_selections')
-        .insert(campaignSelections);
+        .delete()
+        .eq('curator_id', curator_id)
+        .eq('period_id', period_id);
         
-      if (insertCampaignError) {
-        console.error("Error inserting campaign selections:", insertCampaignError);
-        success = false;
+      if (deleteCampaignError) {
+        const errorMsg = deleteCampaignError.message || JSON.stringify(deleteCampaignError);
+        console.error(`Error deleting existing campaign selections:`, errorMsg);
+        return { success: false, error: errorMsg };
       }
-    }
-    
-    // 3. Save collaboration selections
-    const { error: deleteCollabError } = await supabase
-      .from('curator_collab_selections')
-      .delete()
-      .eq('curator_id', selections.curator_id)
-      .eq('period_id', selections.period_id);
       
-    if (deleteCollabError) {
-      console.error("Error deleting collab selections:", deleteCollabError);
-      success = false;
+      console.log(`Successfully deleted existing campaign selections`);
+      
+      if (selected_ads.length > 0) {
+        const campaignSelections = selected_ads.map(campaignId => ({
+          curator_id,
+          campaign_id: campaignId,
+          period_id,
+          selected_at: new Date().toISOString()
+        }));
+        
+        console.log(`Inserting ${campaignSelections.length} campaign selections`);
+        
+        const { error: insertCampaignError } = await supabase
+          .from('curator_campaign_selections')
+          .insert(campaignSelections);
+          
+        if (insertCampaignError) {
+          const errorMsg = insertCampaignError.message || JSON.stringify(insertCampaignError);
+          console.error(`Error inserting campaign selections:`, errorMsg);
+          return { success: false, error: errorMsg };
+        }
+        
+        console.log(`Successfully inserted campaign selections`);
+      } else {
+        console.log(`No campaign selections to insert`);
+      }
+    } catch (campaignError) {
+      console.error(`Exception during campaign selections:`, campaignError);
+      return { success: false, error: String(campaignError) };
     }
     
-    const collabSelections = selections.selected_collaborations.map(collabId => ({
-      curator_id: selections.curator_id,
-      collab_id: collabId,
-      period_id: selections.period_id,
-      selected_at: new Date().toISOString()
-    }));
-    
-    if (collabSelections.length > 0) {
-      const { error: insertCollabError } = await supabase
+    // 3. Save collaboration selections - MODIFIED APPROACH
+    try {
+      // First completely delete all existing collab selections
+      const { error: deleteCollabError } = await supabase
         .from('curator_collab_selections')
-        .insert(collabSelections);
+        .delete()
+        .eq('curator_id', curator_id)
+        .eq('period_id', period_id);
         
-      if (insertCollabError) {
-        console.error("Error inserting collab selections:", insertCollabError);
-        success = false;
+      if (deleteCollabError) {
+        const errorMsg = deleteCollabError.message || JSON.stringify(deleteCollabError);
+        console.error(`Error deleting collab selections:`, errorMsg);
+        return { success: false, error: errorMsg };
       }
+      
+      console.log(`Successfully deleted existing collab selections`);
+      
+      if (collaborationSelections.length > 0) {
+        // First verify no duplicates on exact virtual ID + template ID combinations
+        // This creates a unique "key" for each selection based on its source
+        const keyMap = new Map<string, boolean>();
+        const uniqueSelections = collaborationSelections.filter(selection => {
+          const key = `${selection.source_id}`;
+          if (keyMap.has(key)) {
+            console.log(`Skipping duplicate selection for source: ${key}`);
+            return false;
+          }
+          keyMap.set(key, true);
+          return true;
+        });
+        
+        console.log(`Filtered ${collaborationSelections.length} selections to ${uniqueSelections.length} unique ones`);
+
+        // Insert selections ONE BY ONE to avoid the conflict error
+        // This is more robust than bulk insert with upsert
+        let insertSuccessCount = 0;
+        for (const selection of uniqueSelections) {
+          try {
+            const insertData = {
+              curator_id,
+              collab_id: selection.collab_id,
+              period_id,
+              participation_mode: selection.participation_mode,
+              location: selection.location,
+              source_id: selection.source_id,
+              selected_at: new Date().toISOString()
+            };
+            
+            const { error: insertError } = await supabase
+              .from('curator_collab_selections')
+              .insert(insertData);
+              
+            if (insertError) {
+              console.error(`Error inserting collab selection for ${selection.collab_id}:`, insertError);
+              // Continue with other insertions despite this error
+            } else {
+              insertSuccessCount++;
+            }
+          } catch (individualInsertError) {
+            console.error(`Exception during individual collab selection insert:`, individualInsertError);
+            // Continue with other insertions
+          }
+        }
+        
+        console.log(`Successfully inserted ${insertSuccessCount} out of ${uniqueSelections.length} collab selections`);
+        
+        if (insertSuccessCount === 0 && uniqueSelections.length > 0) {
+          // All inserts failed, try fallback approach with simpler data
+          console.log(`All inserts failed, trying fallback approach...`);
+          
+          try {
+            const simpleSelections = uniqueSelections.map(selection => ({
+              curator_id,
+              collab_id: selection.collab_id,
+              period_id,
+              source_id: selection.source_id,
+              selected_at: new Date().toISOString()
+            }));
+            
+            // Try inserting with simplified data
+            const { error: batchInsertError } = await supabase
+              .from('curator_collab_selections')
+              .insert(simpleSelections);
+              
+            if (batchInsertError) {
+              console.error(`Error in fallback batch insert:`, batchInsertError);
+              return { success: false, error: `Failed to save collaboration selections: ${batchInsertError.message}` };
+            } else {
+              console.log(`Fallback batch insert succeeded`);
+            }
+          } catch (fallbackError) {
+            console.error(`Exception during fallback insert:`, fallbackError);
+            return { success: false, error: `Failed to save collaboration selections: ${String(fallbackError)}` };
+          }
+        }
+      } else {
+        console.log(`No collab selections to insert`);
+      }
+    } catch (collabError) {
+      console.error(`Exception during collab selections:`, collabError);
+      return { success: false, error: String(collabError) };
     }
     
     // 4. Save communications selections
-    const { error: deleteCommsError } = await supabase
-      .from('curator_communication_selections')
-      .delete()
-      .eq('curator_id', selections.curator_id)
-      .eq('period_id', selections.period_id);
-      
-    if (deleteCommsError) {
-      console.error("Error deleting comm settings:", deleteCommsError);
-      success = false;
-    }
-    
-    // Insert new settings if communications are selected
-    const { error: insertCommsError } = await supabase
-      .from('curator_communication_selections')
-      .insert({
-        curator_id: selections.curator_id,
-        period_id: selections.period_id,
-        include_communications: selections.selected_communications.length > 0,
-        selected_at: new Date().toISOString()
-      });
-      
-    if (insertCommsError) {
-      console.error("Error inserting comm settings:", insertCommsError);
-      success = false;
-    }
-    
-    return { success };
-    
-  } catch (error) {
-    console.error("Error saving curator selections:", error);
-    return { success: false, error: "Failed to save selections" };
-  }
-}
-
-/**
- * Insert sample data for testing
- */
-export async function insertSampleData(periodId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClientComponentClient();
-  
-  try {
-    // Insert sample campaigns
-    const { error: campaignError } = await supabase
-      .from('campaigns')
-      .insert([
-        {
-          name: "Artisan's Supply Co.",
-          bio: "Premium art supplies and workshops for creators",
-          avatar_url: "/api/placeholder/400/400?text=AS",
-          last_post: "Featured: New Sustainable Paint Collection",
-          discount: 2,
-          period_id: periodId,
-          is_active: true
-        },
-        {
-          name: "The Reading Room",
-          bio: "Independent bookstore with curated collections & events",
-          avatar_url: "/api/placeholder/400/400?text=RR",
-          last_post: "Event: Monthly Poetry Reading Night",
-          discount: 2,
-          period_id: periodId,
-          is_active: true
-        }
-      ]);
-      
-    if (campaignError) {
-      console.error("Error inserting sample campaigns:", campaignError);
-      return { success: false, error: campaignError.message };
-    }
-    
-    // Insert sample collaborations if none exist
-    const { count: collabCount, error: countError } = await supabase
-      .from('collabs')
-      .select('*', { count: 'exact', head: true })
-      .eq('period_id', periodId);
-    
-    if (countError) {
-      console.error("Error counting collaborations:", countError);
-      return { success: false, error: countError.message };
-    }
-    
-    if (collabCount === 0) {
-      // Get an available template for each type
-      const { data: templates, error: templateError } = await supabase
-        .from('collab_templates')
-        .select('id, title, type')
-        .in('type', ['chain', 'theme', 'narrative'])
-        .limit(3);
+    try {
+      const { error: deleteCommsError } = await supabase
+        .from('curator_communication_selections')
+        .delete()
+        .eq('curator_id', curator_id)
+        .eq('period_id', period_id);
         
-      if (templateError) {
-        console.error("Error fetching templates:", templateError);
-        return { success: false, error: templateError.message };
+      if (deleteCommsError) {
+        const errorMsg = deleteCommsError.message || JSON.stringify(deleteCommsError);
+        console.error(`Error deleting comm settings:`, errorMsg);
+        return { success: false, error: errorMsg };
       }
       
-      if (templates && templates.length > 0) {
-        // Create sample collaborations
-        const sampleCollabs = [
-          {
-            title: "Morning Rituals",
-            type: "theme",
-            participation_mode: "community",
-            period_id: periodId,
-            template_id: templates.find(t => t.type === 'theme')?.id,
-            metadata: {
-              description: "Capture those bleary-eyed moments when coffee is still a wish."
-            }
-          },
-          {
-            title: "Urban Spaces",
-            type: "chain",
-            participation_mode: "local",
-            location: "Downtown",
-            period_id: periodId,
-            template_id: templates.find(t => t.type === 'chain')?.id,
-            metadata: {
-              description: "A sequential exploration of urban environments and shared spaces."
-            }
-          },
-          {
-            title: "Four Seasons",
-            type: "chain",
-            participation_mode: "private",
-            period_id: periodId,
-            template_id: templates.find(t => t.type === 'chain')?.id,
-            metadata: {
-              description: "Document seasonal changes in one location over a year."
-            }
-          },
-          {
-            title: "Local Legends",
-            type: "narrative",
-            participation_mode: "community",
-            period_id: periodId,
-            template_id: templates.find(t => t.type === 'narrative')?.id,
-            metadata: {
-              description: "Every neighborhood has that one mysterious character with stories to tell."
-            }
-          }
-        ];
+      console.log(`Successfully deleted existing communication selections`);
+      
+      // Insert new settings if communications are selected
+      const { error: insertCommsError } = await supabase
+        .from('curator_communication_selections')
+        .insert({
+          curator_id,
+          period_id,
+          include_communications: selected_communications.length > 0,
+          selected_at: new Date().toISOString()
+        });
         
-        const { error: collabError } = await supabase
-          .from('collabs')
-          .insert(sampleCollabs);
-          
-        if (collabError) {
-          console.error("Error inserting sample collaborations:", collabError);
-          return { success: false, error: collabError.message };
-        }
+      if (insertCommsError) {
+        const errorMsg = insertCommsError.message || JSON.stringify(insertCommsError);
+        console.error(`Error inserting comm settings:`, errorMsg);
+        return { success: false, error: errorMsg };
       }
+      
+      console.log(`Successfully inserted communication selections`);
+    } catch (commsError) {
+      console.error(`Exception during communication selections:`, commsError);
+      return { success: false, error: String(commsError) };
     }
     
+    console.log(`Successfully completed all selection operations!`);
     return { success: true };
     
   } catch (error) {
-    console.error("Error inserting sample data:", error);
-    return { success: false, error: "Failed to insert sample data" };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Critical error in saveCuratorSelections:`, error);
+    return { success: false, error: errorMessage };
   }
 }
 
@@ -922,21 +1276,19 @@ export async function getCollaborationDetails(collabId: string): Promise<{ succe
   const supabase = createClientComponentClient();
   
   try {
+    // Modified query to get details without using period_id or invalid join
     const { data, error } = await supabase
       .from('collabs')
       .select(`
         id,
         title,
+        description,
         type,
+        is_private,
         participation_mode,
         location,
         metadata,
-        template_id,
-        collab_templates:template_id (
-          instructions,
-          display_text,
-          requirements
-        )
+        template_id
       `)
       .eq('id', collabId)
       .single();
@@ -962,21 +1314,42 @@ export async function getCollaborationDetails(collabId: string): Promise<{ succe
       return { success: false, error: countError.message };
     }
     
-    // Get the template data
-    const template = data.collab_templates || {};
-    const templateData = Array.isArray(template) ? template[0] || {} : template;
+    // Get template info separately if a template_id exists
+    let templateData = null;
+    if (data.template_id) {
+      const { data: template, error: templateError } = await supabase
+        .from('collab_templates')
+        .select('instructions, display_text, requirements')
+        .eq('id', data.template_id)
+        .single();
+        
+      if (!templateError && template) {
+        templateData = template;
+      }
+    }
+    
     const metadata = data.metadata || {};
+    
+    // Determine participation mode
+    let participationMode: 'private' | 'local' | 'community';
+    if (data.participation_mode) {
+      participationMode = data.participation_mode as 'private' | 'local' | 'community';
+    } else if (data.is_private) {
+      participationMode = 'private';
+    } else {
+      participationMode = 'community';
+    }
     
     // Format the collaboration
     const collaboration = {
       id: data.id,
       title: data.title,
       type: data.type,
-      participation_mode: data.participation_mode,
+      participation_mode: participationMode,
       location: data.location,
-      description: metadata.description || templateData.display_text || '',
-      instructions: templateData.instructions || '',
-      requirements: templateData.requirements || '',
+      description: metadata.description || data.description || templateData?.display_text || '',
+      instructions: templateData?.instructions || '',
+      requirements: templateData?.requirements || '',
       participant_count: participantCount || 0
     };
     
@@ -985,5 +1358,108 @@ export async function getCollaborationDetails(collabId: string): Promise<{ succe
   } catch (error) {
     console.error("Error fetching collaboration details:", error);
     return { success: false, error: "Failed to fetch collaboration details" };
+  }
+}
+
+/**
+ * Get cities with participant counts for local collaborations
+ */
+export async function getCitiesWithParticipantCounts(): Promise<{
+  success: boolean;
+  error?: string;
+  cities?: Array<{ name: string; state?: string; participant_count: number }>;
+}> {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // Fetch cities from collab_participants table
+    const { data: cityData, error: cityError } = await supabase
+      .from('collab_participants')
+      .select(`
+        city,
+        location
+      `)
+      .eq('participation_mode', 'local')
+      .eq('status', 'active');
+      
+    if (cityError) {
+      console.error("Error fetching cities:", cityError);
+      return { success: false, error: cityError.message };
+    }
+    
+    // Compile a list of cities with participant counts
+    const cityCountMap: Record<string, number> = {};
+    
+    // Process city and location fields
+    for (const record of cityData || []) {
+      // Use city field first, fall back to location
+      const cityName = record.city || record.location;
+      
+      if (cityName) {
+        if (cityCountMap[cityName]) {
+          cityCountMap[cityName]++;
+        } else {
+          cityCountMap[cityName] = 1;
+        }
+      }
+    }
+    
+    // Also fetch location data from collabs table
+    const { data: collabLocationData, error: collabLocationError } = await supabase
+      .from('collabs')
+      .select('location')
+      .eq('participation_mode', 'local')
+      .not('location', 'is', null);
+      
+    if (!collabLocationError && collabLocationData) {
+      for (const record of collabLocationData) {
+        if (record.location) {
+          // Add locations from the collabs table, but don't count participants
+          // This ensures we have the location in our list even if it has no participants yet
+          if (!cityCountMap[record.location]) {
+            cityCountMap[record.location] = 0;
+          }
+        }
+      }
+    }
+    
+    // Format the result
+    const cities = Object.entries(cityCountMap).map(([cityName, count]) => {
+      const parts = cityName.split(',').map(part => part.trim());
+      return {
+        name: parts[0],
+        state: parts[1] || undefined,
+        participant_count: count
+      };
+    });
+    
+    // Sort by participant count (highest first), then by name
+    cities.sort((a, b) => {
+      if (b.participant_count !== a.participant_count) {
+        return b.participant_count - a.participant_count;
+      }
+      return a.name.localeCompare(b.name);
+    });
+    
+    // If no cities found, provide default list
+    if (cities.length === 0) {
+      return {
+        success: true,
+        cities: [
+          { name: 'New York', state: 'NY', participant_count: 0 },
+          { name: 'Los Angeles', state: 'CA', participant_count: 0 },
+          { name: 'Chicago', state: 'IL', participant_count: 0 },
+          { name: 'San Francisco', state: 'CA', participant_count: 0 },
+          { name: 'Miami', state: 'FL', participant_count: 0 },
+          { name: 'Austin', state: 'TX', participant_count: 0 }
+        ]
+      };
+    }
+    
+    return { success: true, cities };
+    
+  } catch (error) {
+    console.error("Error getting cities with participant counts:", error);
+    return { success: false, error: "Failed to fetch city participant data" };
   }
 }
