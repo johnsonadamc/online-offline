@@ -37,6 +37,8 @@ import { getCurrentPeriod } from '@/lib/supabase/content';
 import { getUserCollabs, leaveCollab } from '@/lib/supabase/collabs';
 import { getCurationData, saveCuratorSelections, getAvailableCollabTemplates } from '@/lib/supabase/curation';
 import { getCollaborationsForCuration, getCollabTemplatesForPeriod } from '@/lib/supabase/collabLibrary';
+import { sendFollowRequest } from '@/lib/supabase/profiles';
+
 
 // Basic interfaces (simplified)
 interface Creator {
@@ -148,7 +150,7 @@ export default function CurationInterface() {
   const adDiscountAmount = 2;
   const maxContentPieces = 20;
   const sectionHeight = "550px"; // Fixed height for section content areas
-
+  const [showMobileStats, setShowMobileStats] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [creators, setCreators] = useState<Creator[]>([]);
@@ -164,6 +166,7 @@ export default function CurationInterface() {
   const [followRequests, setFollowRequests] = useState<Record<string, boolean>>({});
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
   
   // Section visibility toggles
   const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({
@@ -684,6 +687,23 @@ if (result.selections) {
     setFollowRequests(prev => ({ ...prev, [creatorId]: true }));
   };
 
+  const handleRequestFollow = async (creatorId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering card selection
+    
+    const result = await sendFollowRequest(creatorId);
+    
+    if (result.success) {
+      setPendingRequestMap(prev => ({
+        ...prev,
+        [creatorId]: true
+      }));
+      
+      alert('Follow request sent!');
+    } else {
+      alert(`Error: ${result.error || 'Failed to send request'}`);
+    }
+  };
+
   // Improved saveSelections function with proper type handling
   const saveSelections = async () => {
     setSavingSelections(true);
@@ -772,14 +792,15 @@ if (result.selections) {
     const CreatorIcon = creator.icon;
     const isSelected = selectedCreators.includes(creator.id);
     const previousQuarterLabel = getPreviousQuarterLabel();
+    const hasPendingRequest = pendingRequestMap[creator.id];
     
     return (
       <div 
         key={creator.id}
-        onClick={() => toggleItem(creator.id, "friend")}
-        className={`bg-white rounded-lg shadow-sm border p-5 cursor-pointer transition-all hover:bg-gray-50 ${
-          isSelected ? "ring-2 ring-blue-500" : ""
-        }`}
+        onClick={() => creator.isPrivate ? null : toggleItem(creator.id, "friend")}
+        className={`bg-white rounded-lg shadow-sm border p-5 
+          ${creator.isPrivate ? 'cursor-default' : 'cursor-pointer transition-all hover:bg-gray-50'}
+          ${!creator.isPrivate && isSelected ? "ring-2 ring-blue-500" : ""}`}
       >
         <div className="flex items-start justify-between">
           <div className="flex items-start">
@@ -803,9 +824,9 @@ if (result.selections) {
                     <span className="truncate">Private</span>
                   </span>
                   
-                  {!followRequests[creator.id] ? (
+                  {!hasPendingRequest ? (
                     <button
-                      onClick={(e) => handleFollowRequest(creator.id, e)}
+                      onClick={(e) => handleRequestFollow(creator.id, e)}
                       className="mt-1 w-16 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-[9px] flex items-center justify-center transition-colors"
                       title="Request to follow this creator"
                     >
@@ -842,22 +863,24 @@ if (result.selections) {
               <p className="text-xs text-blue-500">{creator.lastPost}</p>
             </div>
           </div>
-          <div className="flex items-center justify-center"
-            style={{ 
-              width: '24px', 
-              height: '24px', 
-              borderRadius: '50%',
-              backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-              borderWidth: isSelected ? '0' : '1px',
-              borderColor: '#d1d5db',
-              borderStyle: 'solid',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isSelected && <Check size={14} className="text-white" />}
-          </div>
+          {!creator.isPrivate && (
+            <div className="flex items-center justify-center"
+              style={{ 
+                width: '24px', 
+                height: '24px', 
+                borderRadius: '50%',
+                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                borderWidth: isSelected ? '0' : '1px',
+                borderColor: '#d1d5db',
+                borderStyle: 'solid',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {isSelected && <Check size={14} className="text-white" />}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -1008,144 +1031,185 @@ if (result.selections) {
   // Main render
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header section */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <Link href="/dashboard" className="text-sm flex items-center text-gray-500 hover:text-gray-700 mb-2">
-              <ArrowLeft size={16} className="mr-1" />
-              Back to Dashboard
-            </Link>
-            <h1 className="text-3xl font-medium">Curate Your Magazine</h1>
-            {currentPeriod && (
-              <p className="text-gray-600 mt-1">
-                {currentPeriod.season} {currentPeriod.year} Issue
-              </p>
-            )}
-          </div>
-          <div className="text-right">
-            <div className="mb-2 p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-500">Slots Remaining</div>
-              <div className="text-3xl font-medium">
-                {remainingContent} <span className="text-sm text-gray-500">/ {maxContentPieces}</span>
-              </div>
+      {/* Header section - sticky version with simplified price display */}
+<div className="sticky top-0 z-10 bg-white border-b mb-6 shadow-sm">
+  <div className="max-w-6xl mx-auto px-4 py-3">
+    {/* Top row with back button and title */}
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <Link href="/dashboard" className="mr-3 text-gray-500 hover:text-gray-700">
+          <ArrowLeft size={18} />
+        </Link>
+        <div>
+          <h1 className="text-xl font-medium leading-tight">Curate Your Magazine</h1>
+          {currentPeriod && (
+            <p className="text-sm text-gray-600">
+              {currentPeriod.season} {currentPeriod.year} Issue
+            </p>
+          )}
+        </div>
+      </div>
+      
+      {/* Equal-sized stat boxes with simplified price display */}
+      <div className="hidden md:flex items-center gap-4">
+        {/* Slots Indicator */}
+        <div className="flex items-center bg-gray-50 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors w-[130px] h-[70px]">
+          <div className="text-center w-full">
+            <div className="text-xs text-gray-500 font-medium mb-1">Slots Remaining</div>
+            <div className="text-lg font-medium flex items-center justify-center">
+              <span className="text-blue-600">{remainingContent}</span>
+              <span className="text-blue-600 mx-1">/</span>
+              <span className="text-blue-600">{maxContentPieces}</span>
             </div>
-            
-            <div className="p-3 bg-green-50 rounded-lg">
-              <div className="text-sm text-gray-600">Quarterly Price</div>
-              <div className="text-3xl font-medium text-green-600">
-                ${calculatePrice()}.00
-              </div>
+          </div>
+        </div>
+        
+        {/* Price Indicator - simplified */}
+        <div className="flex items-center bg-green-50 rounded-lg px-4 py-2 hover:bg-green-100 transition-colors w-[130px] h-[70px]">
+          <div className="text-center w-full">
+            <div className="text-xs text-gray-500 font-medium mb-1">Quarterly Price</div>
+            <div className="text-lg font-medium text-green-600 flex items-center justify-center">
+              ${calculatePrice().toFixed(2)}
               {selectedAds.length > 0 && (
-                <div className="text-xs text-green-600">
-                  ${selectedAds.length * adDiscountAmount} discount applied
-                </div>
+                <span className="text-sm text-green-600 ml-2">
+                  (-${(selectedAds.length * adDiscountAmount).toFixed(2)})
+                </span>
               )}
             </div>
           </div>
         </div>
-
-        {/* Search section */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <Input
-              type="text"
-              placeholder="Search creators, content, and collaborations..."
-              className="w-full pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          {/* Save button at the top */}
-          <Button
-            onClick={saveSelections}
-            disabled={savingSelections}
-            className="px-8 py-2 bg-blue-500 text-white"
-          >
-            {savingSelections ? 'Saving...' : 'Save Selections'}
-          </Button>
-          {/* Reset ALL Selections button */}
-{/* Clean Slate button */}
-<Button
-  onClick={() => {
-    // Add confirmation dialog
-    if (window.confirm("Are you sure you want to reset all selections? This will clear everything from your curation.")) {
-      // Clear all state
-      setSelectedCollabs([]);
-      setSelectedCreators([]);
-      setSelectedAds([]);
-      setSelectedCommunications([]);
+      </div>
       
-      // Clear localStorage
-      localStorage.removeItem('temp_selected_collabs');
-      localStorage.removeItem('magazine_selections');
-      localStorage.removeItem('selected_cities');
-      
-      // Perform complete database cleanup
-      const cleanupDB = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && currentPeriod?.id) {
-          // Clear collaboration selections
-          await supabase
-            .from('curator_collab_selections')
-            .delete()
-            .eq('curator_id', user.id)
-            .eq('period_id', currentPeriod.id);
-          
-          // Clear creator selections
-          await supabase
-            .from('curator_creator_selections')
-            .delete()
-            .eq('curator_id', user.id)
-            .eq('period_id', currentPeriod.id);
-          
-          // Clear campaign (ad) selections
-          await supabase
-            .from('curator_campaign_selections')
-            .delete()
-            .eq('curator_id', user.id)
-            .eq('period_id', currentPeriod.id);
-          
-          // Clear communications selections
-          await supabase
-            .from('curator_communication_selections')
-            .delete()
-            .eq('curator_id', user.id)
-            .eq('period_id', currentPeriod.id);
-        }
-      };
-      
-      cleanupDB();
-      alert('All selections have been reset');
-    }
-  }}
-  className="px-4 py-2 bg-red-500 text-white"
->
-  Reset All
-</Button>
-
+      {/* Mobile stats toggle button */}
+      <button 
+        className="md:hidden relative flex items-center justify-center bg-gray-100 rounded-full w-10 h-10 hover:bg-gray-200 transition-colors"
+        onClick={() => {
+          setShowMobileStats(!showMobileStats)
+        }}
+      >
+        <DollarSign size={20} className="text-gray-600" />
+        <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+          {remainingContent}
+        </div>
+      </button>
+    </div>
+    
+    {/* Mobile stats row - with simplified price display */}
+    <div className={`md:hidden grid grid-cols-2 gap-3 mt-3 ${showMobileStats ? 'block' : 'hidden'}`}>
+      <div className="bg-gray-50 rounded-lg p-3 h-20 flex flex-col justify-center">
+        <div className="text-xs text-gray-500 text-center mb-1">Slots Remaining</div>
+        <div className="text-base font-medium text-blue-600 text-center">
+          {remainingContent} / {maxContentPieces}
         </div>
       </div>
+      
+      <div className="bg-green-50 rounded-lg p-3 h-20 flex flex-col justify-center">
+        <div className="text-xs text-gray-500 text-center mb-1">Quarterly Price</div>
+        <div className="text-base font-medium text-green-600 text-center flex items-center justify-center">
+          ${calculatePrice().toFixed(2)}
+          {selectedAds.length > 0 && (
+            <span className="text-xs ml-1">(-${(selectedAds.length * adDiscountAmount).toFixed(2)})</span>
+          )}
+        </div>
+      </div>
+    </div>
+    
+    {/* Search and buttons row */}
+    <div className="flex flex-col sm:flex-row items-center gap-2 mt-3">
+      <div className="relative flex-1 w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+        <Input
+          type="text"
+          placeholder="Search creators, content, and collaborations..."
+          className="w-full pl-9 py-1.5 h-10 text-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
+      
+      <div className="flex gap-2 w-full sm:w-auto">
+        <Button
+          onClick={saveSelections}
+          disabled={savingSelections}
+          className="h-10 px-4 bg-blue-500 text-white flex-1 sm:flex-none hover:bg-blue-600 transition-colors"
+        >
+          {savingSelections ? 'Saving...' : 'Save'}
+        </Button>
+        
+        <Button
+          onClick={() => {
+            if (window.confirm("Are you sure you want to reset all selections? This will clear everything from your curation.")) {
+              // Clear all state
+              setSelectedCollabs([]);
+              setSelectedCreators([]);
+              setSelectedAds([]);
+              
+              // Clear localStorage
+              localStorage.removeItem('temp_selected_collabs');
+              localStorage.removeItem('magazine_selections');
+              localStorage.removeItem('selected_cities');
+              
+              // Perform complete database cleanup
+              const cleanupDB = async () => {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user && currentPeriod?.id) {
+                  // Clear collaboration selections
+                  await supabase
+                    .from('curator_collab_selections')
+                    .delete()
+                    .eq('curator_id', user.id)
+                    .eq('period_id', currentPeriod.id);
+                  
+                  // Clear creator selections
+                  await supabase
+                    .from('curator_creator_selections')
+                    .delete()
+                    .eq('curator_id', user.id)
+                    .eq('period_id', currentPeriod.id);
+                  
+                  // Clear campaign (ad) selections
+                  await supabase
+                    .from('curator_campaign_selections')
+                    .delete()
+                    .eq('curator_id', user.id)
+                    .eq('period_id', currentPeriod.id);
+                }
+              };
+              
+              cleanupDB();
+              alert('All selections have been reset');
+            }
+          }}
+          className="h-10 px-4 bg-red-500 text-white flex-1 sm:flex-none hover:bg-red-600 transition-colors"
+        >
+          Reset
+        </Button>
+      </div>
+    </div>
+  </div>
+</div>
 
       {/* Main content area */}
       <div className="grid gap-6">
-        {/* Section toggles */}
-        <div className="flex flex-wrap gap-2">
-          {Object.entries(visibleSections).map(([key, value]) => (
-            <button
-              key={key}
-              onClick={() => setVisibleSections(prev => ({ ...prev, [key]: !prev[key] }))}
-              className={`px-3 py-1 rounded-full text-sm ${
-                value ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600'
-              }`}
-            >
-              {key.charAt(0).toUpperCase() + key.slice(1)}
-              {value ? ' ✓' : ''}
-            </button>
-          ))}
-        </div>
+        {/* Section toggles - centered without box */}
+<div className="flex justify-center mb-6 overflow-x-auto">
+  <div className="flex items-center gap-2 min-w-max">
+    {Object.entries(visibleSections).map(([key, value]) => (
+      <button
+        key={key}
+        onClick={() => setVisibleSections(prev => ({ ...prev, [key]: !prev[key] }))}
+        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+          value 
+            ? 'bg-blue-500 text-white hover:bg-blue-600' 
+            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+        }`}
+      >
+        {key.charAt(0).toUpperCase() + key.slice(1)}
+        {value ? ' ✓' : ''}
+      </button>
+    ))}
+  </div>
+</div>
 
         {/* Content Sections - all with fixed height */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

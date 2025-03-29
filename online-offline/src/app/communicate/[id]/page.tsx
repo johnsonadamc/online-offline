@@ -20,6 +20,7 @@ import {
   Send
 } from 'lucide-react';
 import { saveCommunication } from '@/lib/supabase/communications';
+import { canCommunicateWith } from '@/lib/supabase/profiles';
 
 interface PageParams {
   id: string;
@@ -35,8 +36,14 @@ interface Profile {
 export default function CommunicateEditorPage({ params }: { params: PageParams }) {
   const communicationId = params.id !== 'new' ? params.id : null;
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClientComponentClient({
+    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  });
   
+  const [hasPermission, setHasPermission] = useState(true);
+  const [permissionCheckComplete, setPermissionCheckComplete] = useState(false);
+
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -51,6 +58,7 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
   
   // Word limit constant
   const WORD_LIMIT = 250;
@@ -90,6 +98,13 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
           setExistingImageUrl(data.image_url || null);
           setSelectedRecipient(data.profiles || null);
           calculateWordCount(data.content || '');
+          
+          // Check permission for the loaded recipient
+          if (data.profiles) {
+            const result = await canCommunicateWith(data.profiles.id);
+            setHasPermission(result.allowed);
+            setPermissionCheckComplete(true);
+          }
         }
       } catch (err) {
         console.error('Error fetching communication:', err);
@@ -157,40 +172,41 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
   };
   
   const searchContributors = async (term: string) => {
-    if (!term || term.length < 2) {
+    if (!term || term.length < 1) { // Changed from 2 to 1 to allow single-character searches
       setSearchResults([]);
       return;
     }
     
+    const searchTerm = term.trim(); // Trim whitespace
+    console.log("Searching for exact term:", searchTerm);
+    
     try {
-      // First get profile IDs that are contributors
-      const { data: profileTypes, error: typeError } = await supabase
-        .from('profile_types')
-        .select('profile_id')
-        .eq('type', 'contributor');
-        
-      if (typeError) throw typeError;
+      // Use a direct Supabase query with the exact term
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, is_public')
+        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`)
+        .limit(10);
       
-      if (profileTypes && profileTypes.length > 0) {
-        const profileIds = profileTypes.map(pt => pt.profile_id);
-        
-        // Then search public profiles with those IDs
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .in('id', profileIds)
-          .eq('is_public', true)
-          .or(`first_name.ilike.%${term}%,last_name.ilike.%${term}%`)
-          .limit(5);
-          
-        if (error) throw error;
-        setSearchResults(data || []);
+      console.log("Search results:", data);
+      
+      if (error) {
+        console.error("Supabase query error:", error);
+        setError('Database query failed: ' + error.message);
+        return;
+      }
+      
+      // Filter for public profiles only
+      if (data && data.length > 0) {
+        const publicProfiles = data.filter(profile => profile.is_public === true);
+        console.log("Public profiles only:", publicProfiles);
+        setSearchResults(publicProfiles);
       } else {
         setSearchResults([]);
       }
     } catch (err) {
-      console.error('Error searching contributors:', err);
-      setError('Failed to search for contributors');
+      console.error('Unexpected error:', err);
+      setError('An unexpected error occurred');
     }
   };
   
@@ -201,11 +217,18 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
     setShowSearchResults(true);
   };
   
-  const selectRecipient = (recipient: Profile) => {
+  const selectRecipient = async (recipient: Profile) => {
     setSelectedRecipient(recipient);
     setSearchTerm('');
     setSearchResults([]);
     setShowSearchResults(false);
+    
+    // Check permission for the selected recipient
+    if (recipient) {
+      const result = await canCommunicateWith(recipient.id);
+      setHasPermission(result.allowed);
+      setPermissionCheckComplete(true);
+    }
   };
   
   const uploadImage = async () => {
@@ -242,6 +265,12 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
     
     if (!subject.trim()) {
       setError('Please enter a subject');
+      return;
+    }
+    
+    // Check permission before saving
+    if (!hasPermission) {
+      setError('You do not have permission to send communications to this user');
       return;
     }
     
@@ -292,6 +321,12 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
     
     if (wordCount > WORD_LIMIT) {
       setError(`Content exceeds the ${WORD_LIMIT} word limit`);
+      return;
+    }
+    
+    // Check permission before submitting
+    if (!hasPermission) {
+      setError('You do not have permission to send communications to this user');
       return;
     }
     
@@ -387,6 +422,19 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
           <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6 flex items-start gap-3">
             <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
             <p className="text-red-700">{error}</p>
+          </div>
+        )}
+        
+        {/* Add permission warning message */}
+        {permissionCheckComplete && !hasPermission && selectedRecipient && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6 flex items-start gap-3">
+            <AlertCircle size={20} className="text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-red-700 font-medium">Permission Required</p>
+              <p className="text-red-600">
+                You need to request access to {selectedRecipient.first_name}'s profile before sending communications.
+              </p>
+            </div>
           </div>
         )}
         
@@ -556,8 +604,8 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
           <div className="flex gap-3">
             <Button
               onClick={handleSaveDraft}
-              disabled={saving || submitting}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 flex items-center gap-2"
+              disabled={saving || submitting || !hasPermission}
+              className={`bg-gray-200 hover:bg-gray-300 text-gray-800 flex items-center gap-2 ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {saving ? 'Saving...' : (
                 <>
@@ -569,8 +617,8 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
             
             <Button
               onClick={handleSubmit}
-              disabled={saving || submitting || wordCount > WORD_LIMIT}
-              className="bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2"
+              disabled={saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
+              className={`bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2 ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {submitting ? 'Submitting...' : (
                 <>

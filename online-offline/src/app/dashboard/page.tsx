@@ -559,9 +559,10 @@ if (submittedCommsResult.success && submittedCommsResult.submissions) {
     loadData();
   }, []);
   
-  // Load curator-specific data when on curator tab
   useEffect(() => {
-    if (activeTab === 'curate' && currentPeriod) {
+    // Add a condition here that will be false to disable loading
+    const enableCuratorComms = false; // This disables loading without removing code
+    if (activeTab === 'curate' && currentPeriod && enableCuratorComms) {
       const loadCuratorData = async () => {
         try {
           const receivedResult = await getReceivedCommunications(currentPeriod.id);
@@ -586,7 +587,7 @@ if (submittedCommsResult.success && submittedCommsResult.submissions) {
       
       loadCuratorData();
     }
-  }, [activeTab, currentPeriod]);
+  }, [activeTab, currentPeriod]);  
   
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -1056,33 +1057,6 @@ if (submittedCommsResult.success && submittedCommsResult.submissions) {
             >
               Start Curating
             </Link>
-          </Card>
-          
-          {/* Communications Card for Curators */}
-          <Card className="p-6 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Communications</h2>
-              {receivedCommunications.length > 0 && (
-                <div className="px-3 py-1 bg-blue-100 rounded-full text-sm text-blue-600">
-                  {receivedCommunications.length} messages
-                </div>
-              )}
-            </div>
-            
-            <p className="text-gray-600 mb-6">
-              Select messages from contributors to include in your printed magazine.
-            </p>
-            
-            {receivedCommunications.length > 0 ? (
-              <Link 
-                href="/curate/communications" 
-                className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Manage Communications
-              </Link>
-            ) : (
-              <p className="text-sm text-gray-500">No communications received yet</p>
-            )}
           </Card>
         </motion.div>
       </div>
