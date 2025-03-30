@@ -11,7 +11,46 @@ export async function sendFollowRequest(followedId: string) {
     
     const followerId = user.id;
     
-    // Create the connection - we'll use the subscriptions table for now
+    // First check if a subscription record already exists
+    const { data: existingSubscription, error: checkError } = await supabase
+      .from('subscriptions')
+      .select('id, status')
+      .eq('subscriber_id', followerId)
+      .eq('creator_id', followedId)
+      .maybeSingle();
+      
+    if (checkError && checkError.code !== 'PGRST116') {
+      // PGRST116 means no records found, which is expected
+      console.error("Error checking for existing subscription:", checkError);
+      throw checkError;
+    }
+    
+    // If a subscription already exists
+    if (existingSubscription) {
+      // If it's already pending or active, just return that status
+      if (existingSubscription.status === 'pending' || existingSubscription.status === 'active') {
+        return { 
+          success: true, 
+          status: existingSubscription.status,
+          message: `Request already ${existingSubscription.status}`
+        };
+      }
+      
+      // Otherwise, update the existing record (e.g., from rejected to pending)
+      const { error: updateError } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'pending', 
+          subscribed_at: new Date().toISOString()
+        })
+        .eq('id', existingSubscription.id);
+        
+      if (updateError) throw updateError;
+      
+      return { success: true, status: 'pending' };
+    }
+    
+    // Create a new subscription record if one doesn't exist
     const { error } = await supabase
       .from('subscriptions')
       .insert({

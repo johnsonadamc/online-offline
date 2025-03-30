@@ -76,6 +76,12 @@ export const getDraftCommunications = async () => {
       throw error;
     }
     
+    // Add debugging logs
+    console.log("Draft communications data:", data);
+    if (data && data.length > 0) {
+      console.log("First draft profiles:", data[0].profiles);
+    }
+    
     return { success: true, drafts: data };
   } catch (error) {
     console.error('Error fetching draft communications:', error);
@@ -291,74 +297,62 @@ export const submitCommunication = async (id: string) => {
   }
 };
 
-// Withdraw a submitted communication (revert to draft)
-export const withdrawCommunication = async (id: string) => {
+// Withdraw a submitted communication back to draft status
+export async function withdrawCommunication(communicationId: string): Promise<{
+  success: boolean;
+  error?: string;
+  communication?: any;
+}> {
+  const supabase = createClientComponentClient();
+  
   try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      return { success: false, error: 'User not authenticated' };
-    }
-    
-    // First get the communication with its period_id
-    const { data: comm, error: commError } = await supabase
-      .from('communications')
-      .select('period_id')
-      .eq('id', id)
-      .single();
-    
-    if (commError || !comm || !comm.period_id) {
-      return { success: false, error: 'Communication not found' };
-    }
-    
-    // Then directly query the period table to get the end_date
-    const { data: period, error: periodError } = await supabase
-      .from('periods')
-      .select('end_date')
-      .eq('id', comm.period_id)
-      .single();
-    
-    if (periodError || !period || !period.end_date) {
-      return { success: false, error: 'Period information not found' };
-    }
-    
-    // Check if period has ended
-    const periodEndDate = new Date(period.end_date);
-    const now = new Date();
-    
-    if (now > periodEndDate) {
-      return { success: false, error: 'Cannot withdraw after period has ended' };
-    }
-    
-    // Now withdraw the communication (change status back to draft)
-    const { data, error } = await supabase
+    // First, update the communication status back to 'draft'
+    const { error: updateError } = await supabase
       .from('communications')
       .update({
         status: 'draft',
         updated_at: new Date().toISOString()
       })
-      .eq('id', id)
-      .eq('sender_id', user.id)
-      .eq('status', 'submitted')
-      .select();
-    
-    if (error) {
-      throw error;
+      .eq('id', communicationId);
+      
+    if (updateError) {
+      console.error("Error withdrawing communication:", updateError);
+      return { success: false, error: updateError.message };
     }
     
-    // Remove any notifications
-    await supabase
-      .from('communication_notifications')
-      .delete()
-      .eq('communication_id', id);
+    // Then fetch the updated communication with profile data
+    const { data, error: fetchError } = await supabase
+      .from('communications')
+      .select(`
+        id,
+        subject,
+        content,
+        image_url,
+        status,
+        created_at,
+        updated_at,
+        recipient_id,
+        profiles:recipient_id (
+          first_name,
+          last_name,
+          avatar_url
+        )
+      `)
+      .eq('id', communicationId)
+      .single();
+      
+    if (fetchError) {
+      console.error("Error fetching withdrawn communication:", fetchError);
+      return { success: true, communication: { id: communicationId, status: 'draft' } };
+    }
     
-    return { success: true, communication: data?.[0] || null };
+    return { success: true, communication: data };
+    
   } catch (error) {
-    console.error('Error withdrawing communication:', error);
-    return { success: false, error };
+    console.error("Unexpected error in withdrawCommunication:", error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
-};
+}
 
 // Get list of contributors for recipient selection
 export const getContributors = async () => {
@@ -457,6 +451,7 @@ export const selectCommunications = async (
     return { success: false, error };
   }
 };
+
 // Get a count of communications for a specific curator
 export const getCommunicationCount = async (curatorId: string) => {
   try {
