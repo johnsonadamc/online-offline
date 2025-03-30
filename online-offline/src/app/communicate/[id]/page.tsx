@@ -17,10 +17,18 @@ import {
   Upload, 
   User, 
   Save,
-  Send
+  Send,
+  Trash2
 } from 'lucide-react';
 import { saveCommunication } from '@/lib/supabase/communications';
 import { canCommunicateWith } from '@/lib/supabase/profiles';
+import React from 'react';
+
+// Helper function to get ID safely
+function getParamId(params: any): string {
+  // @ts-ignore - Next.js params warnings
+  return params.id;
+}
 
 interface PageParams {
   id: string;
@@ -34,7 +42,10 @@ interface Profile {
 }
 
 export default function CommunicateEditorPage({ params }: { params: PageParams }) {
-  const communicationId = params.id !== 'new' ? params.id : null;
+  // Use the helper function instead of direct destructuring
+  const id = getParamId(params);
+  const communicationId = id !== 'new' ? id : null;
+  
   const router = useRouter();
   const supabase = createClientComponentClient({
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -43,6 +54,7 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
   
   const [hasPermission, setHasPermission] = useState(true);
   const [permissionCheckComplete, setPermissionCheckComplete] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
@@ -58,6 +70,7 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   
   
   // Word limit constant
@@ -172,12 +185,12 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
   };
   
   const searchContributors = async (term: string) => {
-    if (!term || term.length < 1) { // Changed from 2 to 1 to allow single-character searches
+    if (!term || term.length < 1) { 
       setSearchResults([]);
       return;
     }
     
-    const searchTerm = term.trim(); // Trim whitespace
+    const searchTerm = term.trim(); 
     console.log("Searching for exact term:", searchTerm);
     
     try {
@@ -390,6 +403,44 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
     }
   };
   
+  const handleDelete = async () => {
+    if (!communicationId) {
+      router.push('/dashboard');
+      return;
+    }
+    
+    setDeleting(true);
+    setError(null);
+    
+    try {
+      // First, delete any related notifications
+      const { error: notificationError } = await supabase
+        .from('communication_notifications')
+        .delete()
+        .eq('communication_id', communicationId);
+      
+      if (notificationError) {
+        console.error('Error deleting notifications:', notificationError);
+        throw notificationError;
+      }
+      
+      // Then delete the communication itself
+      const { error } = await supabase
+        .from('communications')
+        .delete()
+        .eq('id', communicationId);
+        
+      if (error) throw error;
+      
+      // Redirect to dashboard after successful deletion
+      router.push('/dashboard');
+    } catch (err: any) {
+      console.error('Error deleting communication:', err);
+      setError(err.message || 'Failed to delete communication');
+      setDeleting(false);
+    }
+  };
+  
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6">
@@ -592,43 +643,76 @@ export default function CommunicateEditorPage({ params }: { params: PageParams }
           </div>
         </div>
         
-        <div className="flex justify-between">
-          <Button
-            onClick={() => router.push('/dashboard')}
-            disabled={saving || submitting}
-            className="bg-gray-200 hover:bg-gray-300 text-gray-800"
-          >
-            Cancel
-          </Button>
-          
-          <div className="flex gap-3">
-            <Button
-              onClick={handleSaveDraft}
-              disabled={saving || submitting || !hasPermission}
-              className={`bg-gray-200 hover:bg-gray-300 text-gray-800 flex items-center gap-2 ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {saving ? 'Saving...' : (
-                <>
-                  <Save size={16} />
-                  Save Draft
-                </>
-              )}
-            </Button>
-            
-            <Button
-              onClick={handleSubmit}
-              disabled={saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
-              className={`bg-blue-500 hover:bg-blue-600 text-white flex items-center gap-2 ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              {submitting ? 'Submitting...' : (
-                <>
-                  <Send size={16} />
-                  Submit
-                </>
-              )}
-            </Button>
+        {/* Improved mobile-friendly button section with 3 buttons */}
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  {communicationId && (
+    <Button
+      onClick={() => setShowDeleteConfirm(true)}
+      disabled={saving || submitting || deleting}
+      className="bg-red-500 hover:bg-red-600 text-white flex items-center justify-center gap-2 h-12 sm:h-10 px-4 col-span-1"
+    >
+      <Trash2 size={16} />
+      Delete
+    </Button>
+  )}
+  
+  <Button
+    onClick={handleSaveDraft}
+    disabled={saving || submitting || deleting || !hasPermission}
+    className={`bg-blue-400 hover:bg-blue-500 text-white flex items-center justify-center gap-2 h-12 sm:h-10 px-4 ${
+      communicationId ? 'col-span-1' : 'col-span-1 sm:col-span-2'
+    } ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+    {saving ? 'Saving...' : (
+      <>
+        <Save size={16} />
+        Save Draft
+      </>
+    )}
+  </Button>
+  
+  <Button
+    onClick={handleSubmit}
+    disabled={saving || submitting || deleting || wordCount > WORD_LIMIT || !hasPermission}
+    className={`bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 h-12 sm:h-10 px-4 ${
+      communicationId ? 'col-span-1' : 'col-span-1'
+    } ${!hasPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
+  >
+    {submitting ? 'Submitting...' : (
+      <>
+        <Send size={16} />
+        Submit
+      </>
+    )}
+  </Button>
+</div>
+        
+        {/* Delete confirmation dialog */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="text-lg font-medium mb-3">Delete Communication</h3>
+              <p className="text-gray-600 mb-5">
+                Are you sure you want to delete this communication? This action cannot be undone.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <Button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-800 order-2 sm:order-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="bg-red-500 hover:bg-red-600 text-white order-1 sm:order-2"
+                >
+                  {deleting ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
