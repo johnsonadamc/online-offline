@@ -138,7 +138,8 @@ export async function saveContent(
   type: 'regular' | 'fullSpread',
   status: 'draft' | 'submitted' | 'published',
   entries: ContentEntry[],
-  existingDraftId?: string
+  existingDraftId?: string,
+  pageTitle?: string
 ) {
   const supabase = createClientComponentClient();
   
@@ -156,7 +157,7 @@ export async function saveContent(
 
     let contentData;
 
-    // Always create a new content record
+    // Always create a new content record, now including page_title
     const { data, error: contentError } = await supabase
       .from('content')
       .insert({
@@ -164,6 +165,7 @@ export async function saveContent(
         type,
         status: currentStatus,
         period_id: period.id,
+        page_title: pageTitle || '',
         layout_preferences: {},
         content_dimensions: {},
         style_metadata: {}
@@ -239,6 +241,7 @@ export async function saveContent(
       error,
       type,
       status,
+      pageTitle,
       draftId: existingDraftId,
       entriesCount: entries.length
     });
@@ -275,34 +278,35 @@ export async function getPastContributions() {
     const activePeriodId = activePeriod?.id;
     console.log("Active period ID:", activePeriodId);
     
-    // Get all submissions (not drafts) 
+    // Get all submissions (not drafts) - now including page_title
     const { data, error } = await supabase
-  .from('content')
-  .select(`
-    id,
-    status,
-    updated_at,
-    period_id,
-    type,
-    content_entries (
-      id,
-      title,
-      caption,
-      media_url
-    ),
-    periods!inner (
-      id,
-      name,
-      season,
-      year,
-      end_date
-    )
-  `)
-  .eq('creator_id', user.id)
-  .in('status', ['submitted', 'published'])
-  .neq('period_id', activePeriodId || '')
-  .order('updated_at', { ascending: false })
-  .limit(1, { foreignTable: 'periods' }); 
+      .from('content')
+      .select(`
+        id,
+        status,
+        updated_at,
+        period_id,
+        type,
+        page_title,
+        content_entries (
+          id,
+          title,
+          caption,
+          media_url
+        ),
+        periods!inner (
+          id,
+          name,
+          season,
+          year,
+          end_date
+        )
+      `)
+      .eq('creator_id', user.id)
+      .in('status', ['submitted', 'published'])
+      .neq('period_id', activePeriodId || '')
+      .order('updated_at', { ascending: false })
+      .limit(1, { foreignTable: 'periods' }); 
       
     if (error) {
       console.error("Error fetching past content:", error);
@@ -322,7 +326,7 @@ export async function getPastContributions() {
     
       console.log(`Item ${index + 1}:`, {
         id: item.id,
-        title: item.content_entries?.[0]?.title || 'No title',
+        title: item.page_title || item.content_entries?.[0]?.title || 'No title',
         period: period ? `${period.season} ${period.year}` : 'No period',
         periodId: item.period_id,
         status: item.status,
@@ -371,12 +375,13 @@ export async function getPastContributions() {
       
       // For same year, sort by season with type safety
       const seasonA = Array.isArray(a.periods) 
-  ? (a.periods[0]?.season ? seasonOrder[a.periods[0].season as Season] || 0 : 0)
-  : (a.periods?.season ? seasonOrder[a.periods.season as Season] || 0 : 0);
+        ? (a.periods[0]?.season ? seasonOrder[a.periods[0].season as Season] || 0 : 0)
+        : (a.periods?.season ? seasonOrder[a.periods.season as Season] || 0 : 0);
 
-const seasonB = Array.isArray(b.periods) 
-  ? (b.periods[0]?.season ? seasonOrder[b.periods[0].season as Season] || 0 : 0)
-  : (b.periods?.season ? seasonOrder[b.periods.season as Season] || 0 : 0);
+      const seasonB = Array.isArray(b.periods) 
+        ? (b.periods[0]?.season ? seasonOrder[b.periods[0].season as Season] || 0 : 0)
+        : (b.periods?.season ? seasonOrder[b.periods.season as Season] || 0 : 0);
+      
       return seasonA - seasonB;
     });
     
