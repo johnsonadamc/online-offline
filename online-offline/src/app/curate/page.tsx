@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import IntegratedCollabsSection from '@/components/IntegratedCollabsSection';
 import { 
   Link2, 
@@ -38,7 +39,6 @@ import { getUserCollabs, leaveCollab } from '@/lib/supabase/collabs';
 import { getCurationData, saveCuratorSelections, getAvailableCollabTemplates } from '@/lib/supabase/curation';
 import { getCollaborationsForCuration, getCollabTemplatesForPeriod } from '@/lib/supabase/collabLibrary';
 import { sendFollowRequest } from '@/lib/supabase/profiles';
-
 
 // Basic interfaces (simplified)
 interface Creator {
@@ -149,7 +149,7 @@ export default function CurationInterface() {
   const baseQuarterlyPrice = 25;
   const adDiscountAmount = 2;
   const maxContentPieces = 20;
-  const sectionHeight = "550px"; // Fixed height for section content areas
+  const [activeTab, setActiveTab] = useState("contributors");
   const [showMobileStats, setShowMobileStats] = useState(false);
   const [loading, setLoading] = useState(true);
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
@@ -167,14 +167,8 @@ export default function CurationInterface() {
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
-  
-  // Section visibility toggles
-  const [visibleSections, setVisibleSections] = useState<Record<string, boolean>>({
-    contributors: true,
-    collaborations: true,
-    communications: true,
-    campaigns: true
-  });
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [accessibleProfiles, setAccessibleProfiles] = useState<string[]>([]);
   
   // Basic calculations
   const usedSlots = selectedCreators.length + selectedAds.length + 
@@ -284,6 +278,39 @@ export default function CurationInterface() {
     }
   };
 
+  // Toggle card expansion
+  const toggleCardExpansion = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedCards(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const loadAccessibleProfiles = async () => {
+    try {
+      // Get profiles the user has access to
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('profile_connections')
+        .select('followed_id')
+        .eq('follower_id', user.id)
+        .eq('status', 'approved');
+        
+      if (error) {
+        console.error("Error fetching accessible profiles:", error);
+        return;
+      }
+      
+      const profileIds = data?.map(item => item.followed_id) || [];
+      setAccessibleProfiles(profileIds);
+    } catch (err) {
+      console.error("Error loading accessible profiles:", err);
+    }
+  };
+
   // Load data 
   useEffect(() => {
     async function loadData() {
@@ -350,11 +377,11 @@ export default function CurationInterface() {
             
             setCreators(formattedCreators);
             console.log("Set creators state with", formattedCreators.length, "items");
+            await loadAccessibleProfiles();
           }
         } catch (directQueryError) {
           console.error("Error with direct profiles query:", directQueryError);
         }
-        
         // Load collaborations directly
         try {
           // First get collabs
@@ -510,39 +537,38 @@ export default function CurationInterface() {
             }
             
             // Set selections if available
-          // Set selections if available
-if (result.selections) {
-  if (result.selections.selectedCreators && Array.isArray(result.selections.selectedCreators)) {
-    setSelectedCreators(result.selections.selectedCreators);
-  }
-  if (result.selections.selectedAds && Array.isArray(result.selections.selectedAds)) {
-    setSelectedAds(result.selections.selectedAds);
-  }
-  if (result.selections.selectedCollabs && Array.isArray(result.selections.selectedCollabs)) {
-    // Log details about each selected collab
-    result.selections.selectedCollabs.forEach(id => {
-      if (id.startsWith('local_')) {
-        console.log("Found local selection:", id);
-        const parts = id.split('_');
-        if (parts.length >= 3) {
-          const templateId = parts[1];
-          const cityName = parts.slice(2).join('_').replace(/_/g, ' ');
-          console.log(`  Template ID: ${templateId}, City: ${cityName}`);
-        }
-      } else if (id.startsWith('community_')) {
-        console.log("Found community selection:", id);
-      } else {
-        console.log("Found regular selection:", id);
-      }
-    });
-    
-    console.log("Setting selected collabs:", result.selections.selectedCollabs);
-    setSelectedCollabs(result.selections.selectedCollabs);
-  }
-  if (result.selections.includeCommunications) {
-    setSelectedCommunications(['communications-page']);
-  }
-}
+            if (result.selections) {
+              if (result.selections.selectedCreators && Array.isArray(result.selections.selectedCreators)) {
+                setSelectedCreators(result.selections.selectedCreators);
+              }
+              if (result.selections.selectedAds && Array.isArray(result.selections.selectedAds)) {
+                setSelectedAds(result.selections.selectedAds);
+              }
+              if (result.selections.selectedCollabs && Array.isArray(result.selections.selectedCollabs)) {
+                // Log details about each selected collab
+                result.selections.selectedCollabs.forEach(id => {
+                  if (id.startsWith('local_')) {
+                    console.log("Found local selection:", id);
+                    const parts = id.split('_');
+                    if (parts.length >= 3) {
+                      const templateId = parts[1];
+                      const cityName = parts.slice(2).join('_').replace(/_/g, ' ');
+                      console.log(`  Template ID: ${templateId}, City: ${cityName}`);
+                    }
+                  } else if (id.startsWith('community_')) {
+                    console.log("Found community selection:", id);
+                  } else {
+                    console.log("Found regular selection:", id);
+                  }
+                });
+                
+                console.log("Setting selected collabs:", result.selections.selectedCollabs);
+                setSelectedCollabs(result.selections.selectedCollabs);
+              }
+              if (result.selections.includeCommunications) {
+                setSelectedCommunications(['communications-page']);
+              }
+            }
           } else {
             console.warn("getCurationData result.success was false:", result.error);
           }
@@ -617,8 +643,7 @@ if (result.selections) {
       } else if (remainingContent > 0) {
         setSelectedCreators([...selectedCreators, id]);
       }
-    } // In curate/page.tsx - update the toggleItem function
-    else if (type === 'collab') {
+    } else if (type === 'collab') {
       // Add debug logging
       console.log(`DESELECTION DEBUG: Toggling collab ${id}`);
       console.log(`DESELECTION DEBUG: Current state:`, selectedCollabs);
@@ -646,7 +671,7 @@ if (result.selections) {
           : selectedCollabs;
       
       localStorage.setItem('temp_selected_collabs', JSON.stringify(newState));
-    }else if (type === 'communication') {
+    } else if (type === 'communication') {
       if (selectedCommunications.includes(id)) {
         setSelectedCommunications([]);
       } else if (remainingContent > 0) {
@@ -704,6 +729,245 @@ if (result.selections) {
     }
   };
 
+  // Get a previous quarter label based on current period
+  const getPreviousQuarterLabel = (): string => {
+    if (!currentPeriod) return "Winter 2025";  // Default fallback
+    
+    // Simple logic to get previous quarter
+    const { season, year } = currentPeriod;
+    switch (season) {
+      case "Spring": return `Winter ${year}`;
+      case "Summer": return `Spring ${year}`;
+      case "Fall": return `Summer ${year}`;
+      case "Winter": return `Fall ${year - 1}`;
+      default: return `${season} ${year}`;
+    }
+  };
+
+  // Render a creator card
+  const renderCreatorCard = (creator: Creator) => {
+    const CreatorIcon = creator.icon;
+    const isSelected = selectedCreators.includes(creator.id);
+    const previousQuarterLabel = getPreviousQuarterLabel();
+    const hasPendingRequest = pendingRequestMap[creator.id];
+    const isExpanded = expandedCards[creator.id] || false;
+    
+    return (
+      <div 
+        key={creator.id}
+        onClick={() => creator.isPrivate ? null : toggleItem(creator.id, "friend")}
+        className={`bg-white rounded-lg shadow-sm border p-4 
+          ${creator.isPrivate ? 'cursor-default' : 'cursor-pointer transition-all hover:bg-gray-50'}
+          ${!creator.isPrivate && isSelected ? "ring-2 ring-blue-500" : ""}`}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start">
+            <div className="mr-3">
+              <div className="relative mb-2">
+                <img
+                  src={creator.avatar}
+                  alt={creator.name}
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+                {creator.previousQuarter && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                    <HistoryIcon size={10} className="text-white" />
+                  </div>
+                )}
+              </div>
+              {creator.isPrivate && (
+                <div className="flex flex-col items-center text-center w-full">
+                  <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs flex items-center gap-1 text-gray-600 justify-center w-full">
+                    <Lock size={10} />
+                    <span className="truncate">Private</span>
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="font-medium text-base">{creator.name}</h3>
+              <p className={`text-xs text-gray-600 mt-1 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                {creator.bio}
+              </p>
+              
+              {isExpanded && (
+                <div className="mt-2">
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {creator.tags.map((tag, index) => (
+                      <span 
+                        key={index}
+                        className="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[10px]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-blue-500">{creator.lastPost}</p>
+                </div>
+              )}
+              
+              {(creator.bio || creator.tags.length > 0) && (
+                <button 
+                  className="mt-1 text-xs text-blue-500 flex items-center"
+                  onClick={(e) => toggleCardExpansion(creator.id, e)}
+                >
+                  {isExpanded ? 'Show less' : 'Show more'}
+                </button>
+              )}
+            </div>
+          </div>
+          {!creator.isPrivate && (
+            <div className="flex items-center justify-center"
+              style={{ 
+                width: '24px', 
+                height: '24px', 
+                borderRadius: '50%',
+                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+                borderWidth: isSelected ? '0' : '1px',
+                borderColor: '#d1d5db',
+                borderStyle: 'solid',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {isSelected && <Check size={14} className="text-white" />}
+            </div>
+          )}
+        </div>
+        
+        {creator.isPrivate && !hasPendingRequest && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleRequestFollow(creator.id, e);
+            }}
+            className="mt-2 w-full text-xs bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-md py-1.5 flex items-center justify-center"
+          >
+            <Send size={10} className="mr-1" />
+            Request Access
+          </button>
+        )}
+        
+        {creator.isPrivate && hasPendingRequest && (
+          <div className="mt-2 w-full text-xs bg-gray-100 text-gray-600 rounded-md py-1.5 flex items-center justify-center">
+            <Clock size={10} className="mr-1" />
+            Request Pending
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render a communications card
+  const renderCommunicationsCard = () => {
+    const isSelected = selectedCommunications.length > 0;
+    const messageCount = communications ? communications.length : 0;
+    
+    return (
+      <div 
+        onClick={() => toggleItem('communications-page', 'communication')}
+        className={`bg-white rounded-lg shadow-sm border p-4 cursor-pointer transition-all hover:bg-gray-50 ${
+          isSelected ? "ring-2 ring-blue-500" : ""
+        }`}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start">
+            <div className="mr-4">
+              <div className="relative mb-2">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+                  <MessageCircle size={20} />
+                </div>
+                {messageCount > 0 && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                    {messageCount}
+                  </div>
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="font-medium text-base">Communications Page</h3>
+              <p className="text-xs text-gray-600 mb-2">
+                {messageCount === 0 
+                  ? "No messages from contributors this period" 
+                  : `${messageCount} message${messageCount === 1 ? '' : 's'} from contributors to include`}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-center"
+            style={{ 
+              width: '24px', 
+              height: '24px', 
+              borderRadius: '50%',
+              backgroundColor: isSelected ? '#3b82f6' : 'transparent',
+              borderWidth: isSelected ? '0' : '1px',
+              borderColor: '#d1d5db',
+              borderStyle: 'solid',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {isSelected && <Check size={14} className="text-white" />}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render an ad card
+  const renderAdCard = (ad: Ad) => {
+    const isSelected = selectedAds.includes(ad.id);
+    
+    return (
+      <div 
+        key={ad.id}
+        onClick={() => toggleItem(ad.id, "ad")}
+        className={`bg-green-50 rounded-lg shadow-sm border p-4 cursor-pointer transition-all hover:bg-green-100 ${
+          isSelected ? "ring-2 ring-green-500" : ""
+        }`}
+      >
+        <div className="flex items-start justify-between">
+          <div className="flex items-start">
+            <div className="relative mr-4">
+              <img
+                src={ad.avatar}
+                alt={ad.name}
+                className="w-12 h-12 rounded-full object-cover"
+              />
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                <DollarSign size={10} className="text-white" />
+              </div>
+            </div>
+            <div>
+              <h3 className="font-medium text-base">{ad.name}</h3>
+              <p className="text-xs text-gray-600 mb-2">{ad.bio}</p>
+              <p className="text-xs text-green-600">{ad.lastPost}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-center"
+            style={{ 
+              width: '24px', 
+              height: '24px', 
+              borderRadius: '50%',
+              backgroundColor: isSelected ? '#22c55e' : 'transparent',
+              borderWidth: isSelected ? '0' : '1px',
+              borderColor: '#d1d5db',
+              borderStyle: 'solid',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            {isSelected && <Check size={14} className="text-white" />}
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   // Improved saveSelections function with proper type handling
   const saveSelections = async () => {
     setSavingSelections(true);
@@ -765,238 +1029,27 @@ if (result.selections) {
     return baseQuarterlyPrice - (selectedAds.length * adDiscountAmount);
   };
 
-  // Filtered lists
-  const filteredCreators = creators.filter(creator => {
+// Filtered lists with selected contributors at the top
+const filteredCreators = creators
+  .filter(creator => {
+    // Only show public profiles or private profiles with approved access
+    if (creator.isPrivate && !accessibleProfiles.includes(creator.id)) {
+      return false;
+    }
+    
     return searchTerm === '' || 
       creator.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       creator.bio.toLowerCase().includes(searchTerm.toLowerCase());
+  })
+  .sort((a, b) => {
+    // Sort selected creators to the top
+    const aSelected = selectedCreators.includes(a.id);
+    const bSelected = selectedCreators.includes(b.id);
+    
+    if (aSelected && !bSelected) return -1;
+    if (!aSelected && bSelected) return 1;
+    return 0;
   });
-
-  // Get a previous quarter label based on current period
-  const getPreviousQuarterLabel = (): string => {
-    if (!currentPeriod) return "Winter 2025";  // Default fallback
-    
-    // Simple logic to get previous quarter
-    const { season, year } = currentPeriod;
-    switch (season) {
-      case "Spring": return `Winter ${year}`;
-      case "Summer": return `Spring ${year}`;
-      case "Fall": return `Summer ${year}`;
-      case "Winter": return `Fall ${year - 1}`;
-      default: return `${season} ${year}`;
-    }
-  };
-
-  // Render a creator card
-  const renderCreatorCard = (creator: Creator) => {
-    const CreatorIcon = creator.icon;
-    const isSelected = selectedCreators.includes(creator.id);
-    const previousQuarterLabel = getPreviousQuarterLabel();
-    const hasPendingRequest = pendingRequestMap[creator.id];
-    
-    return (
-      <div 
-        key={creator.id}
-        onClick={() => creator.isPrivate ? null : toggleItem(creator.id, "friend")}
-        className={`bg-white rounded-lg shadow-sm border p-5 
-          ${creator.isPrivate ? 'cursor-default' : 'cursor-pointer transition-all hover:bg-gray-50'}
-          ${!creator.isPrivate && isSelected ? "ring-2 ring-blue-500" : ""}`}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-start">
-            <div className="mr-4">
-              <div className="relative mb-2">
-                <img
-                  src={creator.avatar}
-                  alt={creator.name}
-                  className="w-16 h-16 rounded-full object-cover"
-                />
-                {creator.previousQuarter && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center">
-                    <HistoryIcon size={12} className="text-white" />
-                  </div>
-                )}
-              </div>
-              {creator.isPrivate && (
-                <div className="flex flex-col items-center text-center w-16">
-                  <span className="px-2 py-0.5 bg-gray-100 rounded-full text-xs flex items-center gap-1 text-gray-600 justify-center w-full">
-                    <Lock size={12} />
-                    <span className="truncate">Private</span>
-                  </span>
-                  
-                  {!hasPendingRequest ? (
-                    <button
-                      onClick={(e) => handleRequestFollow(creator.id, e)}
-                      className="mt-1 w-16 h-6 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-full text-[9px] flex items-center justify-center transition-colors"
-                      title="Request to follow this creator"
-                    >
-                      <Send size={8} className="mr-1" />
-                      Request
-                    </button>
-                  ) : (
-                    <span className="mt-1 w-16 h-6 bg-gray-100 text-gray-600 rounded-full text-[9px] flex items-center justify-center">
-                      <Clock size={8} className="mr-1" />
-                      Pending
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="font-medium text-lg">{creator.name}</h3>
-                <span className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">
-                  {previousQuarterLabel}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mb-2">{creator.bio}</p>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {creator.tags.map((tag, index) => (
-                  <span 
-                    key={index}
-                    className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-blue-500">{creator.lastPost}</p>
-            </div>
-          </div>
-          {!creator.isPrivate && (
-            <div className="flex items-center justify-center"
-              style={{ 
-                width: '24px', 
-                height: '24px', 
-                borderRadius: '50%',
-                backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-                borderWidth: isSelected ? '0' : '1px',
-                borderColor: '#d1d5db',
-                borderStyle: 'solid',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              {isSelected && <Check size={14} className="text-white" />}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // Render a communications card
-  const renderCommunicationsCard = () => {
-    const isSelected = selectedCommunications.length > 0;
-    const messageCount = communications ? communications.length : 0;
-    
-    return (
-      <div 
-        onClick={() => toggleItem('communications-page', 'communication')}
-        className={`bg-white rounded-lg shadow-sm border p-5 cursor-pointer transition-all hover:bg-gray-50 ${
-          isSelected ? "ring-2 ring-blue-500" : ""
-        }`}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-start">
-            <div className="mr-6">
-              <div className="relative mb-2">
-                <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-                  <MessageCircle size={24} />
-                </div>
-                {messageCount > 0 && (
-                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                    {messageCount}
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <h3 className="font-medium text-lg mb-1">Communications Page</h3>
-              <p className="text-sm text-gray-600 mb-2">
-                {messageCount === 0 
-                  ? "No messages from contributors this period" 
-                  : `${messageCount} message${messageCount === 1 ? '' : 's'} from contributors to include`}
-              </p>
-              <p className="text-xs text-blue-500">
-                {messageCount > 0 
-                  ? "Select to add a communications page to your magazine" 
-                  : "No messages available to display"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center justify-center"
-            style={{ 
-              width: '24px', 
-              height: '24px', 
-              borderRadius: '50%',
-              backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-              borderWidth: isSelected ? '0' : '1px',
-              borderColor: '#d1d5db',
-              borderStyle: 'solid',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isSelected && <Check size={14} className="text-white" />}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render an ad card
-  const renderAdCard = (ad: Ad) => {
-    const isSelected = selectedAds.includes(ad.id);
-    
-    return (
-      <div 
-        key={ad.id}
-        onClick={() => toggleItem(ad.id, "ad")}
-        className={`bg-green-50 rounded-lg shadow-sm border p-5 cursor-pointer transition-all hover:bg-green-100 ${
-          isSelected ? "ring-2 ring-green-500" : ""
-        }`}
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-start">
-            <div className="relative mr-6">
-              <img
-                src={ad.avatar}
-                alt={ad.name}
-                className="w-16 h-16 rounded-full object-cover"
-              />
-              <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
-                <DollarSign size={12} className="text-white" />
-              </div>
-            </div>
-            <div>
-              <h3 className="font-medium text-lg mb-1">{ad.name}</h3>
-              <p className="text-sm text-gray-600 mb-2">{ad.bio}</p>
-              <p className="text-xs text-green-600">{ad.lastPost}</p>
-            </div>
-          </div>
-          <div className="flex items-center justify-center"
-            style={{ 
-              width: '24px', 
-              height: '24px', 
-              borderRadius: '50%',
-              backgroundColor: isSelected ? '#22c55e' : 'transparent',
-              borderWidth: isSelected ? '0' : '1px',
-              borderColor: '#d1d5db',
-              borderStyle: 'solid',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isSelected && <Check size={14} className="text-white" />}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // Loading screen
   if (loading) {
@@ -1027,327 +1080,524 @@ if (result.selections) {
       </div>
     );
   }
-  
-  // Main render
+
+  // Main render with tab-based mobile interface
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Header section - sticky version with simplified price display */}
-<div className="sticky top-0 z-10 bg-white border-b mb-6 shadow-sm">
-  <div className="max-w-6xl mx-auto px-4 py-3">
-    {/* Top row with back button and title */}
-    <div className="flex items-center justify-between">
-      <div className="flex items-center">
-        <Link href="/dashboard" className="mr-3 text-gray-500 hover:text-gray-700">
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-xl font-medium leading-tight">Curate Your Magazine</h1>
-          {currentPeriod && (
-            <p className="text-sm text-gray-600">
-              {currentPeriod.season} {currentPeriod.year} Issue
-            </p>
-          )}
-        </div>
-      </div>
-      
-      {/* Equal-sized stat boxes with simplified price display */}
-      <div className="hidden md:flex items-center gap-4">
-        {/* Slots Indicator */}
-        <div className="flex items-center bg-gray-50 rounded-lg px-4 py-2 hover:bg-gray-100 transition-colors w-[130px] h-[70px]">
-          <div className="text-center w-full">
-            <div className="text-xs text-gray-500 font-medium mb-1">Slots Remaining</div>
-            <div className="text-lg font-medium flex items-center justify-center">
-              <span className="text-blue-600">{remainingContent}</span>
-              <span className="text-blue-600 mx-1">/</span>
-              <span className="text-blue-600">{maxContentPieces}</span>
+    <div className="max-w-6xl mx-auto pb-20 md:pb-8">
+      {/* Mobile Header */}
+      <div className="sticky top-0 z-10 bg-white border-b shadow-sm">
+        <div className="px-4 py-3">
+          {/* Top row with back button and title */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <Link href="/dashboard" className="mr-3 text-gray-500">
+                <ArrowLeft size={18} />
+              </Link>
+              <div>
+                <h1 className="text-base md:text-xl font-medium leading-tight">Curate Your Magazine</h1>
+                {currentPeriod && (
+                  <p className="text-xs md:text-sm text-gray-600">
+                    {currentPeriod.season} {currentPeriod.year} Issue
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
-        
-        {/* Price Indicator - simplified */}
-        <div className="flex items-center bg-green-50 rounded-lg px-4 py-2 hover:bg-green-100 transition-colors w-[130px] h-[70px]">
-          <div className="text-center w-full">
-            <div className="text-xs text-gray-500 font-medium mb-1">Quarterly Price</div>
-            <div className="text-lg font-medium text-green-600 flex items-center justify-center">
-              ${calculatePrice().toFixed(2)}
-              {selectedAds.length > 0 && (
-                <span className="text-sm text-green-600 ml-2">
-                  (-${(selectedAds.length * adDiscountAmount).toFixed(2)})
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Mobile stats toggle button */}
-      <button 
-        className="md:hidden relative flex items-center justify-center bg-gray-100 rounded-full w-10 h-10 hover:bg-gray-200 transition-colors"
-        onClick={() => {
-          setShowMobileStats(!showMobileStats)
-        }}
-      >
-        <DollarSign size={20} className="text-gray-600" />
-        <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-          {remainingContent}
-        </div>
-      </button>
-    </div>
-    
-    {/* Mobile stats row - with simplified price display */}
-    <div className={`md:hidden grid grid-cols-2 gap-3 mt-3 ${showMobileStats ? 'block' : 'hidden'}`}>
-      <div className="bg-gray-50 rounded-lg p-3 h-20 flex flex-col justify-center">
-        <div className="text-xs text-gray-500 text-center mb-1">Slots Remaining</div>
-        <div className="text-base font-medium text-blue-600 text-center">
-          {remainingContent} / {maxContentPieces}
-        </div>
-      </div>
-      
-      <div className="bg-green-50 rounded-lg p-3 h-20 flex flex-col justify-center">
-        <div className="text-xs text-gray-500 text-center mb-1">Quarterly Price</div>
-        <div className="text-base font-medium text-green-600 text-center flex items-center justify-center">
-          ${calculatePrice().toFixed(2)}
-          {selectedAds.length > 0 && (
-            <span className="text-xs ml-1">(-${(selectedAds.length * adDiscountAmount).toFixed(2)})</span>
-          )}
-        </div>
-      </div>
-    </div>
-    
-    {/* Search and buttons row */}
-    <div className="flex flex-col sm:flex-row items-center gap-2 mt-3">
-      <div className="relative flex-1 w-full">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-        <Input
-          type="text"
-          placeholder="Search creators, content, and collaborations..."
-          className="w-full pl-9 py-1.5 h-10 text-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-      
-      <div className="flex gap-2 w-full sm:w-auto">
-        <Button
-          onClick={saveSelections}
-          disabled={savingSelections}
-          className="h-10 px-4 bg-blue-500 text-white flex-1 sm:flex-none hover:bg-blue-600 transition-colors"
-        >
-          {savingSelections ? 'Saving...' : 'Save'}
-        </Button>
-        
-        <Button
-          onClick={() => {
-            if (window.confirm("Are you sure you want to reset all selections? This will clear everything from your curation.")) {
-              // Clear all state
-              setSelectedCollabs([]);
-              setSelectedCreators([]);
-              setSelectedAds([]);
-              
-              // Clear localStorage
-              localStorage.removeItem('temp_selected_collabs');
-              localStorage.removeItem('magazine_selections');
-              localStorage.removeItem('selected_cities');
-              
-              // Perform complete database cleanup
-              const cleanupDB = async () => {
-                const { data: { user } } = await supabase.auth.getUser();
-                if (user && currentPeriod?.id) {
-                  // Clear collaboration selections
-                  await supabase
-                    .from('curator_collab_selections')
-                    .delete()
-                    .eq('curator_id', user.id)
-                    .eq('period_id', currentPeriod.id);
-                  
-                  // Clear creator selections
-                  await supabase
-                    .from('curator_creator_selections')
-                    .delete()
-                    .eq('curator_id', user.id)
-                    .eq('period_id', currentPeriod.id);
-                  
-                  // Clear campaign (ad) selections
-                  await supabase
-                    .from('curator_campaign_selections')
-                    .delete()
-                    .eq('curator_id', user.id)
-                    .eq('period_id', currentPeriod.id);
-                }
-              };
-              
-              cleanupDB();
-              alert('All selections have been reset');
-            }
-          }}
-          className="h-10 px-4 bg-red-500 text-white flex-1 sm:flex-none hover:bg-red-600 transition-colors"
-        >
-          Reset
-        </Button>
-      </div>
-    </div>
-  </div>
-</div>
-
-      {/* Main content area */}
-      <div className="grid gap-6">
-        {/* Section toggles - centered without box */}
-<div className="flex justify-center mb-6 overflow-x-auto">
-  <div className="flex items-center gap-2 min-w-max">
-    {Object.entries(visibleSections).map(([key, value]) => (
-      <button
-        key={key}
-        onClick={() => setVisibleSections(prev => ({ ...prev, [key]: !prev[key] }))}
-        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-          value 
-            ? 'bg-blue-500 text-white hover:bg-blue-600' 
-            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-        }`}
-      >
-        {key.charAt(0).toUpperCase() + key.slice(1)}
-        {value ? ' ✓' : ''}
-      </button>
-    ))}
-  </div>
-</div>
-
-        {/* Content Sections - all with fixed height */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Contributors section */}
-          {visibleSections.contributors && (
-  <Card className="h-full overflow-hidden">
-    <CardHeader className="pb-2">
-      <CardTitle className="flex justify-between items-center">
-        <span>Contributors</span>
-        {selectedCreators.length > 0 && (
-          <span className="text-sm text-blue-500 font-normal">
-            {selectedCreators.length} selected
-          </span>
-        )}
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="p-2">
-      <div 
-        className="h-full p-2 overflow-y-auto" 
-        style={{ height: sectionHeight, maxHeight: sectionHeight }}
-      >
-        <div className="grid grid-cols-1 gap-4">
-          {filteredCreators.length > 0 ? (
-            filteredCreators.map(creator => renderCreatorCard(creator))
-          ) : (
-            <div className="p-8 text-center bg-gray-50 rounded-lg">
-              <p className="text-gray-600">No creators found matching your search</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </CardContent>
-  </Card>
-)}
-
-          {/* Collaborations section */}
-          {visibleSections.collaborations && (
-            <Card className="h-full overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-center">
-                  <span>Collaborations</span>
-                  {selectedCollabs.length > 0 && (
-                    <span className="text-sm text-blue-500 font-normal">
-                      {selectedCollabs.length} selected
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
-                <div 
-                  className="h-full p-2 overflow-y-auto" 
-                  style={{ height: sectionHeight, maxHeight: sectionHeight }}
-                >
-                  {/* Using the IntegratedCollabsSection component here */}
-                  <IntegratedCollabsSection
-                    periodId={currentPeriod?.id || ''}
-                    selectedCollabs={selectedCollabs}
-                    toggleItem={(id) => toggleItem(id, "collab")}
-                    remainingContent={remainingContent}
-                    hideTitle={true} // Hide the title since we already have it in the Card header
-                  />
+            
+            {/* Stats for mobile */}
+            <div className="flex items-center gap-2">
+              <div className="flex flex-col items-end">
+                <div className="text-xs text-gray-500">Slots</div>
+                <div className="text-sm font-medium">
+                  <span className="text-blue-600">{remainingContent}</span>
+                  <span className="text-gray-400">/</span>
+                  <span>{maxContentPieces}</span>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+              
+              <div className="flex flex-col items-end ml-3">
+                <div className="text-xs text-gray-500">Price</div>
+                <div className="text-sm font-medium text-green-600">
+                  ${calculatePrice().toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Search row */}
+          <div className="mt-3 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+            <Input
+              type="text"
+              placeholder="Search creators, content, and collaborations..."
+              className="w-full pl-9 py-1.5 h-9 text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
 
-          {/* Communications section */}
-          {visibleSections.communications && (
-            <Card className="h-full overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-center">
-                  <span>Communications</span>
-                  {selectedCommunications.length > 0 && (
-                    <span className="text-sm text-blue-500 font-normal">
-                      1 page selected
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
-                <div 
-                  className="h-full p-2 overflow-y-auto" 
-                  style={{ height: sectionHeight, maxHeight: sectionHeight }}
+      {/* Mobile Tabs */}
+      <div className="md:hidden">
+        <Tabs defaultValue={activeTab} className="w-full">
+          <TabsList className="grid grid-cols-4 w-full rounded-none border-b">
+            <TabsTrigger 
+              value="contributors" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none"
+            >
+              <div className="flex flex-col items-center py-1">
+                <span className="text-xs">Contributors</span>
+                {selectedCreators.length > 0 && (
+                  <span className="mt-1 text-[10px] bg-blue-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center">
+                    {selectedCreators.length}
+                  </span>
+                )}
+              </div>
+            </TabsTrigger>
+            
+            <TabsTrigger 
+              value="collaborations" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none"
+            >
+              <div className="flex flex-col items-center py-1">
+                <span className="text-xs">Collabs</span>
+                {selectedCollabs.length > 0 && (
+                  <span className="mt-1 text-[10px] bg-blue-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center">
+                    {selectedCollabs.length}
+                  </span>
+                )}
+              </div>
+            </TabsTrigger>
+            
+            <TabsTrigger 
+              value="communications" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none"
+            >
+              <div className="flex flex-col items-center py-1">
+                <span className="text-xs">Comms</span>
+                {selectedCommunications.length > 0 && (
+                  <span className="mt-1 text-[10px] bg-blue-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center">
+                    1
+                  </span>
+                )}
+              </div>
+            </TabsTrigger>
+            
+            <TabsTrigger 
+              value="campaigns" 
+              className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-500 data-[state=active]:shadow-none rounded-none"
+            >
+              <div className="flex flex-col items-center py-1">
+                <span className="text-xs">Ads</span>
+                {selectedAds.length > 0 && (
+                  <span className="mt-1 text-[10px] bg-green-500 text-white rounded-full w-4 h-4 inline-flex items-center justify-center">
+                    {selectedAds.length}
+                  </span>
+                )}
+              </div>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="contributors" className="px-4 py-4 focus-visible:outline-none">
+  <div className="grid grid-cols-1 gap-4">
+    {filteredCreators.length > 0 ? (
+      <>
+        {filteredCreators.map((creator, index) => {
+          // Add a separator after the last selected creator
+          const isSelected = selectedCreators.includes(creator.id);
+          const nextCreator = filteredCreators[index + 1];
+          const nextIsSelected = nextCreator ? selectedCreators.includes(nextCreator.id) : false;
+          const showSeparator = selectedCreators.length > 0 && isSelected && !nextIsSelected;
+          
+          return (
+            <React.Fragment key={creator.id}>
+              {renderCreatorCard(creator)}
+              {showSeparator && (
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="px-2 bg-white text-xs text-gray-500">Selected Contributors Above</span>
+                  </div>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
+      </>
+    ) : (
+      <div className="p-8 text-center bg-gray-50 rounded-lg">
+        <p className="text-gray-600">No creators found matching your search</p>
+      </div>
+    )}
+  </div>
+</TabsContent>
+          
+          <TabsContent value="collaborations" className="px-4 py-4 focus-visible:outline-none">
+            <IntegratedCollabsSection
+              periodId={currentPeriod?.id || ''}
+              selectedCollabs={selectedCollabs}
+              toggleItem={(id) => toggleItem(id, "collab")}
+              remainingContent={remainingContent}
+              hideTitle={true}
+            />
+          </TabsContent>
+          
+          <TabsContent value="communications" className="px-4 py-4 focus-visible:outline-none">
+            <div className="grid grid-cols-1 gap-4">
+              {renderCommunicationsCard()}
+              
+              <div className="bg-amber-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">About Communications Pages</h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Communications are direct messages from contributors to you as a curator. 
+                  Including a communications page showcases these messages.
+                </p>
+                <div className="text-xs text-gray-500">
+                  <p>• Up to 10 messages per page</p>
+                  <p>• Automatically formatted</p>
+                  <p>• Layouts adjusted based on message count</p>
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="campaigns" className="px-4 py-4 focus-visible:outline-none">
+            <div className="grid grid-cols-1 gap-4">
+              {ads.length > 0 ? (
+                ads.map(ad => renderAdCard(ad))
+              ) : (
+                <div className="p-8 text-center bg-gray-50 rounded-lg">
+                  <p className="text-gray-600">No campaigns available for this period</p>
+                </div>
+              )}
+              
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="font-medium mb-2">About Campaigns</h3>
+                <p className="text-xs text-gray-600 mb-1">
+                  Including campaigns in your magazine gives you discounts:
+                </p>
+                <div className="text-sm font-medium text-green-600">
+                  Each campaign reduces your price by ${adDiscountAmount.toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+      
+      {/* Desktop Layout (preserved from original) */}
+      <div className="hidden md:block px-4 py-6">
+        <div className="grid gap-6">
+          {/* Section toggles - centered without box */}
+          <div className="flex justify-center mb-6 overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max">
+              {['contributors', 'collaborations', 'communications', 'campaigns'].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key)}
+                  className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                    activeTab === key 
+                      ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
                 >
-                  <div className="grid grid-cols-1 gap-4">
-                    {renderCommunicationsCard()}
-                    
-                    <div className="bg-amber-50 p-5 rounded-lg">
-                      <h3 className="font-medium mb-2">About Communications Pages</h3>
-                      <p className="text-sm text-gray-600 mb-3">
-                        Communications are direct messages from contributors to you as a curator. 
-                        Including a communications page showcases these messages.
-                      </p>
-                      <div className="text-xs text-gray-500">
-                        <p>• Up to 10 messages per page</p>
-                        <p>• Automatically formatted</p>
-                        <p>• Layouts adjusted based on message count</p>
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                  {activeTab === key ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Desktop Save/Reset buttons */}
+<div className="hidden md:flex justify-end mb-4">
+  <div className="flex gap-2">
+    <Button 
+      onClick={() => {
+        if (window.confirm("Are you sure you want to reset all selections? This will clear everything from your curation.")) {
+          // Clear all state
+          setSelectedCollabs([]);
+          setSelectedCreators([]);
+          setSelectedAds([]);
+          setSelectedCommunications([]);
+          
+          // Clear localStorage
+          localStorage.removeItem('temp_selected_collabs');
+          localStorage.removeItem('magazine_selections');
+          localStorage.removeItem('selected_cities');
+          
+          // Perform complete database cleanup
+          const cleanupDB = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && currentPeriod?.id) {
+              // Clear collaboration selections
+              await supabase
+                .from('curator_collab_selections')
+                .delete()
+                .eq('curator_id', user.id)
+                .eq('period_id', currentPeriod.id);
+              
+              // Clear creator selections
+              await supabase
+                .from('curator_creator_selections')
+                .delete()
+                .eq('curator_id', user.id)
+                .eq('period_id', currentPeriod.id);
+              
+              // Clear campaign (ad) selections
+              await supabase
+                .from('curator_campaign_selections')
+                .delete()
+                .eq('curator_id', user.id)
+                .eq('period_id', currentPeriod.id);
+            }
+          };
+          
+          cleanupDB();
+          alert('All selections have been reset');
+        }
+      }}
+      className="border-0 bg-gray-200 text-gray-800 hover:bg-gray-300 text-xs p-2 rounded font-medium"
+    >
+      Reset
+    </Button>
+    
+    <Button
+      onClick={saveSelections}
+      disabled={savingSelections}
+      className="bg-blue-500 text-white hover:bg-blue-600"
+    >
+      {savingSelections ? 'Saving...' : 'Save'}
+    </Button>
+  </div>
+</div>
+
+          {/* Desktop Content Grid */}
+          <div className="grid grid-cols-1 gap-6">
+            {/* Contributors section */}
+            {activeTab === 'contributors' && (
+              <Card className="h-full overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Contributors</span>
+                    {selectedCreators.length > 0 && (
+                      <span className="text-sm text-blue-500 font-normal">
+                        {selectedCreators.length} selected
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <div 
+                    className="h-full p-2 overflow-y-auto"
+                    style={{ height: "550px", maxHeight: "550px" }}
+                  >
+                    <div className="grid grid-cols-1 gap-4">
+  {filteredCreators.length > 0 ? (
+    <>
+      {filteredCreators.map((creator, index) => {
+        // Add a separator after the last selected creator
+        const isSelected = selectedCreators.includes(creator.id);
+        const nextCreator = filteredCreators[index + 1];
+        const nextIsSelected = nextCreator ? selectedCreators.includes(nextCreator.id) : false;
+        const showSeparator = selectedCreators.length > 0 && isSelected && !nextIsSelected;
+        
+        return (
+          <React.Fragment key={creator.id}>
+            {renderCreatorCard(creator)}
+            {showSeparator && (
+              <div className="relative my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="px-2 bg-white text-xs text-gray-500">Selected Contributors Above</span>
+                </div>
+              </div>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </>
+  ) : (
+    <div className="p-8 text-center bg-gray-50 rounded-lg">
+      <p className="text-gray-600">No creators found matching your search</p>
+    </div>
+  )}
+</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Collaborations section */}
+            {activeTab === 'collaborations' && (
+              <Card className="h-full overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Collaborations</span>
+                    {selectedCollabs.length > 0 && (
+                      <span className="text-sm text-blue-500 font-normal">
+                        {selectedCollabs.length} selected
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <div 
+                    className="h-full p-2 overflow-y-auto"
+                    style={{ height: "550px", maxHeight: "550px" }}
+                  >
+                    <IntegratedCollabsSection
+                      periodId={currentPeriod?.id || ''}
+                      selectedCollabs={selectedCollabs}
+                      toggleItem={(id) => toggleItem(id, "collab")}
+                      remainingContent={remainingContent}
+                      hideTitle={true}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Communications section */}
+            {activeTab === 'communications' && (
+              <Card className="h-full overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Communications</span>
+                    {selectedCommunications.length > 0 && (
+                      <span className="text-sm text-blue-500 font-normal">
+                        1 page selected
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <div 
+                    className="h-full p-2 overflow-y-auto"
+                    style={{ height: "550px", maxHeight: "550px" }}
+                  >
+                    <div className="grid grid-cols-1 gap-4">
+                      {renderCommunicationsCard()}
+                      
+                      <div className="bg-amber-50 p-5 rounded-lg">
+                        <h3 className="font-medium mb-2">About Communications Pages</h3>
+                        <p className="text-sm text-gray-600 mb-3">
+                          Communications are direct messages from contributors to you as a curator. 
+                          Including a communications page showcases these messages.
+                        </p>
+                        <div className="text-xs text-gray-500">
+                          <p>• Up to 10 messages per page</p>
+                          <p>• Automatically formatted</p>
+                          <p>• Layouts adjusted based on message count</p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Campaigns (Ads) section */}
-          {visibleSections.campaigns && (
-            <Card className="h-full overflow-hidden">
-              <CardHeader className="pb-2">
-                <CardTitle className="flex justify-between items-center">
-                  <span>Campaigns</span>
-                  {selectedAds.length > 0 && (
-                    <span className="text-sm text-green-500 font-normal">
-                      {selectedAds.length} selected (${selectedAds.length * adDiscountAmount} discount)
-                    </span>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-2">
-                <div 
-                  className="h-full p-2 overflow-y-auto" 
-                  style={{ height: sectionHeight, maxHeight: sectionHeight }}
-                >
-                  {ads.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-4">
-                      {ads.map(ad => renderAdCard(ad))}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center bg-gray-50 rounded-lg">
-                      <p className="text-gray-600">No campaigns available for this period</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Campaigns (Ads) section */}
+            {activeTab === 'campaigns' && (
+              <Card className="h-full overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex justify-between items-center">
+                    <span>Campaigns</span>
+                    {selectedAds.length > 0 && (
+                      <span className="text-sm text-green-500 font-normal">
+                        {selectedAds.length} selected (${selectedAds.length * adDiscountAmount} discount)
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-2">
+                  <div 
+                    className="h-full p-2 overflow-y-auto"
+                    style={{ height: "550px", maxHeight: "550px" }}
+                  >
+                    {ads.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4">
+                        {ads.map(ad => renderAdCard(ad))}
+                      </div>
+                    ) : (
+                      <div className="p-8 text-center bg-gray-50 rounded-lg">
+                        <p className="text-gray-600">No campaigns available for this period</p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
+      
+      {/* Mobile Bottom Action Bar */}
+<div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-3 md:hidden z-10">
+  <div className="flex justify-end max-w-md mx-auto">
+    <div className="flex gap-2">
+      <Button
+        onClick={() => {
+          if (window.confirm("Are you sure you want to reset all selections? This will clear everything from your curation.")) {
+            // Clear all state
+            setSelectedCollabs([]);
+            setSelectedCreators([]);
+            setSelectedAds([]);
+            setSelectedCommunications([]);
+            
+            // Clear localStorage
+            localStorage.removeItem('temp_selected_collabs');
+            localStorage.removeItem('magazine_selections');
+            localStorage.removeItem('selected_cities');
+            
+            // Perform complete database cleanup
+            const cleanupDB = async () => {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user && currentPeriod?.id) {
+                // Clear collaboration selections
+                await supabase
+                  .from('curator_collab_selections')
+                  .delete()
+                  .eq('curator_id', user.id)
+                  .eq('period_id', currentPeriod.id);
+                
+                // Clear creator selections
+                await supabase
+                  .from('curator_creator_selections')
+                  .delete()
+                  .eq('curator_id', user.id)
+                  .eq('period_id', currentPeriod.id);
+                
+                // Clear campaign (ad) selections
+                await supabase
+                  .from('curator_campaign_selections')
+                  .delete()
+                  .eq('curator_id', user.id)
+                  .eq('period_id', currentPeriod.id);
+              }
+            };
+            
+            cleanupDB();
+            alert('All selections have been reset');
+          }
+        }}
+        className="border-0 bg-gray-200 text-gray-800 hover:bg-gray-300 font-medium"
+      >
+        Reset
+      </Button>
+      
+      <Button
+        onClick={saveSelections}
+        disabled={savingSelections}
+        className="h-9 px-4 bg-blue-500 text-white text-sm"
+      >
+        {savingSelections ? 'Saving...' : 'Save'}
+      </Button>
+    </div>
+  </div>
+</div>
     </div>
   );
 }
