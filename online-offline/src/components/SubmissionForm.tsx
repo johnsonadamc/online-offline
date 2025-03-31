@@ -2,7 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { uploadMedia } from '@/lib/supabase/storage';
-import { Upload, X, LayoutPanelTop, Camera, Maximize2, Plus, Clock, ArrowLeft } from 'lucide-react';
+import { 
+  Upload, X, Camera, Maximize2, Plus, Clock, ArrowLeft,
+  ChevronDown, ChevronUp, Tag, Info, Save, Send
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -35,6 +38,10 @@ interface ContentEntry {
 
 export default function SubmissionForm() {
   const supabase = createClientComponentClient();
+  const searchParams = useSearchParams();
+  const draftId = searchParams.get('draft');
+  
+  // Core state variables from original implementation
   const [submissionType, setSubmissionType] = useState<'regular' | 'fullSpread'>('regular');
   const [status, setStatus] = useState<'draft' | 'submitted'>('draft');
   const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error' | ''>('');
@@ -52,16 +59,26 @@ export default function SubmissionForm() {
     isFeature: false,
     isFullSpread: false
   }]);
+  
+  // New state variables for enhanced UI
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [showTagsPanel, setShowTagsPanel] = useState(false);
+  const [showImageControls, setShowImageControls] = useState(false);
+  const [pageTitle, setPageTitle] = useState('');
+  
+  // Maximum number of entries allowed (increased to 8)
+  const MAX_ENTRIES = 8;
 
-  const searchParams = useSearchParams();
-  const draftId = searchParams.get('draft');
-
+  // Available themes/tags
   const themes = [
     'Photography', 'Music', 'Art', 'Family', 'Nature', 'Travel', 'Food', 'Sports',
     'Architecture', 'Fashion', 'Technology', 'Literature', 'Dance', 'Film',
     'Street Life', 'Wildlife', 'Abstract', 'Portrait', 'Landscape', 'Urban'
   ];
 
+  // Load draft from database (maintaining original functionality)
   useEffect(() => {
     const loadDraft = async () => {
       if (!draftId) return;
@@ -88,21 +105,34 @@ export default function SubmissionForm() {
       if (data) {
         setSubmissionType(data.type);
         setStatus(data.status);
-        setEntries(data.content_entries.map((entry: ContentEntry) => ({
-          id: entry.id,
-          title: entry.title || '',
-          caption: entry.caption || '',
-          selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
-          imageUrl: entry.media_url,
-          isFeature: entry.is_feature || false,
-          isFullSpread: entry.is_full_spread || false
-        })));
+        
+        // Add support for page title from database
+        if (data.page_title) {
+          setPageTitle(data.page_title);
+        }
+        
+        // Map database entries to our state format
+        if (data.content_entries && data.content_entries.length > 0) {
+          setEntries(data.content_entries.map((entry: ContentEntry) => ({
+            id: entry.id,
+            title: entry.title || '',
+            caption: entry.caption || '',
+            selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
+            imageUrl: entry.media_url,
+            isFeature: entry.is_feature || false,
+            isFullSpread: entry.is_full_spread || false
+          })));
+          
+          // Set current slide to the first entry
+          setCurrentSlide(0);
+        }
       }
     };
   
     loadDraft();
   }, [draftId, supabase]);
 
+  // Load period data (maintaining original functionality)
   useEffect(() => {
     const loadPeriod = async () => {
       const { period, error } = await getCurrentPeriod();
@@ -132,8 +162,9 @@ export default function SubmissionForm() {
     loadPeriod();
     const timer = setInterval(loadPeriod, 1000 * 60 * 60);
     return () => clearInterval(timer);
-}, []);
+  }, []);
 
+  // Image upload functionality (maintaining original functionality)
   const handleImageChange = async (entryId: number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -162,16 +193,21 @@ export default function SubmissionForm() {
     }
   };
 
+  // Image removal functionality
   const handleRemoveImage = (entryId: number) => {
     setEntries(entries.map(entry => 
       entry.id === entryId ? { ...entry, imageUrl: null } : entry
     ));
   };
 
+  // Save draft functionality, now including pageTitle
   const handleSaveDraft = async () => {
-    console.log('Saving draft with ID and status:', draftId, status);
+    console.log('Saving draft with ID, status, and page title:', draftId, status, pageTitle);
     setSaveStatus('saving');
-    const result = await saveContent('regular', status, entries, draftId || undefined);
+    
+    // Modified to include page_title in save parameters
+    const result = await saveContent(submissionType, status, entries, draftId || undefined, pageTitle);
+    
     if (result.success) {
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus(''), 2000);
@@ -181,8 +217,11 @@ export default function SubmissionForm() {
     }
   };
 
+  // Submit functionality, now including pageTitle
   const handleSubmit = async () => {
-    const result = await saveContent('regular', 'submitted', entries, draftId || undefined);
+    // Modified to include page_title in save parameters
+    const result = await saveContent(submissionType, 'submitted', entries, draftId || undefined, pageTitle);
+    
     if (result.success) {
       setStatus('submitted');
     } else {
@@ -190,347 +229,762 @@ export default function SubmissionForm() {
     }
   };
 
-  return (
-    <div className="max-w-5xl mx-auto p-6 md:p-8">
-      <div className="mb-6">
-        <Link 
-          href="/dashboard"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Link>
-      </div>
+  // Navigation functions
+  const handleNextSlide = () => {
+    if (currentSlide < entries.length - 1) {
+      setCurrentSlide(currentSlide + 1);
+    }
+  };
+
+  const handlePrevSlide = () => {
+    if (currentSlide > 0) {
+      setCurrentSlide(currentSlide - 1);
+    }
+  };
+
+  // Add a new entry
+  const handleAddEntry = () => {
+    if (entries.length >= MAX_ENTRIES) {
+      alert(`You can only have up to ${MAX_ENTRIES} images per submission.`);
+      return;
+    }
+    
+    const newId = Math.max(...entries.map(e => e.id)) + 1;
+    setEntries([...entries, {
+      id: newId,
+      title: '',
+      caption: '',
+      selectedTags: [],
+      imageUrl: null,
+      isFeature: false,
+      isFullSpread: false
+    }]);
+    
+    // Automatically navigate to the new entry
+    setCurrentSlide(entries.length);
+  };
   
-      {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
-        <h1 className="text-2xl font-medium">{currentPeriod.quarter} Submission</h1>
+  // Helper to get current entry
+  const currentEntry = entries[currentSlide] || null;
+
+  // Helper to close other panels when opening a new one
+  const openPanel = (panel: 'details' | 'tags' | 'imageControls') => {
+    if (panel === 'details') {
+      setShowDetails(true);
+      setShowTagsPanel(false);
+      setShowImageControls(false);
+    } else if (panel === 'tags') {
+      setShowDetails(false);
+      setShowTagsPanel(true);
+      setShowImageControls(false);
+    } else if (panel === 'imageControls') {
+      setShowDetails(false);
+      setShowTagsPanel(false);
+      setShowImageControls(true);
+    }
+  };
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-white text-gray-900 md:border-x md:border-gray-200 md:min-h-0">
+      {/* Fixed Header */}
+      <div className="px-4 py-3 flex items-center justify-between z-20 bg-white border-b border-gray-200 sticky top-0 shadow-sm">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="text-gray-600">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <h1 className="text-lg font-medium text-gray-900">{currentPeriod.quarter}</h1>
+            <div className={`text-xs flex items-center ${
+              status === 'draft'
+                ? 'text-gray-600'
+                : 'text-green-600'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-1 ${
+                status === 'draft' ? 'bg-gray-500' : 'bg-green-500'
+              }`}></div>
+              {status === 'draft' ? 'Draft' : 'Submitted'} • {timeLeft.days}d {timeLeft.hours}h left
+            </div>
+          </div>
+        </div>
         
-        <div className="flex items-center space-x-6">
-          {/* Status Badge */}
-          <div className={`px-3 py-1.5 rounded-full flex items-center text-sm ${
-            status === 'draft'
-              ? 'bg-gray-100 text-gray-700'
-              : 'bg-green-100 text-green-700'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              status === 'draft' ? 'bg-gray-500' : 'bg-green-500'
-            }`} />
-            {status === 'draft' ? 'Draft' : 'Submitted for Publication'}
-            
-            {status === 'submitted' && timeLeft.days > 0 && (
-              <button
-                onClick={() => setStatus('draft')}
-                className="ml-2 text-xs bg-green-200 text-green-700 px-2 py-0.5 rounded-full hover:bg-green-300 transition-colors"
-              >
-                Revert to Draft
-              </button>
-            )}
+        <div className="flex items-center gap-2">
+          {/* Slot counter */}
+          <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
+            {entries.length}/{MAX_ENTRIES}
           </div>
           
-          {/* Countdown Timer */}
-          <div className="flex items-center text-gray-600">
-            <Clock className="h-4 w-4 mr-2" />
-            <span className="font-medium">{timeLeft.days}d {timeLeft.hours}h</span>
-            <span className="ml-1 text-gray-500">remaining</span>
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100"
+            aria-label={showDetails ? "Hide details" : "Show details"}
+          >
+            {showDetails ? (
+              <ChevronUp className="h-5 w-5 text-gray-600" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-600" />
+            )}
+          </button>
+        </div>
+      </div>
+      
+      {/* Collection Title & Type Selector - Fixed Panel */}
+      {showDetails && (
+        <div className="bg-white border-b border-gray-200 px-4 py-3 z-10">
+          <input
+            value={pageTitle}
+            onChange={(e) => setPageTitle(e.target.value)}
+            className="text-lg font-medium bg-transparent border-none p-0 w-full focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 mb-3"
+            placeholder="Add collection title (optional)"
+            disabled={status === 'submitted'}
+          />
+          
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-600">Submission Type:</div>
+            <div className="relative z-30">
+              <button 
+                className="flex items-center gap-2 py-1 px-3 rounded-md bg-gray-100 hover:bg-gray-200 cursor-pointer text-gray-800"
+                onClick={() => status !== 'submitted' && setShowTypeSelector(!showTypeSelector)}
+                disabled={status === 'submitted'}
+              >
+                <span className="text-sm">
+                  {submissionType === 'regular' ? 'Regular' : 'Full Page Spread'}
+                </span>
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              
+              {/* Type selector dropdown */}
+              {showTypeSelector && (
+                <div className="absolute top-full right-0 mt-1 bg-white rounded-md shadow-lg overflow-hidden border border-gray-200 min-w-[180px]">
+                  <button
+                    className={`w-full text-left px-3 py-2 text-sm ${
+                      submissionType === 'regular' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => {
+                      setSubmissionType('regular');
+                      setShowTypeSelector(false);
+                    }}
+                  >
+                    Regular (Multiple Images)
+                  </button>
+                  <button
+                    className={`w-full text-left px-3 py-2 text-sm ${
+                      submissionType === 'fullSpread' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
+                    }`}
+                    onClick={() => {
+                      setSubmissionType('fullSpread');
+                      setShowTypeSelector(false);
+                    }}
+                  >
+                    Full Page Spread
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Type Selection */}
-      <div className="mb-8">
-        <div className="inline-flex rounded-md shadow-sm">
-          <button
-            type="button"
-            onClick={() => setSubmissionType('regular')}
-            className={`px-4 py-2 text-sm font-medium border ${
-              submissionType === 'regular' 
-                ? 'bg-blue-50 border-blue-500 text-blue-700 z-10' 
-                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-            } rounded-l-md focus:outline-none`}
-          >
-            Regular Submission
-          </button>
-          <button
-            type="button"
-            onClick={() => setSubmissionType('fullSpread')}
-            className={`px-4 py-2 text-sm font-medium border ${
-              submissionType === 'fullSpread' 
-                ? 'bg-blue-50 border-blue-500 text-blue-700 z-10' 
-                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-            } rounded-r-md focus:outline-none`}
-          >
-            Full Page Spread
-          </button>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      <div className="flex flex-col gap-8">
-        {submissionType === 'fullSpread' ? (
-          <div className="bg-white rounded-lg border shadow-sm p-6">
-            <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg hover:border-blue-500 transition-colors">
-              <div className="space-y-2 text-center">
-                {entries[0]?.imageUrl ? (
-                  <div className="relative">
-                    <img
-                      src={entries[0].imageUrl}
-                      alt="Full page spread preview"
-                      className="mx-auto max-h-96 w-auto object-contain rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(entries[0].id)}
-                      className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
-                      disabled={status === 'submitted'}
-                    >
-                      <X className="h-4 w-4 text-gray-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600 mt-4">
-                      <label className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500">
-                        <span>Upload media</span>
-                        <input
-                          type="file"
-                          className="sr-only"
-                          accept="image/jpeg,image/png,image/gif,image/webp"
-                          onChange={(e) => handleImageChange(entries[0].id, e)}
-                          disabled={status === 'submitted'}
-                        />
-                      </label>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Supported formats: JPG, PNG, GIF, WebP up to 10MB
-                    </p>
+      )}
+      
+      {/* Main Content Area */}
+      {submissionType === 'fullSpread' ? (
+        // FullSpread view with single image
+        <div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden">
+          <div className="h-full flex-1 flex items-center justify-center p-4">
+            {entries.length > 0 && entries[0]?.imageUrl ? (
+              <div className="relative w-full h-full flex items-center justify-center">
+                <img
+                  src={entries[0].imageUrl}
+                  alt={entries[0].title || "Full page spread"}
+                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                />
+                
+                {/* Remove button */}
+                {status === 'draft' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(entries[0].id)}
+                    className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
+                    disabled={entries[0].isUploading}
+                  >
+                    <X className="h-4 w-4 text-gray-600" />
+                  </button>
+                )}
+                
+                {/* Upload progress indicator */}
+                {entries[0].isUploading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
                   </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center">
+                <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                <div className="text-sm text-gray-600 mb-3">
+                  <label className="block cursor-pointer font-medium text-blue-600 hover:text-blue-500">
+                    <span>Upload full page image</span>
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      onChange={(e) => handleImageChange(entries[0]?.id || 1, e)}
+                      disabled={status === 'submitted'}
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Supported formats: JPG, PNG, GIF, WebP up to 10MB
+                </p>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-8">
-            {entries.map((entry) => (
+          
+          {/* Full page content inputs */}
+          <div className="bg-white border-t border-gray-200">
+            {/* Title and Caption */}
+            <div className="p-4 border-b border-gray-100">
+              <input
+                value={entries[0]?.title || ''}
+                onChange={(e) => {
+                  setEntries(entries.map((entry, i) => 
+                    i === 0 ? { ...entry, title: e.target.value } : entry
+                  ));
+                }}
+                className="w-full text-xl font-medium bg-transparent border-none p-0 mb-2 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
+                placeholder="Add title"
+                disabled={status === 'submitted'}
+              />
+              
+              <textarea
+                value={entries[0]?.caption || ''}
+                onChange={(e) => {
+                  setEntries(entries.map((entry, i) => 
+                    i === 0 ? { ...entry, caption: e.target.value } : entry
+                  ));
+                }}
+                className="w-full bg-transparent border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-600 resize-none"
+                placeholder="Add caption"
+                rows={3}
+                disabled={status === 'submitted'}
+              />
+            </div>
+            
+            {/* Tags Section */}
+            <div>
               <div 
-                key={entry.id}
-                className="bg-white rounded-lg border shadow-sm p-6 relative"
+                className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                onClick={() => setShowTagsPanel(!showTagsPanel)}
               >
-                <div className="space-y-6" style={{ pointerEvents: status === 'submitted' ? 'none' : 'auto', opacity: status === 'submitted' ? 0.7 : 1 }}>
-                  {/* Image Upload with Feature Toggle */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-medium text-gray-700">
-                        Media Upload
-                      </label>
-                      {entry.imageUrl && (
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEntries(entries.map(e => ({
-                                ...e,
-                                isFeature: e.id === entry.id ? !e.isFeature : false
-                              })));
-                            }}
-                            className={`px-3 py-1 rounded-full text-xs flex items-center gap-1 transition-colors ${
-                              entry.isFeature
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                            }`}
-                            disabled={status === 'submitted'}
-                          >
-                            <Camera className="h-3 w-3" />
-                            Feature Image
-                          </button>
-                          {entry.isFeature && (
+                <div className="text-sm font-medium flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-gray-500" />
+                  Themes
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {/* Tag count */}
+                  {entries[0]?.selectedTags && entries[0].selectedTags.length > 0 && (
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                      {entries[0].selectedTags.length}
+                    </span>
+                  )}
+                  
+                  {showTagsPanel ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </div>
+              </div>
+              
+              {/* Expandable tags section */}
+              {showTagsPanel && (
+                <div className="px-4 pb-4">
+                  {/* Show currently selected tags */}
+                  {entries[0]?.selectedTags && entries[0].selectedTags.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {entries[0].selectedTags.map((tag) => (
+                        <span 
+                          key={tag}
+                          className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1"
+                        >
+                          {tag}
+                          {status === 'draft' && (
                             <button
-                              type="button"
-                              onClick={() => {
-                                setEntries(entries.map(e => ({
-                                  ...e,
-                                  isFullSpread: e.id === entry.id && e.isFeature ? !e.isFullSpread : false
-                                })));
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEntries(entries.map((entry, i) => {
+                                  if (i !== 0) return entry;
+                                  return { 
+                                    ...entry, 
+                                    selectedTags: entry.selectedTags.filter(t => t !== tag) 
+                                  };
+                                }));
                               }}
-                              className={`px-3 py-1 rounded-full text-xs flex items-center gap-1 transition-colors ${
-                                entry.isFullSpread
-                                  ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                              }`}
-                              disabled={status === 'submitted'}
+                              className="text-blue-400 hover:text-blue-600"
                             >
-                              <Maximize2 className="h-3 w-3" />
-                              Full Page
+                              <X className="h-3 w-3" />
                             </button>
                           )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* All available tags */}
+                  {status === 'draft' && (
+                    <div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        Select themes for this image:
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto py-1">
+                        {themes.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            className={`text-xs px-2 py-1.5 rounded-md ${
+                              entries[0]?.selectedTags?.includes(tag)
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                            }`}
+                            onClick={() => {
+                              setEntries(entries.map((entry, i) => {
+                                if (i !== 0) return entry;
+                                
+                                const selectedTags = entry.selectedTags.includes(tag)
+                                  ? entry.selectedTags.filter(t => t !== tag)
+                                  : [...entry.selectedTags, tag];
+                                  
+                                return { ...entry, selectedTags };
+                              }));
+                            }}
+                            disabled={status !== 'draft'}
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        // Regular submission - multiple images with immersive viewing
+        <div className="flex-1 flex flex-col">
+          {/* Image tabs - thumbnail navigation */}
+          <div className="border-b overflow-x-auto">
+            <div className="h-12 px-4 bg-transparent flex items-center">
+              {entries.map((entry, index) => (
+                <button
+                  key={entry.id}
+                  onClick={() => setCurrentSlide(index)}
+                  className={`px-4 py-2 mr-1 flex items-center ${
+                    currentSlide === index 
+                      ? 'border-b-2 border-blue-500 text-blue-700' 
+                      : 'text-gray-500'
+                  }`}
+                >
+                  {entry.imageUrl ? (
+                    <div className="relative w-6 h-6 rounded-full overflow-hidden">
+                      <img 
+                        src={entry.imageUrl} 
+                        alt="" 
+                        className="w-full h-full object-cover" 
+                      />
+                      {entry.isFeature && (
+                        <div className="absolute inset-0 bg-amber-500/20 border border-amber-500 rounded-full"></div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                      <span className="text-xs text-gray-600">{index + 1}</span>
+                    </div>
+                  )}
+                  <span className="ml-2 font-medium text-xs">
+                    {index + 1}
+                  </span>
+                </button>
+              ))}
+              
+              {/* Add new image button */}
+              {status === 'draft' && entries.length < MAX_ENTRIES && (
+                <button
+                  onClick={handleAddEntry}
+                  className="h-8 w-8 rounded-full flex items-center justify-center p-0 mx-1 text-gray-500 hover:bg-gray-100"
+                  aria-label="Add new image"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* Main Image Viewer */}
+          {entries.map((entry, index) => (
+            <div 
+              key={entry.id} 
+              className={`flex-1 flex flex-col ${currentSlide === index ? 'block' : 'hidden'}`}
+            >
+              {/* Image Area */}
+              <div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden">
+                <div className="h-full flex-1 flex items-center justify-center p-4">
+                  {entry.imageUrl ? (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <img
+                        src={entry.imageUrl}
+                        alt={entry.title || `Image ${index + 1}`}
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+                      />
+                      
+                      {/* Remove button */}
+                      {status === 'draft' && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveImage(entry.id)}
+                          className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
+                          disabled={entry.isUploading}
+                        >
+                          <X className="h-4 w-4 text-gray-600" />
+                        </button>
+                      )}
+                      
+                      {/* Upload progress indicator */}
+                      {entry.isUploading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
                         </div>
                       )}
                     </div>
-
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-200 border-dashed rounded-lg hover:border-blue-500 transition-colors">
-                      <div className="space-y-2 text-center">
-                        {entry.imageUrl ? (
-                          <div className="relative">
-                            <img
-                              src={entry.imageUrl}
-                              alt="Preview"
-                              className={`mx-auto h-72 w-auto object-cover rounded ${
-                                entry.isUploading ? 'opacity-50' : ''
-                              }`}
-                            />
-                            {entry.isUploading && (
-                              <div className="absolute inset-0 flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(entry.id)}
-                              className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
-                              disabled={status === 'submitted' || entry.isUploading}
-                            >
-                              <X className="h-4 w-4 text-gray-600" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-center">
-                            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                            <div className="flex text-sm text-gray-600 mt-4">
-                              <label className="relative cursor-pointer rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                <span>Upload media</span>
-                                <input
-                                  type="file"
-                                  className="sr-only"
-                                  accept="image/jpeg,image/png,image/gif,image/webp"
-                                  onChange={(e) => handleImageChange(entry.id, e)}
-                                  disabled={status === 'submitted'}
-                                />
-                              </label>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Supported formats: JPG, PNG, GIF, WebP up to 10MB
-                            </p>
-                          </div>
-                        )}
+                  ) : (
+                    <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center">
+                      <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                      <div className="text-sm text-gray-600 mb-3">
+                        <label className="block cursor-pointer font-medium text-blue-600 hover:text-blue-500">
+                          <span>Upload image</span>
+                          <input
+                            type="file"
+                            className="sr-only"
+                            accept="image/jpeg,image/png,image/gif,image/webp"
+                            onChange={(e) => handleImageChange(entry.id, e)}
+                            disabled={status === 'submitted'}
+                          />
+                        </label>
                       </div>
+                      <p className="text-xs text-gray-500">
+                        Supported formats: JPG, PNG, GIF, WebP up to 10MB
+                      </p>
                     </div>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Title Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Title
-                    </label>
-                    <input
-                      type="text"
-                      value={entry.title}
-                      onChange={(e) => setEntries(entries.map(ent => 
-                        ent.id === entry.id ? { ...ent, title: e.target.value } : ent
-                      ))}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Give your creation a title"
-                      disabled={status === 'submitted'}
-                    />
-                  </div>
-
-                  {/* Caption Input */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Caption
-                    </label>
-                    <textarea
-                      value={entry.caption}
-                      onChange={(e) => setEntries(entries.map(ent => 
-                        ent.id === entry.id ? { ...ent, caption: e.target.value } : ent
-                      ))}
-                      rows={4}
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Tell the story behind this piece"
-                      disabled={status === 'submitted'}
-                    />
-                  </div>
-
-                  {/* Themes Selection */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Themes
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {themes.map((tag) => (
-                        <button
-                          key={tag}
-                          type="button"
-                          onClick={() => {
-                            setEntries(entries.map(ent => {
-                              if (ent.id !== entry.id) return ent;
-                              const selectedTags = ent.selectedTags.includes(tag)
-                                ? ent.selectedTags.filter(t => t !== tag)
-                                : [...ent.selectedTags, tag];
-                              return { ...ent, selectedTags };
-                            }));
-                          }}
-                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                            entry.selectedTags.includes(tag)
-                              ? 'bg-blue-100 text-blue-800 border border-blue-300'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
-                          }`}
-                          disabled={status === 'submitted'}
+                {/* Navigation arrows - only shown when we have multiple entries */}
+                {entries.length > 1 && (
+                  <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
+                    <div className="flex items-center justify-between w-full px-4">
+                      {currentSlide > 0 && (
+                        <button 
+                          onClick={handlePrevSlide}
+                          className="w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center pointer-events-auto"
                         >
-                          {tag}
+                          <ChevronDown className="h-5 w-5 text-gray-700 rotate-90" />
                         </button>
-                      ))}
+                      )}
+                      
+                      {currentSlide < entries.length - 1 && (
+                        <button 
+                          onClick={handleNextSlide}
+                          className="w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center ml-auto pointer-events-auto"
+                        >
+                          <ChevronDown className="h-5 w-5 text-gray-700 -rotate-90" />
+                        </button>
+                      )}
                     </div>
                   </div>
+                )}
+                
+                {/* Slide indicators */}
+                {entries.length > 1 && (
+                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2">
+                    <div className="py-1 px-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center gap-2">
+                      {entries.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentSlide(idx)}
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            idx === currentSlide ? 'bg-blue-600' : 'bg-gray-300'
+                          }`}
+                          aria-label={`Go to image ${idx + 1}`}
+                        ></button>
+                      ))}
+                      
+                      {/* Add new image button in indicator bar */}
+                      {status === 'draft' && entries.length < MAX_ENTRIES && (
+                        <button
+                          onClick={handleAddEntry}
+                          className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center ml-1"
+                          aria-label="Add new image"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Details Panel with collapsible sections */}
+              <div className="bg-white border-t border-gray-200">
+                {/* Title and Caption - Always visible */}
+                <div className="p-4 border-b border-gray-100">
+                  <input
+                    value={entry.title}
+                    onChange={(e) => {
+                      setEntries(entries.map((ent, i) => 
+                        i === index ? { ...ent, title: e.target.value } : ent
+                      ));
+                    }}
+                    className="w-full text-xl font-medium bg-transparent border-none p-0 mb-2 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
+                    placeholder="Add title"
+                    disabled={status === 'submitted'}
+                  />
+                  
+                  <textarea
+                    value={entry.caption}
+                    onChange={(e) => {
+                      setEntries(entries.map((ent, i) => 
+                        i === index ? { ...ent, caption: e.target.value } : ent
+                      ));
+                    }}
+                    className="w-full bg-transparent border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-600 resize-none"
+                    placeholder="Add caption"
+                    rows={2}
+                    disabled={status === 'submitted'}
+                  />
+                </div>
+                
+                {/* Feature Controls Section - Collapsible */}
+                <div className="border-b border-gray-100">
+                  <div 
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                    onClick={() => setShowImageControls(!showImageControls)}
+                  >
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Camera className="h-4 w-4 text-gray-500" />
+                      Image Options
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Feature and Full Page badges as pills - visible even when collapsed */}
+                      {entry.isFeature && (
+                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs">
+                          Feature
+                        </span>
+                      )}
+                      
+                      {entry.isFullSpread && (
+                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
+                          Full Page
+                        </span>
+                      )}
+                      
+                      {showImageControls ? (
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Expandable section */}
+                  {showImageControls && entry.imageUrl && status === 'draft' && (
+                    <div className="px-4 pb-4">
+                      <div className="flex gap-2">
+                        <button
+                          className={`py-2 px-3 rounded-md text-sm font-medium flex-1 ${
+                            entry.isFeature 
+                              ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                          }`}
+                          onClick={() => setEntries(entries.map((e, i) => 
+                            i === index ? { ...e, isFeature: !e.isFeature } : 
+                            i !== index && e.isFeature && !entry.isFeature ? { ...e, isFeature: false } : e
+                          ))}
+                        >
+                          <div className="flex items-center justify-center">
+                            <Camera className="h-4 w-4 mr-2" />
+                            Feature Image
+                          </div>
+                        </button>
+                        
+                        <button
+                          className={`py-2 px-3 rounded-md text-sm font-medium flex-1 ${
+                            entry.isFullSpread 
+                              ? 'bg-purple-100 text-purple-700 border border-purple-200' 
+                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                          }`}
+                          onClick={() => setEntries(entries.map((e, i) => 
+                            i === index ? { ...e, isFullSpread: !e.isFullSpread } : e
+                          ))}
+                          disabled={!entry.isFeature}
+                        >
+                          <div className="flex items-center justify-center">
+                            <Maximize2 className="h-4 w-4 mr-2" />
+                            Full Page
+                          </div>
+                        </button>
+                      </div>
+                      
+                      {!entry.isFeature && entry.isFullSpread && (
+                        <p className="text-xs text-amber-600 mt-2">
+                          Note: Only feature images can be set as full page spreads
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Tags Section - Collapsible */}
+                <div>
+                  <div 
+                    className="flex items-center justify-between px-4 py-3 cursor-pointer"
+                    onClick={() => setShowTagsPanel(!showTagsPanel)}
+                  >
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-gray-500" />
+                      Themes
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Tag count */}
+                      {entry.selectedTags && entry.selectedTags.length > 0 && (
+                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
+                          {entry.selectedTags.length}
+                        </span>
+                      )}
+                      
+                      {showTagsPanel ? (
+                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Expandable tags section */}
+                  {showTagsPanel && (
+                    <div className="px-4 pb-4">
+                      {/* Show currently selected tags */}
+                      {entry.selectedTags && entry.selectedTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {entry.selectedTags.map((tag) => (
+                            <span 
+                              key={tag}
+                              className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1"
+                            >
+                              {tag}
+                              {status === 'draft' && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEntries(entries.map((ent, i) => {
+                                      if (i !== index) return ent;
+                                      return { 
+                                        ...ent, 
+                                        selectedTags: ent.selectedTags.filter(t => t !== tag) 
+                                      };
+                                    }));
+                                  }}
+                                  className="text-blue-400 hover:text-blue-600"
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* All available tags */}
+                      {status === 'draft' && (
+                        <div>
+                          <div className="text-xs text-gray-500 mb-2">
+                            Select themes for this image:
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto py-1">
+                            {themes.map((tag) => (
+                              <button
+                                key={tag}
+                                type="button"
+                                className={`text-xs px-2 py-1.5 rounded-md ${
+                                  entry.selectedTags.includes(tag)
+                                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                    : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
+                                }`}
+                                onClick={() => {
+                                  setEntries(entries.map((ent, i) => {
+                                    if (i !== index) return ent;
+                                    const selectedTags = ent.selectedTags.includes(tag)
+                                      ? ent.selectedTags.filter(t => t !== tag)
+                                      : [...ent.selectedTags, tag];
+                                    return { ...ent, selectedTags };
+                                  }));
+                                }}
+                                disabled={status !== 'draft'}
+                              >
+                                {tag}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-
-            {/* Add Entry Button */}
-            {status === 'draft' && entries.length < 4 && (
-              <button
-                type="button"
-                onClick={() => {
-                  const newId = Math.max(...entries.map(e => e.id)) + 1;
-                  setEntries([...entries, {
-                    id: newId,
-                    title: '',
-                    caption: '',
-                    selectedTags: [],
-                    imageUrl: null,
-                    isFeature: false,
-                    isFullSpread: false
-                  }]);
-                }}
-                className="w-full py-4 border border-dashed border-gray-300 rounded-lg text-gray-500 hover:text-blue-500 hover:border-blue-500 transition-colors flex items-center justify-center gap-2"
-              >
-                <Plus className="h-5 w-5" />
-                Add Another Image
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
+            </div>
+          ))}
+        </div>
+      )}
+      
       {/* Action Buttons */}
-      <div className="flex gap-4 mt-8">
+      <div className="bg-white border-t border-gray-200 px-4 py-3 flex gap-3 sticky bottom-0 shadow-md">
         <button
           type="button"
+          className="flex-1 py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
           onClick={handleSaveDraft}
-          className="flex-1 py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
           disabled={status !== 'draft'}
         >
-          {saveStatus === 'saving' ? 'Saving...' : 'Save Draft'}
+          <Save className="h-4 w-4" />
+          {saveStatus === 'saving' 
+            ? 'Saving...' 
+            : saveStatus === 'saved' 
+              ? 'Saved!' 
+              : saveStatus === 'error'
+                ? 'Error!'
+                : 'Save Draft'
+          }
         </button>
-
-        <button
-          type="submit"
-          onClick={handleSubmit}
-          className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          disabled={status !== 'draft'}
-        >
-          Submit for Publication
-        </button>
+        
+        {status === 'draft' ? (
+          <button
+            type="button"
+            className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            onClick={handleSubmit}
+          >
+            <Send className="h-4 w-4" />
+            Submit
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="flex-1 py-2.5 px-4 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
+            onClick={() => setStatus('draft')}
+          >
+            <Info className="h-4 w-4" />
+            Revert to Draft
+          </button>
+        )}
       </div>
     </div>
   );
