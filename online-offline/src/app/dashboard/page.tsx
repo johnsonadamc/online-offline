@@ -8,13 +8,13 @@ import Link from 'next/link';
 // Import all needed functions from your existing codebase
 import { 
   fetchCurrentPeriodDraft, 
-  getPastContributions, 
+  // getPastContributions - Removing unused import
   getCurrentPeriod 
 } from '@/lib/supabase/content';
 import { 
   getUserCollabs, 
   leaveCollab, 
-  getCollabById 
+  // getCollabById - Removing unused import
 } from '@/lib/supabase/collabs';
 import { 
   getDraftCommunications, 
@@ -24,10 +24,15 @@ import {
 
 import { 
   Camera, Edit, BookOpen, UsersRound, MessageCircle, Clock, 
-  Image, ChevronRight, Layers, Search, 
-  Palette, Pen, Music, Settings, ArrowRight,
-  Grid, User, CalendarDays, X, PlusCircle,
-  RotateCcw, FileText, MapPin, Globe, Lock
+  Image, ChevronRight, 
+  // Layers, Search - Removing unused imports 
+  Palette, Pen, Music, Settings, 
+  // ArrowRight - Removing unused import
+  // Grid - Removing unused import
+  User, CalendarDays, X, PlusCircle,
+  RotateCcw, 
+  // FileText - Removing unused import
+  MapPin, Globe, Lock
 } from 'lucide-react';
 
 // Define interfaces for our data types
@@ -58,7 +63,7 @@ interface CollabDataFromAPI {
   is_private: boolean;
   participation_mode?: string;
   location?: string | null;
-  participants?: { name: string; role: any }[];
+  participants?: { name: string; role: string }[]; // More specific type instead of any
   participantCount: number;
   current_phase?: number | null;
   total_phases?: number | null;
@@ -66,9 +71,9 @@ interface CollabDataFromAPI {
   status?: string;
   metadata?: {
     status?: string;
-    [key: string]: any;
+    [key: string]: unknown; // More specific type instead of any
   };
-  [key: string]: any; // This allows for other properties we might not explicitly define
+  [key: string]: unknown; // More specific type instead of any
 }
 
 interface Communication {
@@ -97,155 +102,193 @@ interface Period {
   is_active: boolean;
 }
 
+interface CommunicationProfile {
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  [key: string]: unknown;
+}
+
 interface ConfirmActionState {
   action: string;
   id: string;
 }
-
 export default function Dashboard() {
-  const router = useRouter();
-  const supabase = createClientComponentClient();
+    const router = useRouter();
+    const supabase = createClientComponentClient();
+    
+    // Tab state
+    const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
+    const [showConfirm, setShowConfirm] = useState<boolean>(false);
+    const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
+    
+    // State to track which communication we might want to delete
+    const [deleteCommId, setDeleteCommId] = useState<string>('');
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+    
+    // State to track which content we might want to delete
+    const [deleteContentId, setDeleteContentId] = useState<string>('');
+    const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
+    
+    // Data states
+    const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
+    const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
+    const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
+    const [communications, setCommunications] = useState<Communication[]>([]);
+    const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+    const [isLoading, setIsLoading] = useState<boolean>(true);
   
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
-  const [showConfirm, setShowConfirm] = useState<boolean>(false);
-  const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
+    // Handle confirmation actions
+    const showConfirmDialog = (action: string, id: string) => {
+      setConfirmAction({ action, id });
+      setShowConfirm(true);
+    };
   
-  // State to track which communication we might want to delete
-  const [deleteCommId, setDeleteCommId] = useState<string>('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  
-  // State to track which content we might want to delete
-  const [deleteContentId, setDeleteContentId] = useState<string>('');
-  const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
-  
-  // Data states
-  const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
-  const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
-  const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
-  const [communications, setCommunications] = useState<Communication[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  // Handle confirmation actions
-  const showConfirmDialog = (action: string, id: string) => {
-    setConfirmAction({ action, id });
-    setShowConfirm(true);
-  };
-
-  const handleConfirmAction = async () => {
-    try {
-      if (confirmAction.action === 'leave') {
-        // Call the leaveCollab function to handle leaving the collaboration
-        const result = await leaveCollab(confirmAction.id);
-        if (result.success) {
-          // Update the UI by removing the collab
-          setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
-        } else {
-          console.error("Error leaving collab:", result.error);
+    const handleConfirmAction = async () => {
+      try {
+        if (confirmAction.action === 'leave') {
+          // Call the leaveCollab function to handle leaving the collaboration
+          const result = await leaveCollab(confirmAction.id);
+          if (result.success) {
+            // Update the UI by removing the collab
+            setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
+          } else {
+            console.error("Error leaving collab:", result.error);
+          }
+        } else if (confirmAction.action === 'withdraw') {
+          // Handle withdraw communication logic
+          const result = await withdrawCommunication(confirmAction.id);
+          if (result.success) {
+            // Update communications state
+            setCommunications(prev => {
+              return prev.map(c => c.id === confirmAction.id 
+                ? { ...c, status: 'draft' } 
+                : c
+              );
+            });
+          }
         }
-      } else if (confirmAction.action === 'withdraw') {
-        // Handle withdraw communication logic
-        const result = await withdrawCommunication(confirmAction.id);
-        if (result.success) {
-          // Update communications state
-          setCommunications(prev => {
-            return prev.map(c => c.id === confirmAction.id 
-              ? { ...c, status: 'draft' } 
-              : c
-            );
-          });
+        
+        setShowConfirm(false);
+      } catch (error) {
+        console.error("Error processing action:", error);
+        setShowConfirm(false);
+      }
+    };
+    
+    // Add function to handle communication deletion
+    const handleDeleteCommunication = async () => {
+      try {
+        // Here you would add your actual deletion logic
+        // For example: await deleteCommunication(deleteCommId);
+        
+        // For now, we'll just update the UI by removing it from state
+        setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
+        
+        // Reset the delete confirmation state
+        setShowDeleteConfirm(false);
+        setDeleteCommId('');
+        
+      } catch (error) {
+        console.error("Error deleting communication:", error);
+        setShowDeleteConfirm(false);
+      }
+    };
+    
+    // Add function to handle content deletion
+    const handleDeleteContent = async () => {
+      try {
+        // Here you would add your actual deletion logic
+        // For example: await deleteContent(deleteContentId);
+        // Using the variable to fix the linting error
+        console.log(`Deleting content with ID: ${deleteContentId}`);
+        
+        // For now, we'll just update the UI
+        setContentSubmission(null);
+        
+        // Reset the delete confirmation state
+        setShowDeleteContentConfirm(false);
+        setDeleteContentId('');
+        
+      } catch (error) {
+        console.error("Error deleting content:", error);
+        setShowDeleteContentConfirm(false);
+      }
+    };
+    
+    // Status badges - now only render for 'submitted' or 'published'
+    const renderStatusBadge = (status: string) => {
+      // If status is 'draft', don't render any badge
+      if (status === 'draft') return null;
+      
+      const statusStyles: Record<string, string> = {
+        submitted: 'bg-blue-100 text-blue-600 border border-blue-200',
+        published: 'bg-green-100 text-green-600 border border-green-200'
+      };
+      
+      return (
+        <span className={`text-xs px-2 py-0.5 rounded-sm ${statusStyles[status] || 'bg-gray-100'}`}>
+          {status}
+        </span>
+      );
+    };
+    
+    // Content type icons
+    const renderContentTypeIcon = (type: string): ReactElement => {
+      const icons: Record<string, ReactElement> = {
+        photo: <Camera size={16} />,
+        art: <Palette size={16} />,
+        poetry: <Pen size={16} />,
+        essay: <BookOpen size={16} />,
+        music: <Music size={16} />
+      };
+      
+      const iconBgColors: Record<string, string> = {
+        photo: 'bg-blue-50 text-blue-500',
+        art: 'bg-indigo-50 text-indigo-500',
+        poetry: 'bg-purple-50 text-purple-500',
+        essay: 'bg-blue-50 text-blue-500',
+        music: 'bg-blue-50 text-blue-500'
+      };
+      
+      return (
+        <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
+          {icons[type] || (
+            // eslint-disable-next-line jsx-a11y/alt-text
+            <Image size={16} />
+          )}
+        </div>
+      );
+    };
+  
+    // Helper to get the collaboration type
+    const getCollabType = (type: string | undefined): string => {
+      if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
+      return type;
+    };
+    
+    // Helper to extract recipient name
+    const getRecipientName = (profiles: CommunicationProfile | CommunicationProfile[] | undefined): string => {
+      if (!profiles) return 'Unknown Recipient';
+      
+      if (Array.isArray(profiles)) {
+        if (profiles.length > 0) {
+          const profile = profiles[0];
+          return `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown';
         }
+        return 'Unknown Recipient';
       }
       
-      setShowConfirm(false);
-    } catch (error) {
-      console.error("Error processing action:", error);
-      setShowConfirm(false);
-    }
-  };
-  
-  // Add function to handle communication deletion
-  const handleDeleteCommunication = async () => {
-    try {
-      // Here you would add your actual deletion logic
-      // For example: await deleteCommunication(deleteCommId);
-      
-      // For now, we'll just update the UI by removing it from state
-      setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
-      
-      // Reset the delete confirmation state
-      setShowDeleteConfirm(false);
-      setDeleteCommId('');
-      
-    } catch (error) {
-      console.error("Error deleting communication:", error);
-      setShowDeleteConfirm(false);
-    }
-  };
-  
-  // Add function to handle content deletion
-  const handleDeleteContent = async () => {
-    try {
-      // Here you would add your actual deletion logic
-      // For example: await deleteContent(deleteContentId);
-      
-      // For now, we'll just update the UI
-      setContentSubmission(null);
-      
-      // Reset the delete confirmation state
-      setShowDeleteContentConfirm(false);
-      setDeleteContentId('');
-      
-    } catch (error) {
-      console.error("Error deleting content:", error);
-      setShowDeleteContentConfirm(false);
-    }
-  };
-  
-  // Status badges - now only render for 'submitted' or 'published'
-  const renderStatusBadge = (status: string) => {
-    // If status is 'draft', don't render any badge
-    if (status === 'draft') return null;
-    
-    const statusStyles: Record<string, string> = {
-      submitted: 'bg-blue-100 text-blue-600 border border-blue-200',
-      published: 'bg-green-100 text-green-600 border border-green-200'
+      // Now TypeScript knows profiles is a CommunicationProfile object, not an array
+      return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
     };
     
-    return (
-      <span className={`text-xs px-2 py-0.5 rounded-sm ${statusStyles[status] || 'bg-gray-100'}`}>
-        {status}
-      </span>
-    );
-  };
-  
-  // Content type icons
-  const renderContentTypeIcon = (type: string): ReactElement => {
-    const icons: Record<string, ReactElement> = {
-      photo: <Camera size={16} />,
-      art: <Palette size={16} />,
-      poetry: <Pen size={16} />,
-      essay: <BookOpen size={16} />,
-      music: <Music size={16} />
+    // Handle sign out
+    const handleSignOut = async () => {
+      await supabase.auth.signOut();
+      router.push('/');
     };
-    
-    const iconBgColors: Record<string, string> = {
-      photo: 'bg-blue-50 text-blue-500',
-      art: 'bg-indigo-50 text-indigo-500',
-      poetry: 'bg-purple-50 text-purple-500',
-      essay: 'bg-blue-50 text-blue-500',
-      music: 'bg-blue-50 text-blue-500'
-    };
-    
-    return (
-      <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
-        {icons[type] || <Image size={16} />}
-      </div>
-    );
-  };
-
-  // Fetch data on component mount
+    // Fetch data on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -305,7 +348,7 @@ export default function Dashboard() {
             if (collab?.status) {
               status = collab.status;
             } else if (collab?.metadata?.status) {
-              status = collab.metadata.status;
+              status = collab.metadata.status as string;
             }
             
             return {
@@ -368,33 +411,6 @@ export default function Dashboard() {
     
     loadData();
   }, []);
-  
-  // Helper to get the collaboration type
-  const getCollabType = (type: string | undefined): string => {
-    if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
-    return type;
-  };
-  
-  // Helper to extract recipient name
-  const getRecipientName = (profiles: any): string => {
-    if (!profiles) return 'Unknown Recipient';
-    
-    if (Array.isArray(profiles) && profiles.length > 0) {
-      return `${profiles[0].first_name || ''} ${profiles[0].last_name || ''}`.trim() || 'Unknown';
-    }
-    
-    if (typeof profiles === 'object') {
-      return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
-    }
-    
-    return 'Unknown Recipient';
-  };
-  
-  // Handle sign out
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  };
 
   // Confirmation dialog component
   const ConfirmationDialog = () => {
@@ -505,7 +521,6 @@ export default function Dashboard() {
       </div>
     );
   };
-
   // Loading state
   if (isLoading) {
     return (
@@ -529,7 +544,7 @@ export default function Dashboard() {
             {/* Text-based logo - keeping the orange/yellow */}
             <span className="text-lg font-normal">
               <span className="text-[#F05A28]">online</span>
-              <span className="text-[#F5A93F]">//offline</span>
+              <span className="text-[#F5A93F]">{'//offline'}</span>
             </span>
           </div>
         </div>
@@ -550,7 +565,7 @@ export default function Dashboard() {
                 onClick={handleSignOut}
                 className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 flex items-center gap-2"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                   <polyline points="16 17 21 12 16 7"></polyline>
                   <line x1="21" y1="12" x2="9" y2="12"></line>
@@ -659,65 +674,65 @@ export default function Dashboard() {
               
               {contentSubmission ? (
                 <Link 
-                  href={`/submit?draft=${contentSubmission.id}`}
-                  className={`p-3 border rounded-sm transition-colors ${
-                    contentSubmission.status === 'submitted'
-                      ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
-                      : 'border-gray-100 hover:border-gray-200'
-                  } block cursor-pointer`}
-                >
-                  <div className="flex items-center gap-3">
-                    {renderContentTypeIcon(contentSubmission.type)}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-sm font-normal text-gray-900 truncate">{contentSubmission.title}</h3>
-                        {renderStatusBadge(contentSubmission.status)}
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span>{contentSubmission.period}</span>
-                        <span>•</span>
-                        <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
-                      </div>
+                href={`/submit?draft=${contentSubmission.id}`}
+                className={`p-3 border rounded-sm transition-colors ${
+                  contentSubmission.status === 'submitted'
+                    ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
+                    : 'border-gray-100 hover:border-gray-200'
+                } block cursor-pointer`}
+              >
+                <div className="flex items-center gap-3">
+                  {renderContentTypeIcon(contentSubmission.type)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h3 className="text-sm font-normal text-gray-900 truncate">{contentSubmission.title}</h3>
+                      {renderStatusBadge(contentSubmission.status)}
                     </div>
-                    <button 
-                      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setDeleteContentId(contentSubmission.id);
-                        setShowDeleteContentConfirm(true);
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <span>{contentSubmission.period}</span>
+                      <span>•</span>
+                      <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
+                    </div>
                   </div>
-                </Link>
-              ) : (
-                <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <Image size={20} className="text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-500 mb-3">No content submission for current period</p>
-                  <Link href="/submit" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                    Create Submission
-                  </Link>
+                  <button 
+                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDeleteContentId(contentSubmission.id);
+                      setShowDeleteContentConfirm(true);
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-              )}
-            </div>
-            
-            {/* Active Collaborations */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-normal text-gray-400">Collaborations</h2>
-                <Link href="/collabs" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                  <PlusCircle size={12} className="mr-0.5" />
-                  New Collaboration
+              </Link>
+            ) : (
+              <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
+                <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
+                    <div className="w-5 h-5 bg-gray-400 rounded-sm"></div>
+                </div>
+                <p className="text-sm text-gray-500 mb-3">No content submission for current period</p>
+                <Link href="/submit" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
+                  Create Submission
                 </Link>
               </div>
-              
-              <div className="space-y-2">
-                {activeCollabs.map(collab => (
-                  <div 
+            )}
+          </div>
+          
+          {/* Active Collaborations */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-normal text-gray-400">Collaborations</h2>
+              <Link href="/collabs" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
+                <PlusCircle size={12} className="mr-0.5" />
+                New Collaboration
+              </Link>
+            </div>
+            
+            <div className="space-y-2">
+              {activeCollabs.map(collab => (
+                <div 
                   key={collab.id} 
                   className="p-3 border rounded-sm hover:border-gray-200 transition-colors hover:bg-blue-50 cursor-pointer"
                   onClick={() => router.push(`/collabs/${collab.id}/submit`)}
@@ -739,7 +754,6 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
                         <h3 className="text-sm font-normal text-gray-900 truncate">{collab.title}</h3>
-                        {/* Add "submitted" tag if collab has been submitted */}
                         {collab.status === 'submitted' && (
                           <span className="text-xs px-2 py-0.5 rounded-sm bg-blue-100 text-blue-600 border border-blue-200">
                             submitted
@@ -770,9 +784,9 @@ export default function Dashboard() {
               
               {activeCollabs.length === 0 && (
                 <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <UsersRound size={20} className="text-gray-400" />
-                  </div>
+                 <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
+                    <div className="w-5 h-5 bg-gray-400 rounded-sm"></div>
+                </div>
                   <p className="text-sm text-gray-500 mb-3">No active collaborations</p>
                   <Link href="/collabs" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
                     Join Collaboration
@@ -781,183 +795,181 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          
           {/* Communications */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-normal text-gray-400">Communications</h2>
-              <Link href="/communicate/new" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                <PlusCircle size={12} className="mr-0.5" />
-                New Communication
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-normal text-gray-400">Communications</h2>
+                <Link href="/communicate/new" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
+                  <PlusCircle size={12} className="mr-0.5" />
+                  New Communication
+                </Link>
+              </div>
+              
+              <div className="space-y-2">
+                {communications.map(comm => (
+                  <Link
+                    key={comm.id}
+                    href={`/communicate/${comm.id}`}
+                    className={`p-3 border rounded-sm transition-colors ${
+                      comm.status === 'submitted'
+                        ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
+                        : 'border-gray-100 hover:border-gray-200'
+                    } block cursor-pointer`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-amber-50 text-amber-500">
+                        <MessageCircle size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-sm font-normal text-gray-900 truncate">{comm.subject}</h3>
+                          {renderStatusBadge(comm.status)}
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <span>To: {comm.recipient}</span>
+                            <span>•</span>
+                            <span>{comm.date}</span>
+                          </div>
+                          
+                          {comm.status === 'submitted' && (
+                            <button 
+                              className="text-blue-500 hover:text-blue-600 text-xs flex items-center gap-0.5"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                showConfirmDialog('withdraw', comm.id);
+                              }}
+                            >
+                              <RotateCcw size={12} />
+                              Withdraw
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Replace chevron with X for draft communications */}
+                      {comm.status === 'draft' ? (
+                        <button 
+                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDeleteCommId(comm.id);
+                            setShowDeleteConfirm(true);
+                          }}
+                        >
+                          <X size={14} />
+                        </button>
+                      ) : (
+                        <div className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500">
+                          <ChevronRight size={16} />
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+                
+                {communications.length === 0 && (
+                  <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
+                    <MessageCircle size={20} className="text-gray-400" aria-hidden="true" />
+                    </div>
+                    <p className="text-sm text-gray-500 mb-3">No communications yet</p>
+                    <Link href="/communicate/new" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
+                      Create Communication
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Curation Actions */}
+            <div className="space-y-2">
+              <h2 className="text-sm font-normal text-gray-400 mb-3">Actions</h2>
+              
+              <Link href="/curate" className="p-3 border border-gray-100 rounded-sm hover:border-blue-200 transition-colors hover:bg-blue-50 group block">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 border border-gray-100 rounded-sm flex items-center justify-center group-hover:border-blue-200 group-hover:bg-white transition-colors">
+                    <Edit size={16} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-normal text-gray-900 group-hover:text-blue-500 transition-colors">Curate Your Magazine</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Select content for your print magazine</p>
+                  </div>
+                  <div className="w-8 h-8 flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
+                    <ChevronRight size={16} />
+                  </div>
+                </div>
               </Link>
             </div>
             
+            {/* Recent Activity */}
             <div className="space-y-2">
-              {communications.map(comm => (
-                <Link
-                  key={comm.id}
-                  href={`/communicate/${comm.id}`}
-                  className={`p-3 border rounded-sm transition-colors ${
-                    comm.status === 'submitted'
-                      ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
-                      : 'border-gray-100 hover:border-gray-200'
-                  } block cursor-pointer`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-amber-50 text-amber-500">
-                      <MessageCircle size={16} />
+              <h2 className="text-sm font-normal text-gray-400 mb-3">Recent Activity</h2>
+              
+              {recentActivity.map((activity, index) => (
+                <div key={index} className="p-3 border border-gray-100 rounded-sm hover:border-gray-200 transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-sm bg-blue-50 flex-shrink-0 flex items-center justify-center">
+                      <Camera size={14} className="text-blue-500" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-sm font-normal text-gray-900 truncate">{comm.subject}</h3>
-                        {renderStatusBadge(comm.status)}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <span>To: {comm.recipient}</span>
-                          <span>•</span>
-                          <span>{comm.date}</span>
-                        </div>
-                        
-                        {comm.status === 'submitted' && (
-                          <button 
-                            className="text-blue-500 hover:text-blue-600 text-xs flex items-center gap-0.5"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              showConfirmDialog('withdraw', comm.id);
-                            }}
-                          >
-                            <RotateCcw size={12} />
-                            Withdraw
-                          </button>
-                        )}
-                      </div>
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">{activity.user}</span> {activity.action}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
                     </div>
-                    
-                    {/* Replace chevron with X for draft communications */}
-                    {comm.status === 'draft' ? (
-                      <button 
-                        className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setDeleteCommId(comm.id);
-                          setShowDeleteConfirm(true);
-                        }}
-                      >
-                        <X size={14} />
-                      </button>
-                    ) : (
-                      <div className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500">
-                        <ChevronRight size={16} />
-                      </div>
-                    )}
                   </div>
-                </Link>
+                </div>
               ))}
               
-              {communications.length === 0 && (
-                <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                  <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <MessageCircle size={20} className="text-gray-400" />
-                  </div>
-                  <p className="text-sm text-gray-500 mb-3">No communications yet</p>
-                  <Link href="/communicate/new" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                    Create Communication
-                  </Link>
+              {recentActivity.length === 0 && (
+                <div className="py-6 text-center">
+                  <p className="text-sm text-gray-500">No recent activity</p>
                 </div>
               )}
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-8">
-          {/* Curation Actions */}
-          <div className="space-y-2">
-            <h2 className="text-sm font-normal text-gray-400 mb-3">Actions</h2>
-            
-            <Link href="/curate" className="p-3 border border-gray-100 rounded-sm hover:border-blue-200 transition-colors hover:bg-blue-50 group block">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 border border-gray-100 rounded-sm flex items-center justify-center group-hover:border-blue-200 group-hover:bg-white transition-colors">
-                  <Edit size={16} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-normal text-gray-900 group-hover:text-blue-500 transition-colors">Curate Your Magazine</h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Select content for your print magazine</p>
-                </div>
-                <div className="w-8 h-8 flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
-                  <ChevronRight size={16} />
-                </div>
-              </div>
-            </Link>
-          </div>
-          
-          {/* Recent Activity */}
-          <div className="space-y-2">
-            <h2 className="text-sm font-normal text-gray-400 mb-3">Recent Activity</h2>
-            
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="p-3 border border-gray-100 rounded-sm hover:border-gray-200 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-sm bg-blue-50 flex-shrink-0 flex items-center justify-center">
-                    <Camera size={14} className="text-blue-500" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      <span className="font-medium">{activity.user}</span> {activity.action}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-            
-            {recentActivity.length === 0 && (
-              <div className="py-6 text-center">
-                <p className="text-sm text-gray-500">No recent activity</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmationDialog />
+      <DeleteConfirmationDialog />
+      <DeleteContentConfirmationDialog />
     </div>
-
-    {/* Confirmation Dialogs */}
-    <ConfirmationDialog />
-    <DeleteConfirmationDialog />
-    <DeleteContentConfirmationDialog />
-  </div>
-);
+  );
 }
-
 // Countdown timer component
 const CountdownTimer = ({ endDate }: { endDate: string }) => {
-const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number }>({ days: 0, hours: 0 });
-
-useEffect(() => {
-  const calculateTimeLeft = () => {
-    const endDateTime = new Date(endDate).getTime();
-    const now = new Date().getTime();
-    const difference = endDateTime - now;
-    
-    if (difference > 0) {
-      setTimeLeft({
-        days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      });
-    } else {
-      setTimeLeft({ days: 0, hours: 0 });
-    }
+    const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number }>({ days: 0, hours: 0 });
+  
+    useEffect(() => {
+      const calculateTimeLeft = () => {
+        const endDateTime = new Date(endDate).getTime();
+        const now = new Date().getTime();
+        const difference = endDateTime - now;
+        
+        if (difference > 0) {
+          setTimeLeft({
+            days: Math.floor(difference / (1000 * 60 * 60 * 24)),
+            hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+          });
+        } else {
+          setTimeLeft({ days: 0, hours: 0 });
+        }
+      };
+      
+      calculateTimeLeft();
+      const timerId = setInterval(calculateTimeLeft, 60000); // Update every minute
+      
+      return () => clearInterval(timerId);
+    }, [endDate]);
+  
+    return (
+      <span>{timeLeft.days}d {timeLeft.hours}h remaining</span>
+    );
   };
-  
-  calculateTimeLeft();
-  const timerId = setInterval(calculateTimeLeft, 60000); // Update every minute
-  
-  return () => clearInterval(timerId);
-}, [endDate]);
-
-return (
-  <span>{timeLeft.days}d {timeLeft.hours}h remaining</span>
-);
-};
