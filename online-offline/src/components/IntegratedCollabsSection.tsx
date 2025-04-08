@@ -1,5 +1,5 @@
 // IntegratedCollabsSection.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { getCitiesWithParticipantCounts } from '@/lib/supabase/collabLibrary';
 import { 
@@ -9,8 +9,7 @@ import {
   Globe,
   MapPin,
   ChevronDown,
-  Star,
-  AlertCircle
+  Star
 } from 'lucide-react';
 
 // Define our own data interfaces instead of importing from collabLibrary
@@ -39,7 +38,7 @@ interface CollabsSectionProps {
   selectedCollabs: string[];
   toggleItem: (id: string) => void;
   remainingContent: number;
-  hideTitle?: boolean; // New prop to hide the title and selected count
+  hideTitle?: boolean;
 }
 
 interface City {
@@ -47,119 +46,298 @@ interface City {
   state?: string;
   participant_count: number;
 }
-
-// ID mapping interface for mapping between virtual and real IDs
-interface IdMapping {
-  virtualId: string;
-  realId: string;
-  templateId: string;
-  participationMode: 'community' | 'local' | 'private';
-  cityName?: string;
-}
-
 const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   periodId,
   selectedCollabs,
   toggleItem,
   remainingContent,
-  hideTitle = false // Default to false for backward compatibility
+  hideTitle = false
 }) => {
   const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(true);
   const [templates, setTemplates] = useState<CollabTemplate[]>([]);
   const [joinedCollabs, setJoinedCollabs] = useState<CollabData[]>([]);
-  const [availableCollabs, setAvailableCollabs] = useState<CollabData[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [availableCities, setAvailableCities] = useState<City[]>([]);
   const [selectedCities, setSelectedCities] = useState<Record<string, string>>({});
   const [cityDropdownOpen, setCityDropdownOpen] = useState<Record<string, boolean>>({});
   const [userLocation, setUserLocation] = useState<string | null>(null);
-  const [idMappings, setIdMappings] = useState<IdMapping[]>([]);
- 
-
-// Add this useEffect 
-useEffect(() => {
-  // One-time check after loading
-  if (!loading && templates.length > 0 && selectedCollabs.length > 0) {
-    // Just run once after loading
-    const localCollabs = selectedCollabs.filter(id => id.startsWith('local_'));
+  const [expandedTemplates, setExpandedTemplates] = useState<Record<string, boolean>>({});
+  const [communityParticipantCounts, setCommunityParticipantCounts] = useState<Record<string, number>>({});
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Helper functions for collaboration options with name matching fallback
+  const userHasJoinedPrivate = (templateId: string): boolean => {
+    // Try matching by template ID first
+    const hasMatch = joinedCollabs.some(collab => 
+      collab.template_id === templateId && 
+      collab.participation_mode === 'private'
+    );
     
-    if (localCollabs.length > 0) {
-      // Update the selectedCities once based on what's in selectedCollabs
-      const newCitySelections = { ...selectedCities };
+    if (hasMatch) return true;
+    
+    // Fallback: try to match by name
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return false;
+    
+    return joinedCollabs.some(collab => 
+      collab.participation_mode === 'private' &&
+      collab.title.toLowerCase().includes(template.name.toLowerCase())
+    );
+  };
+  
+  const userHasJoinedCommunity = (templateId: string): boolean => {
+    // Try matching by template ID first
+    const hasMatch = joinedCollabs.some(collab => 
+      collab.template_id === templateId && 
+      collab.participation_mode === 'community'
+    );
+    
+    if (hasMatch) return true;
+    
+    // Fallback: try to match by name
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return false;
+    
+    return joinedCollabs.some(collab => 
+      collab.participation_mode === 'community' &&
+      collab.title.toLowerCase().includes(template.name.toLowerCase())
+    );
+  };
+  
+  const userHasJoinedLocal = (templateId: string): boolean => {
+    // Try matching by template ID first
+    const hasMatch = joinedCollabs.some(collab => 
+      collab.template_id === templateId && 
+      collab.participation_mode === 'local'
+    );
+    
+    if (hasMatch) return true;
+    
+    // Fallback: try to match by name
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return false;
+    
+    return joinedCollabs.some(collab => 
+      collab.participation_mode === 'local' &&
+      collab.title.toLowerCase().includes(template.name.toLowerCase())
+    );
+  };
+  
+  const getJoinedCollabId = (templateId: string, mode: 'community' | 'local' | 'private'): string | null => {
+    // Try matching by template ID first
+    const collab = joinedCollabs.find(c => 
+      c.template_id === templateId && 
+      c.participation_mode === mode
+    );
+    
+    if (collab) {
+      return collab.id;
+    }
+    
+    // Fallback: try to match by name
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return null;
+    
+    const matchByName = joinedCollabs.find(c => 
+      c.participation_mode === mode &&
+      c.title.toLowerCase().includes(template.name.toLowerCase())
+    );
+    
+    if (matchByName) {
+      return matchByName.id;
+    }
+    
+    return null;
+  };
+  const toggleCityDropdown = (templateId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Get viewport width and center point
+    const viewportWidth = window.innerWidth;
+    const viewportCenter = viewportWidth / 2;
+    
+    // Get the position of the clicked element
+    const buttonRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const dropdownHeight = 250; // Increased height estimate
+    
+    // Calculate vertical position
+    let top;
+    if (viewportHeight - buttonRect.bottom < dropdownHeight + 10) {
+      // Not enough space below, position above
+      top = buttonRect.top - dropdownHeight - 5;
+    } else {
+      // Enough space below, position below
+      top = buttonRect.bottom + 5;
+    }
+    
+    // Set position - centered on the screen for mobile
+    setDropdownPosition({
+      top: top,
+      left: viewportCenter // Center of the screen horizontally
+    });
+    
+    // Toggle dropdown state
+    setCityDropdownOpen(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  };
+  
+// Modify the selectCity function in IntegratedCollabsSection.tsx
+const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
+  e.stopPropagation();
+  
+  // Generate virtual ID for local selection
+  const localId = `local_${templateId}_${city.replace(/\s+/g, '_')}`;
+  
+  // Close the dropdown immediately
+  setCityDropdownOpen(prev => ({
+    ...prev,
+    [templateId]: false
+  }));
+  
+  // Update the selected city
+  setSelectedCities(prev => ({
+    ...prev,
+    [templateId]: city
+  }));
+  
+  // Get all existing selections for this template
+  const existingSelections = selectedCollabs.filter(id => 
+    id.startsWith(`local_${templateId}_`)
+  );
+  
+  // Determine if this is a selection or deselection
+  const isCurrentlySelected = existingSelections.includes(localId);
+  
+  // Get all other collaborations (not of this template)
+  const otherCollabs = selectedCollabs.filter(id => !id.startsWith(`local_${templateId}_`));
+  
+  // Special case for the last item
+  const isLastItem = selectedCollabs.length === 1 && isCurrentlySelected;
+  
+  if (isLastItem) {
+    // If this is the last item and we're deselecting, directly use toggleItem
+    console.log("🔴 Detected last item deselection, using direct toggle");
+    toggleItem(localId);
+    return;
+  }
+  
+  // If we're selecting a new city
+  if (!isCurrentlySelected) {
+    // Add the new city (if we have space)
+    if (remainingContent > 0 || existingSelections.length > 0) {
+      const updatedCollabs = [...otherCollabs, localId];
       
-      localCollabs.forEach(localId => {
-        const parts = localId.split('_');
-        if (parts.length >= 3) {
-          const templateId = parts[1];
-          const cityName = parts.slice(2).join('_').replace(/_/g, ' ');
-          newCitySelections[templateId] = cityName;
-        }
+      // Update parent directly
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('updateSelectedCollabs', { 
+          detail: { updatedCollabs }
+        });
+        window.dispatchEvent(event);
+        localStorage.setItem('temp_selected_collabs', JSON.stringify(updatedCollabs));
+        console.log("📢 Dispatched update event - SELECTING:", updatedCollabs);
+      }
+    }
+  } 
+  // If we're deselecting
+  else {
+    // Just remove all selections for this template
+    const updatedCollabs = otherCollabs;
+    
+    // Update parent directly
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('updateSelectedCollabs', { 
+        detail: { updatedCollabs }
       });
+      window.dispatchEvent(event);
+      localStorage.setItem('temp_selected_collabs', JSON.stringify(updatedCollabs));
+      console.log("📢 Dispatched update event - DESELECTING:", updatedCollabs);
+    }
+  }
+};
+
+  // Toggle template expansion
+  const toggleTemplateExpansion = (templateId: string) => {
+    setExpandedTemplates(prev => ({
+      ...prev,
+      [templateId]: !prev[templateId]
+    }));
+  };
+  // Enhanced function to include local participants in community count
+  const fetchCommunityParticipantCounts = async (templates: CollabTemplate[]) => {
+    const counts: Record<string, number> = {};
+    
+    for (const template of templates) {
+      try {
+        let totalParticipants = 0;
+        
+        // STEP 1: Count community participants
+        const { data: communityData, error: communityError } = await supabase
+          .from('collabs')
+          .select('id')
+          .eq('template_id', template.id)
+          .eq('participation_mode', 'community')
+          .eq('period_id', periodId);
+        
+        if (!communityError && communityData && communityData.length > 0) {
+          for (const communityCollab of communityData) {
+            // Get count for this community collab
+            const { count, error: countError } = await supabase
+              .from('collab_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('collab_id', communityCollab.id)
+              .eq('status', 'active');
+              
+            if (!countError && count !== null) {
+              totalParticipants += count;
+            }
+          }
+        }
+        
+        // STEP 2: Count local participants
+        const { data: localData, error: localError } = await supabase
+          .from('collabs')
+          .select('id')
+          .eq('template_id', template.id)
+          .eq('participation_mode', 'local')
+          .eq('period_id', periodId);
+        
+        if (!localError && localData && localData.length > 0) {
+          for (const localCollab of localData) {
+            // Get count for this local collab
+            const { count, error: countError } = await supabase
+              .from('collab_participants')
+              .select('*', { count: 'exact', head: true })
+              .eq('collab_id', localCollab.id)
+              .eq('status', 'active');
+              
+            if (!countError && count !== null) {
+              totalParticipants += count;
+            }
+          }
+        }
+        
+        // Store the total combined count
+        counts[template.id] = totalParticipants;
+        
+      } catch (err) {
+        console.error(`Error calculating participants for template ${template.id}:`, err);
+        counts[template.id] = 0;
+      }
+    }
+    
+    setCommunityParticipantCounts(counts);
+  };
+  // Synchronize selectedCities with selectedCollabs when component loads
+  useEffect(() => {
+    if (selectedCollabs.length > 0) {
+      // Look through all local collaborations in selectedCollabs
+      const localCollabs = selectedCollabs.filter(id => id.startsWith('local_'));
       
-      // Only update if there are changes
-      if (Object.keys(newCitySelections).length > 0) {
-        setSelectedCities(newCitySelections);
-      }
-    }
-  }
-}, [loading]); // Only run when loading state changes
-  
-  console.log("DIAGNOSTIC INFO:");
-  console.log("selectedCollabs:", selectedCollabs);
-  console.log("toggleItem function available:", typeof toggleItem === 'function');
-  console.log("remainingContent:", remainingContent);
-
-// Add this useEffect to persist selected cities
-useEffect(() => {
-  if (Object.keys(selectedCities).length > 0) {
-    localStorage.setItem('selected_cities', JSON.stringify(selectedCities));
-    console.log("Saved selected cities to localStorage:", selectedCities);
-  }
-}, [selectedCities]);
-
-// Add this useEffect to restore selected cities
-useEffect(() => {
-  if (!loading) {
-    try {
-      const savedCities = localStorage.getItem('selected_cities');
-      if (savedCities) {
-        const parsedCities = JSON.parse(savedCities);
-        console.log("Loaded selected cities from localStorage:", parsedCities);
-        setSelectedCities(parsedCities);
-      }
-    } catch (e) {
-      console.error("Error loading selected cities from localStorage:", e);
-    }
-  }
-}, [loading]);
-
-  // Log initial selections for debugging
-  useEffect(() => {
-    console.log("IntegratedCollabsSection initial selectedCollabs:", selectedCollabs);
-  }, []);
-  
-  // Log selections for debugging when they change
-  useEffect(() => {
-    console.log("IntegratedCollabsSection received selectedCollabs:", selectedCollabs);
-  }, [selectedCollabs]);
-
-// Add this effect to persistently store selections in localStorage whenever they change
-useEffect(() => {
-  if (selectedCollabs.length > 0) {
-    localStorage.setItem('temp_selected_collabs', JSON.stringify(selectedCollabs));
-    console.log(`Stored ${selectedCollabs.length} selections in localStorage:`, selectedCollabs);
-  }
-}, [selectedCollabs]);
-
-useEffect(() => {
-  // Force a check of local selections on first render and when templates load
-  if (!loading && templates.length > 0 && selectedCollabs.length > 0) {
-    // Force re-check of all local collaboration selections
-    const localCollabs = selectedCollabs.filter(id => id.startsWith('local_'));
-    if (localCollabs.length > 0) {
-      // Instead of trying to update selectedCollabs, update something we control
-      // This will force a re-render
+      // Extract template IDs and city names
       const newCitySelections = { ...selectedCities };
       
       localCollabs.forEach(localId => {
@@ -173,178 +351,44 @@ useEffect(() => {
         }
       });
       
-      // Update selectedCities to force a re-render
-      setSelectedCities(newCitySelections);
+      // Update selectedCities state
+      if (Object.keys(newCitySelections).length > 0) {
+        setSelectedCities(newCitySelections);
+        localStorage.setItem('selected_cities', JSON.stringify(newCitySelections));
+      }
     }
-  }
-}, [loading, templates.length, selectedCollabs]);
+  }, [selectedCollabs, templates]); 
 
-useEffect(() => {
-  // Synchronize selectedCities with selectedCollabs when component loads
-  if (selectedCollabs.length > 0) {
-    // Look through all local collaborations in selectedCollabs
-    const localCollabs = selectedCollabs.filter(id => id.startsWith('local_'));
-    
-    // Extract template IDs and city names
-    const newCitySelections = { ...selectedCities };
-    
-    localCollabs.forEach(localId => {
-      const parts = localId.split('_');
-      if (parts.length >= 3) {
-        const templateId = parts[1];
-        const cityName = parts.slice(2).join('_').replace(/_/g, ' ');
-        
-        // Update city selection for this template
-        newCitySelections[templateId] = cityName;
-        console.log(`Syncing template ${templateId} city to ${cityName} from selection`);
+  // Restore selected cities from localStorage
+  useEffect(() => {
+    if (!loading) {
+      try {
+        const savedCities = localStorage.getItem('selected_cities');
+        if (savedCities) {
+          const parsedCities = JSON.parse(savedCities);
+          setSelectedCities(parsedCities);
+        }
+      } catch (e) {
+        console.error("Error loading selected cities from localStorage:", e);
       }
-    });
-    
-
-    
-    // Update selectedCities state
-    if (Object.keys(newCitySelections).length > 0) {
-      setSelectedCities(newCitySelections);
-      localStorage.setItem('selected_cities', JSON.stringify(newCitySelections));
-      console.log("Updated selectedCities based on selections:", newCitySelections);
     }
-  }
-}, [selectedCollabs, templates]); 
+  }, [loading]);
 
-  // Function to store selections in localStorage with enhanced template tracking
-  const storeSelections = (selectionId: string, isSelected: boolean) => {
-    try {
-      // Get current selections
-      let storedSelections: string[] = [];
-      const stored = localStorage.getItem('temp_selected_collabs');
-      if (stored) {
-        storedSelections = JSON.parse(stored);
+  // Close city dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        // Close all city dropdowns
+        setCityDropdownOpen({});
       }
-      
-      // Extract template ID and mode from selectionId
-      let templateId = "";
-      let mode = "";
-      
-      if (selectionId.startsWith('community_')) {
-        templateId = selectionId.split('community_')[1];
-        mode = 'community';
-      } else if (selectionId.startsWith('local_')) {
-        const parts = selectionId.split('_');
-        if (parts.length >= 3) {
-          templateId = parts[1];
-          mode = 'local';
-        }
-      } else {
-        // For joined collaborations, look up in joinedCollabs
-        const joinedCollab = joinedCollabs.find(c => c.id === selectionId);
-        if (joinedCollab && joinedCollab.template_id) {
-          templateId = joinedCollab.template_id;
-          mode = joinedCollab.participation_mode;
-        }
-      }
-      
-      console.log(`Storage info - ID: ${selectionId}, Template: ${templateId}, Mode: ${mode}`);
-      
-      // Update selections
-      if (isSelected) {
-        // Add if not already included
-        if (!storedSelections.includes(selectionId)) {
-          storedSelections.push(selectionId);
-          console.log(`Added ${selectionId} to stored selections`);
-        }
-      } else {
-        // Remove if included
-        storedSelections = storedSelections.filter(id => id !== selectionId);
-        console.log(`Removed ${selectionId} from stored selections`);
-      }
-      
-      // Save back to localStorage
-      localStorage.setItem('temp_selected_collabs', JSON.stringify(storedSelections));
-      console.log(`Updated localStorage selections (${storedSelections.length} items):`, storedSelections);
-    } catch (e) {
-      console.error("Error storing selections in localStorage:", e);
-    }
-  };
+    };
 
-  // Create ID mappings between virtual and real IDs with enhanced bidirectional mappings
-  const createIdMappings = (
-    templates: CollabTemplate[], 
-    joinedCollabs: CollabData[],
-    selectedCollabs: string[]
-  ): IdMapping[] => {
-    const mappings: IdMapping[] = [];
-    
-    // First map all joined collabs (they already have real IDs)
-    joinedCollabs.forEach(collab => {
-      if (!collab.id || !collab.template_id) return;
-      
-      mappings.push({
-        virtualId: collab.id,
-        realId: collab.id,
-        templateId: collab.template_id,
-        participationMode: collab.participation_mode,
-        cityName: collab.location || undefined
-      });
-      
-      // Also create mappings for virtual IDs that would match this joined collab
-      if (collab.participation_mode === 'community') {
-        mappings.push({
-          virtualId: `community_${collab.template_id}`,
-          realId: collab.id,
-          templateId: collab.template_id,
-          participationMode: 'community'
-        });
-      } else if (collab.participation_mode === 'local' && collab.location) {
-        const encodedCity = collab.location.replace(/\s+/g, '_');
-        mappings.push({
-          virtualId: `local_${collab.template_id}_${encodedCity}`,
-          realId: collab.id,
-          templateId: collab.template_id,
-          participationMode: 'local',
-          cityName: collab.location
-        });
-      }
-    });
-    
-    // Then map selected virtual IDs that don't have a real ID match yet
-    selectedCollabs.forEach(selectedId => {
-      // Skip if we already have a mapping for this ID
-      if (mappings.some(m => m.virtualId === selectedId || m.realId === selectedId)) {
-        return;
-      }
-      
-      // Handle community virtual IDs
-      if (selectedId.startsWith('community_')) {
-        const templateId = selectedId.split('community_')[1];
-        mappings.push({
-          virtualId: selectedId,
-          realId: selectedId, // Use virtual as real for now
-          templateId,
-          participationMode: 'community'
-        });
-      }
-      // Handle local virtual IDs
-      else if (selectedId.startsWith('local_')) {
-        const parts = selectedId.split('_');
-        if (parts.length >= 3) {
-          const templateId = parts[1];
-          const cityName = parts.slice(2).join('_').replace(/_/g, ' ');
-          
-          mappings.push({
-            virtualId: selectedId,
-            realId: selectedId, // Use virtual as real for now
-            templateId,
-            participationMode: 'local',
-            cityName
-          });
-        }
-      }
-    });
-    
-    console.log("Created ID mappings:", mappings);
-    return mappings;
-  };
-  // Fetch data with schema-aware queries
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       if (!periodId) {
@@ -379,7 +423,7 @@ useEffect(() => {
           console.error("Error fetching user profile:", profileError);
         }
         
-        // STEP 1: Get templates for this period - limited to 3 per your requirements
+        // STEP 1: Get templates for this period
         try {
           // First get template IDs from period_templates
           const { data: templateLinks, error: templateLinksError } = await supabase
@@ -398,24 +442,35 @@ useEffect(() => {
           
           const templateIds = templateLinks.map(link => link.template_id);
           
-          // Get the template details - note using 'name' instead of 'title' based on schema
-          // Limit to 3 templates as per requirements
+          // Get the template details - using only 'name' field (not 'title')
           const { data: templateData, error: templateDataError } = await supabase
             .from('collab_templates')
             .select('id, name, type, display_text, instructions')
-            .in('id', templateIds)
-            .limit(3);
+            .in('id', templateIds);
             
           if (templateDataError) {
-            throw new Error(templateDataError.message);
+            console.error("Error fetching template data:", templateDataError);
+            throw new Error("Failed to fetch template data");
           }
           
           if (!templateData || templateData.length === 0) {
-            throw new Error("No template data found for linked templates");
+            console.warn("No template data found for linked templates");
+            throw new Error("No template data found");
           }
           
-          setTemplates(templateData);
-          console.log("Loaded templates:", templateData);
+          // Map templates, ensuring we handle fields correctly with type assertion
+          const formattedTemplates: CollabTemplate[] = templateData.map(template => ({
+            id: template.id,
+            name: template.name || 'Unnamed Template',
+            type: (template.type as 'chain' | 'theme' | 'narrative'),
+            display_text: template.display_text || '',
+            instructions: template.instructions || ''
+          }));
+          
+          setTemplates(formattedTemplates);
+          
+          // Fetch community participant counts for these templates
+          fetchCommunityParticipantCounts(formattedTemplates);
           
         } catch (templatesError) {
           console.error("Error in templates section:", templatesError);
@@ -429,44 +484,66 @@ useEffect(() => {
               .limit(3);
               
             if (allTemplatesError) {
-              throw new Error(allTemplatesError.message);
+              console.error("Error fetching fallback templates:", allTemplatesError);
+              throw new Error("Failed to fetch templates");
             }
             
             if (!allTemplates || allTemplates.length === 0) {
-              throw new Error("No templates found in fallback");
+              console.warn("No templates found in fallback");
+              throw new Error("No template data found in fallback");
             }
             
-            setTemplates(allTemplates);
-            console.log("Loaded templates from fallback:", allTemplates);
+            // Ensure correct typing when mapping templates
+            const formattedTemplates: CollabTemplate[] = allTemplates.map(template => ({
+              id: template.id,
+              name: template.name || 'Unnamed Template',
+              type: (template.type as 'chain' | 'theme' | 'narrative'),
+              display_text: template.display_text || '',
+              instructions: template.instructions || ''
+            }));
+            
+            setTemplates(formattedTemplates);
+            
+            // Fetch community participant counts for these templates
+            fetchCommunityParticipantCounts(formattedTemplates);
             
           } catch (fallbackError) {
             // If all else fails, create dummy templates
-            const dummyTemplates = [
+            console.error("Error in fallback templates, using dummy data:", fallbackError);
+            const dummyTemplates: CollabTemplate[] = [
               {
                 id: 'dummy-chain',
                 name: 'Echoes of the Unseen',
-                type: 'chain' as const,
-                display_text: 'A sequential chain collaboration example'
+                type: 'chain',
+                display_text: 'A sequential chain collaboration example',
+                instructions: 'Create a chain of images where each builds on the previous submission.'
               },
               {
                 id: 'dummy-theme',
                 name: 'One Sentence Conspiracy',
-                type: 'theme' as const,
-                display_text: 'A theme-based collaboration example'
+                type: 'theme',
+                display_text: 'A theme-based collaboration example',
+                instructions: 'Submit an image with a one-sentence conspiracy theory caption.'
               },
               {
                 id: 'dummy-narrative',
                 name: 'Narrative Example',
-                type: 'narrative' as const,
-                display_text: 'A narrative-driven collaboration example'
+                type: 'narrative',
+                display_text: 'A narrative-driven collaboration example',
+                instructions: 'Contribute to an ongoing story with images and text.'
               }
             ];
             
-            console.log("Using dummy templates:", dummyTemplates);
             setTemplates(dummyTemplates);
+            
+            // Set dummy community participant counts
+            setCommunityParticipantCounts({
+              'dummy-chain': 8,
+              'dummy-theme': 12,
+              'dummy-narrative': 5
+            });
           }
         }
-        
         // STEP 2: Get the user's joined collaborations
         try {
           // First get the collab IDs the user has joined
@@ -493,7 +570,6 @@ useEffect(() => {
             console.log("No joined collaborations found");
           } else {
             const collabIds = participantData.map(p => p.collab_id);
-            console.log("User has joined these collaborations:", collabIds);
             
             // Collect cities from participant data
             participantData.forEach(p => {
@@ -525,8 +601,6 @@ useEffect(() => {
               // Not a critical error
               console.log("No collaboration data found for user's joined collabs");
             } else {
-              console.log("Joined collaborations data:", collabsData);
-              
               // Collect cities from collab data
               collabsData.forEach(c => {
                 if (c.location) cities.add(c.location);
@@ -541,11 +615,12 @@ useEffect(() => {
                 const participantRecord = participantData.find(p => p.collab_id === collab.id);
                 
                 // Determine participation mode
-                let participationMode: 'private' | 'local' | 'community';
+                let participationMode: 'community' | 'local' | 'private';
+                
                 if (participantRecord?.participation_mode) {
-                  participationMode = participantRecord.participation_mode as 'private' | 'local' | 'community';
+                  participationMode = participantRecord.participation_mode as 'community' | 'local' | 'private';
                 } else if (collab.participation_mode) {
-                  participationMode = collab.participation_mode as 'private' | 'local' | 'community';
+                  participationMode = collab.participation_mode as 'community' | 'local' | 'private';
                 } else if (collab.is_private) {
                   participationMode = 'private';
                 } else {
@@ -556,7 +631,8 @@ useEffect(() => {
                 const locationValue = collab.location || 
                   participantRecord?.location || 
                   participantRecord?.city || 
-                  (collab.metadata && typeof collab.metadata === 'object' ? collab.metadata.location as string : null);
+                  (collab.metadata && typeof collab.metadata === 'object' && collab.metadata.location 
+                    ? collab.metadata.location as string : null);
                 
                 return {
                   id: collab.id,
@@ -585,7 +661,6 @@ useEffect(() => {
               }
               
               setJoinedCollabs(userJoinedCollabs);
-              console.log("Set joined collabs:", userJoinedCollabs);
             }
           }
           // STEP 3: Get distinct cities for local collaborations
@@ -595,7 +670,6 @@ useEffect(() => {
             
             if (cityResult.success && cityResult.cities && cityResult.cities.length > 0) {
               setAvailableCities(cityResult.cities);
-              console.log("Loaded cities with participant counts:", cityResult.cities);
             } else {
               // Fallback cities
               setAvailableCities([
@@ -667,7 +741,6 @@ useEffect(() => {
                 }));
                 
                 setJoinedCollabs(formatted);
-                console.log("Set joined collabs from getUserCollabs:", formatted);
               }
             }
           } catch (getUserError) {
@@ -685,580 +758,6 @@ useEffect(() => {
     
     fetchData();
   }, [periodId, supabase, userLocation, templates.length]);
-
-  // Create ID mappings when data is available
-  useEffect(() => {
-    if (templates.length > 0 && joinedCollabs.length > 0) {
-      const mappings = createIdMappings(templates, joinedCollabs, selectedCollabs);
-      setIdMappings(mappings);
-      console.log("Created ID mappings:", mappings);
-    }
-  }, [templates, joinedCollabs, selectedCollabs]);
- 
-  // Load selections from localStorage on component mount
-  useEffect(() => {
-    if (!loading) {
-      try {
-        const stored = localStorage.getItem('temp_selected_collabs');
-        if (stored && selectedCollabs.length === 0) {
-          const storedSelections = JSON.parse(stored);
-          console.log("Found stored selections:", storedSelections);
-          
-          // Only apply if we don't have selections already
-          if (storedSelections.length > 0 && selectedCollabs.length === 0) {
-            console.log("Applying stored selections");
-            storedSelections.forEach((id: string) => toggleItem(id));
-          }
-        }
-      } catch (e) {
-        console.error("Error loading stored selections:", e);
-      }
-    }
-  }, [loading, selectedCollabs.length, toggleItem]);
-
-  // Function to get the joined collabs for a template
-  const getJoinedCollabsForTemplate = (templateId: string): CollabData[] => {
-    // Use multiple matching strategies to find joins
-    return joinedCollabs.filter(collab => {
-      // Direct template_id match if available
-      if (collab.template_id && collab.template_id === templateId) {
-        return true;
-      }
-
-      // Strategy: Name similarity match 
-      const template = templates.find(t => t.id === templateId);
-      if (template && collab.title && template.name) {
-        const templateName = template.name.toLowerCase();
-        
-        // For local collaborations, check if the base name matches
-        if (collab.participation_mode === 'local' && collab.title.includes(' - ')) {
-          // Extract the base name before the city
-          const baseName = collab.title.split(' - ')[0].toLowerCase();
-          return baseName === templateName || baseName.includes(templateName) || templateName.includes(baseName);
-        }
-        
-        // For other types, do a direct match or inclusion check
-        const collabTitle = collab.title.toLowerCase();
-        return collabTitle.includes(templateName) || templateName.includes(collabTitle);
-      }
-      
-      // No match found
-      return false;
-    });
-  };
-
-  const isCollabSelected = (collabId: string): boolean => {
-    // Direct ID match - if found, it's definitely selected
-    const directMatch = selectedCollabs.includes(collabId);
-    if (directMatch) {
-      return true;
-    }
-    
-    // For local collaborations with potential city differences
-    if (collabId.startsWith('local_')) {
-      const parts = collabId.split('_');
-      if (parts.length >= 3) {
-        const templateId = parts[1];
-        
-        // Check for ANY local collaboration with this template ID
-        const anyMatchingLocalCollab = selectedCollabs.some(id => {
-          return id.startsWith(`local_${templateId}_`);
-        });
-        
-        // If we found a matching local collab with this template, consider it selected
-        if (anyMatchingLocalCollab) {
-          // Update the selectedCities to ensure proper display
-          const matchingSelection = selectedCollabs.find(id => id.startsWith(`local_${templateId}_`));
-          if (matchingSelection) {
-            const matchingParts = matchingSelection.split('_');
-            if (matchingParts.length >= 3) {
-              const cityFromSelection = matchingParts.slice(2).join('_').replace(/_/g, ' ');
-              // Update selectedCities for this template
-              setTimeout(() => {
-                setSelectedCities(prev => ({
-                  ...prev,
-                  [templateId]: cityFromSelection
-                }));
-              }, 0);
-            }
-          }
-          return true;
-        }
-      }
-    }
-    
-    // For community collaborations (keeping your existing code)
-    if (collabId.startsWith('community_')) {
-      const templateId = collabId.split('community_')[1];
-      
-      // Check for any community ID in selectedCollabs that matches this template ID
-      const templateCommunityMatch = selectedCollabs.some(id => {
-        if (!id.startsWith('community_')) return false;
-        
-        // Check if the template IDs match
-        return id.split('community_')[1] === templateId;
-      });
-      
-      return templateCommunityMatch;
-    }
-    
-    // For joined collabs and other types
-    return false;
-  };
-
-  // Wrapper for toggleItem that also updates localStorage
-  const handleToggleItem = (id: string) => {
-    console.log(`DESELECTION FIX: handleToggleItem called for ${id}`);
-    console.log(`DESELECTION FIX: Current selectedCollabs:`, selectedCollabs);
-    console.log(`DESELECTION FIX: Does array include this ID?`, selectedCollabs.includes(id));
-    
-    // Call the parent's toggle function
-    toggleItem(id);
-    
-    // Log after calling
-    setTimeout(() => {
-      console.log(`DESELECTION FIX: After toggle, selectedCollabs:`, selectedCollabs);
-      console.log(`DESELECTION FIX: Does array include this ID now?`, selectedCollabs.includes(id));
-    }, 0);
-  };
-  
-  // Handle dropdown toggle
-  const toggleCityDropdown = (templateId: string) => {
-    setCityDropdownOpen(prev => ({
-      ...prev,
-      [templateId]: !prev[templateId]
-    }));
-  };
-  
-  // Handle city selection
-const selectCity = (templateId: string, city: string) => {
-  console.log(`Setting selected city for template ${templateId} to "${city}"`);
-  setSelectedCities(prev => ({
-    ...prev,
-    [templateId]: city
-  }));
-  setCityDropdownOpen(prev => ({
-    ...prev,
-    [templateId]: false
-  }));
-};
-  
-  // Component for a joined collab option with enhanced selection indicators
-  const JoinedCollabOption = ({ 
-    collab, 
-    isSelected,
-    toggleItem,
-    disabled
-  }: { 
-    collab: CollabData;
-    isSelected: boolean;
-    toggleItem: () => void;
-    disabled: boolean;
-  }) => {
-    const mode = collab.participation_mode;
-    let icon;
-    let bgColor;
-    let modeLabel;
-    
-    // Set properties based on mode
-    switch (mode) {
-      case 'private':
-        icon = <Lock size={16} />;
-        bgColor = 'bg-purple-100 text-purple-600';
-        modeLabel = 'Private';
-        break;
-      case 'local':
-        icon = <MapPin size={16} />;
-        bgColor = 'bg-green-100 text-green-600';
-        modeLabel = 'Local';
-        break;
-      case 'community':
-        icon = <Globe size={16} />;
-        bgColor = 'bg-blue-100 text-blue-600';
-        modeLabel = 'Community';
-        break;
-      default:
-        icon = <Globe size={16} />;
-        bgColor = 'bg-blue-100 text-blue-600';
-        modeLabel = 'Community';
-    }
-    
-    return (
-      <div>
-        <div 
-          className={`
-            flex items-center justify-between p-3 rounded-lg border
-            ${isSelected ? 'ring-2 ring-blue-500' : ''}
-            ${isSelected ? 'cursor-pointer hover:bg-gray-50' : disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}
-          `}
-          onClick={() => toggleItem()}
-        >
-          <div className="flex items-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${bgColor}`}>
-              {icon}
-            </div>
-            <div>
-              <div className="font-medium flex items-center gap-2">
-                <span title={collab.id}>{collab.title}</span>
-                <span className={`text-xs px-2 py-0.5 rounded-full ${bgColor}`}>
-                  {modeLabel}
-                </span>
-                <Star size={12} className="text-yellow-500" />
-                {isSelected && (
-                  <span className="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                    Selected
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-gray-500 flex items-center">
-                {mode === 'local' && collab.location && (
-                  <span className="flex items-center">
-                    <MapPin size={10} className="mr-1" />
-                    {collab.location}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-center"
-            style={{ 
-              width: '24px', 
-              height: '24px', 
-              borderRadius: '50%',
-              backgroundColor: isSelected ? '#3b82f6' : 'transparent',
-              borderWidth: isSelected ? '0' : '1px',
-              borderColor: '#d1d5db',
-              borderStyle: 'solid',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {isSelected && <Check size={14} className="text-white" />}
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  // Template card component
-  const TemplateCard = ({ template }: { template: CollabTemplate }) => {
-    // Find joined collabs for this template
-    const templateJoinedCollabs = getJoinedCollabsForTemplate(template.id);
-    const hasJoinedCollabs = templateJoinedCollabs.length > 0;
-    
-    // Group by participation mode
-    const joinedPrivate = templateJoinedCollabs.filter(c => c.participation_mode === 'private');
-    const joinedLocal = templateJoinedCollabs.filter(c => c.participation_mode === 'local');
-    const joinedCommunity = templateJoinedCollabs.filter(c => c.participation_mode === 'community');
-     
-    // Format city selection display
-    const selectedCity = selectedCities[template.id] || 'Select a city';
-    const isDropdownOpen = cityDropdownOpen[template.id] || false;
-    console.log(`TemplateCard for ${template.id} - Using city: ${selectedCity}`);
-
-    // Create unique IDs for selection
-    const communityId = `community_${template.id}`;
-    const localId = `local_${template.id}_${selectedCity.replace(/[^a-zA-Z0-9]/g, '_')}`;
-
-    let displayCity = selectedCity;
-    // Check if there's any local selection for this template
-    const localSelection = selectedCollabs.find(id => id.startsWith(`local_${template.id}_`));
-    if (localSelection) {
-      const parts = localSelection.split('_');
-      if (parts.length >= 3) {
-        displayCity = parts.slice(2).join('_').replace(/_/g, ' ');
-      }
-    }
-    
-    // Add these debug logs
-    console.log(`Rendering local option with ID: ${localId}, selectedCity: ${selectedCity}`);
-    console.log(`Is selected? ${isCollabSelected(localId)}`);
-
-    // Enhanced selection checking with debugging
-    useEffect(() => {
-      console.log(`Template ${template.id} - ${template.name} rendering with selectedCollabs:`, selectedCollabs);
-      
-      // Log all the IDs that might match this template
-      const potentialIds = [
-        // Community ID
-        `community_${template.id}`,
-        // Joined collabs for this template
-        ...templateJoinedCollabs.map(c => c.id),
-        // Local IDs with different cities
-        ...Object.keys(selectedCities)
-          .filter(k => k === template.id)
-          .map(k => `local_${template.id}_${selectedCities[k].replace(/\s+/g, '_')}`)
-      ];
-      
-      console.log("Potential IDs for template", template.id, ":", potentialIds);
-      const anyMatches = potentialIds.some(id => selectedCollabs.includes(id));
-      console.log(`Template ${template.id} - Any matches in selectedCollabs:`, anyMatches);
-      
-      if (anyMatches) {
-        console.log("Matched IDs:", potentialIds.filter(id => selectedCollabs.includes(id)));
-      }
-    }, [template.id, selectedCollabs, templateJoinedCollabs.length]);
-    
-    // Check if any options for this template are selected
-    const isCommunitySelected = isCollabSelected(communityId);
-    const isLocalSelected = isCollabSelected(localId) || 
-  selectedCollabs.some(id => id.startsWith(`local_${template.id}_`));
-    const isAnyJoinedSelected = templateJoinedCollabs.some(c => isCollabSelected(c.id));
-    
-    // Determine if we can select more
-    const canSelectMore = remainingContent > 0 || isAnyJoinedSelected || isCommunitySelected || isLocalSelected;
-    
-    const hasTemplateSelection = isAnyJoinedSelected || isCommunitySelected || isLocalSelected;
-
-    return (
-      <div className="mb-8 border rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
-        {/* Template header */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium">{template.name}</h3>
-            {hasJoinedCollabs && (
-              <div className="flex items-center text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-                <Star size={12} className="mr-1" />
-                Joined
-              </div>
-            )}
-          </div>
-          <p className="text-sm text-gray-600 mt-1">{template.display_text || 'No description available'}</p>
-        </div>
-        
-        <div className="border-t pt-3">
-          {/* 1. Joined Collaborations (if any) - displayed at the top */}
-          {hasJoinedCollabs && (
-            <div className="mb-4">
-              <h4 className="font-medium text-sm mb-2">Your Joined Collaborations:</h4>
-              <div className="space-y-2">
-                
-              {joinedPrivate.map(collab => (
-  <JoinedCollabOption 
-  key={collab.id}
-  collab={collab}
-  isSelected={isCollabSelected(collab.id)}
-  toggleItem={() => handleToggleItem(collab.id)}
-  disabled={remainingContent <= 0 && !isCollabSelected(collab.id)}
-/>
-))}
-                
-                {joinedLocal.map(collab => (
-                  <JoinedCollabOption 
-                    key={collab.id}
-                    collab={collab}
-                    isSelected={isCollabSelected(collab.id)}
-                    toggleItem={() => handleToggleItem(collab.id)}
-                    disabled={remainingContent <= 0 && !isCollabSelected(collab.id)}
-                  />
-                ))}
-                
-                {joinedCommunity.map(collab => (
-                  <JoinedCollabOption 
-                    key={collab.id}
-                    collab={collab}
-                    isSelected={isCollabSelected(collab.id)}  
-                    toggleItem={() => handleToggleItem(collab.id)}
-                    disabled={remainingContent <= 0 && !isCollabSelected(collab.id)} 
-                  />
-                ))}
-              </div>
-              
-  </div>
-)}
-          
-          {/* 2. Add New Collaborations options */}
-          <div>
-            <h4 className="font-medium text-sm mb-2">
-              {hasJoinedCollabs ? "Add Other Versions:" : "Add to Your Magazine:"}
-            </h4>
-            
-            {/* Community Option - now as a complete card */}
-            <div 
-  className={`
-    flex items-center justify-between p-3 rounded-lg border mb-2
-    ${isCommunitySelected ? 'ring-2 ring-blue-500' : ''}
-    ${!canSelectMore && !isCommunitySelected ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}
-  `}
-  onClick={() => {
-    // Always allow deselection of this specific ID
-    if (isCommunitySelected) {
-      console.log(`Deselecting specific community ID: ${communityId}`);
-      toggleItem(communityId);
-    }
-    // For selection, keep the original logic
-    else if (canSelectMore) {
-      console.log(`Selecting community ID: ${communityId}`);
-      toggleItem(communityId);
-    }
-  }}
->
-              <div className="flex items-center">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-blue-100 text-blue-600">
-                  <Globe size={16} />
-                </div>
-                <div>
-                  <div className="font-medium flex items-center">
-                    Community Version
-                    <span className="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
-                      Community
-                    </span>
-                    {isCommunitySelected && (
-                      <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                        Selected
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    Random selection from all contributors worldwide
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-center"
-                style={{ 
-                  width: '24px', 
-                  height: '24px', 
-                  borderRadius: '50%',
-                  backgroundColor: isCommunitySelected ? '#3b82f6' : 'transparent',
-                  borderWidth: isCommunitySelected ? '0' : '1px',
-                  borderColor: '#d1d5db',
-                  borderStyle: 'solid',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                {isCommunitySelected && <Check size={14} className="text-white" />}
-              </div>
-            </div>
-            
-            {/* Local Option as complete card with City Dropdown */}
-            <div className="relative mb-2">
-            <div 
-  className={`
-    flex items-center justify-between p-3 rounded-lg border
-    ${isLocalSelected ? 'ring-2 ring-blue-500' : ''}
-    ${!canSelectMore && !isLocalSelected ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:bg-gray-50'}
-  `}
-  onClick={() => {
-    // Always allow deselection of this specific local ID
-    if (isLocalSelected) {
-      console.log(`Deselecting specific local ID: ${localId}`);
-      toggleItem(localId);
-    }
-    // For selection, keep city dropdown logic
-    else if (canSelectMore) {
-      toggleCityDropdown(template.id);
-    }
-  }}
->
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center mr-3 bg-green-100 text-green-600">
-                    <MapPin size={16} />
-                  </div>
-                  <div>
-                    <div className="font-medium flex items-center">
-                      Local Version
-                      <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                        Local
-                      </span>
-                      {isLocalSelected && (
-                        <span className="ml-2 text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded-full">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 flex items-center">
-  <span className="font-medium">{displayCity}</span>
-  <ChevronDown size={14} className="ml-1" />
-</div>
-                  </div>
-                </div>
-                
-                <div className="flex items-center justify-center"
-                  style={{ 
-                    width: '24px', 
-                    height: '24px', 
-                    borderRadius: '50%',
-                    backgroundColor: isLocalSelected ? '#3b82f6' : 'transparent',
-                    borderWidth: isLocalSelected ? '0' : '1px',
-                    borderColor: '#d1d5db',
-                    borderStyle: 'solid',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {isLocalSelected && <Check size={14} className="text-white" />}
-                </div>
-              </div>
-              
-              {/* City Dropdown */}
-{isDropdownOpen && canSelectMore && (
-  <div className="absolute z-10 mt-1 w-full bg-white border rounded-md shadow-lg">
-    <div className="max-h-60 overflow-auto py-1">
-      {availableCities.length > 0 ? (
-        availableCities.map((city, index) => (
-          <div 
-            key={index}
-            className="px-3 py-2 text-sm hover:bg-gray-100 cursor-pointer flex justify-between items-center"
-            onClick={() => {
-              const cityDisplay = city.state 
-                ? `${city.name}, ${city.state}` 
-                : city.name;
-              
-              // Set the selected city
-              selectCity(template.id, cityDisplay);
-              
-              // Create the local city ID
-              const localCityId = `local_${template.id}_${cityDisplay.replace(/[^a-zA-Z0-9]/g, '_')}`;
-              
-              
-              // Check if already selected
-              const isAlreadySelected = isCollabSelected(localCityId);
-              console.log(`Is this local option already selected? ${isAlreadySelected}`);
-              
-              // Always toggle (select if not selected, unselect if already selected)
-              handleToggleItem(localCityId);
-            }}
-          >
-            <span>{city.state ? `${city.name}, ${city.state}` : city.name}</span>
-            {city.participant_count > 0 && (
-              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full ml-2">
-                {city.participant_count}
-              </span>
-            )}
-          </div>
-        ))
-      ) : (
-        <div className="px-3 py-2 text-sm text-gray-500 text-center">
-          No cities with active participants found
-        </div>
-      )}
-    </div>
-  </div>
-)}
-            </div>
-            
-            {/* Information about city-specific collaborations */}
-            <div className="mt-3 px-3 py-2 bg-gray-50 rounded-lg text-xs text-gray-600">
-              <div className="flex items-start">
-                <AlertCircle size={14} className="text-blue-500 mr-2 mt-0.5" />
-                <div>
-                  <p className="font-medium mb-1">About Local Collaborations</p>
-                  <p>Local collaborations are specific to a city. You'll only see content from other contributors in your selected city.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
   if (loading) {
     return (
       <div className="p-8 text-center bg-gray-50 rounded-lg">
@@ -1279,55 +778,302 @@ const selectCity = (templateId: string, city: string) => {
   
   // Sort templates to put those with joined collabs at the top
   const sortedTemplates = [...templates].sort((a, b) => {
-    const aHasJoined = getJoinedCollabsForTemplate(a.id).length > 0;
-    const bHasJoined = getJoinedCollabsForTemplate(b.id).length > 0;
+    const aHasJoined = userHasJoinedPrivate(a.id) || userHasJoinedCommunity(a.id) || userHasJoinedLocal(a.id);
+    const bHasJoined = userHasJoinedPrivate(b.id) || userHasJoinedCommunity(b.id) || userHasJoinedLocal(b.id);
     
     if (aHasJoined && !bHasJoined) return -1;
     if (!aHasJoined && bHasJoined) return 1;
     return 0;
   });
-  
-  // Calculate actual selected count with improved accuracy
-  const selectedCount = selectedCollabs.filter(id => {
-    // For community virtual IDs
-    if (id.startsWith('community_')) {
-      return true;
-    }
-    
-    // For local virtual IDs
-    if (id.startsWith('local_')) {
-      return true;
-    }
-    
-    // For joined collab IDs
-    const joinedCollab = joinedCollabs.find(c => c.id === id);
-    return !!joinedCollab;
-  }).length;
-  
   return (
-    <div>
-      {/* Don't show title and count if hideTitle is true */}
-      {!hideTitle && (
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-medium">Collaborations</h2>
-          {selectedCount > 0 && (
-            <span className="text-sm bg-blue-100 text-blue-600 px-3 py-1 rounded-full">
-              {selectedCount} selected
-            </span>
-          )}
-        </div>
-      )}
-      
-      <div className="space-y-6">
-        {sortedTemplates.map((template) => (
-          <TemplateCard key={template.id} template={template} />
-        ))}
+    <div className="pb-20">
+      {/* Templates List */}
+      <div className="space-y-4" style={{ position: 'relative' }}>
+        {sortedTemplates.map(template => {
+          const hasJoined = userHasJoinedPrivate(template.id) || userHasJoinedCommunity(template.id) || userHasJoinedLocal(template.id);
+          const isExpanded = expandedTemplates[template.id] || false;
+          const selectedCity = selectedCities[template.id] || 'Select City';
+          const isDropdownOpen = cityDropdownOpen[template.id] || false;
+          
+          // Get IDs for each version
+          const communityId = `community_${template.id}`;
+          const localId = `local_${template.id}_${selectedCity.replace(/\s+/g, '_')}`;
+          
+          // Check if user has joined different versions
+          const hasJoinedPrivateVersion = userHasJoinedPrivate(template.id);
+          const hasJoinedCommunityVersion = userHasJoinedCommunity(template.id);
+          const hasJoinedLocalVersion = userHasJoinedLocal(template.id);
+          
+          // Get joined collab IDs if they exist
+          const joinedPrivateId = getJoinedCollabId(template.id, 'private');
+          const joinedCommunityId = getJoinedCollabId(template.id, 'community');
+          const joinedLocalId = getJoinedCollabId(template.id, 'local');
+          
+          // Check selections
+          const isCommunitySelected = joinedCommunityId ? selectedCollabs.includes(joinedCommunityId) : selectedCollabs.includes(communityId);
+          const isLocalSelected = joinedLocalId ? selectedCollabs.includes(joinedLocalId) : selectedCollabs.includes(localId);
+          const isPrivateSelected = joinedPrivateId ? selectedCollabs.includes(joinedPrivateId) : false;
+          
+          // Badge count
+          const selectedCount = (isPrivateSelected ? 1 : 0) + (isCommunitySelected ? 1 : 0) + (isLocalSelected ? 1 : 0);
+          
+          return (
+            <div key={template.id} className="border rounded-sm border-gray-100 overflow-hidden">
+              {/* Template Header with color coding by type */}
+              <div 
+                className={`p-3 hover:bg-gray-50 cursor-pointer flex justify-between items-start ${
+                  template.type === 'chain' ? 'bg-indigo-50/30 border-l-4 border-indigo-400' :
+                  template.type === 'theme' ? 'bg-amber-50/30 border-l-4 border-amber-400' : 
+                  'bg-emerald-50/30 border-l-4 border-emerald-400'
+                }`}
+                onClick={() => toggleTemplateExpansion(template.id)}
+              >
+                <div className="flex gap-3 items-start">
+                  {/* Template type icon */}
+                  <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${
+                    template.type === 'chain' ? 'bg-indigo-50 text-indigo-500' :
+                    template.type === 'theme' ? 'bg-amber-50 text-amber-500' : 
+                    'bg-emerald-50 text-emerald-500'
+                  }`}>
+                    <Users size={18} />
+                  </div>
+                  
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="text-sm font-medium text-gray-900">
+                        {template.name}
+                      </h3>
+                      {hasJoined && (
+                        <span className="flex items-center text-xs gap-1 text-blue-500">
+                          <Star size={10} />
+                          <span>joined</span>
+                        </span>
+                      )}
+                      {selectedCount > 0 && (
+                        <span className="bg-blue-50 text-blue-500 rounded-full text-xs px-2 py-0.5 flex items-center">
+                          {selectedCount}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Display text */}
+                    <p className="text-xs text-gray-500 line-clamp-3 mb-1">
+                      {template.display_text}
+                    </p>
+                  </div>
+                </div>
+                <ChevronDown 
+                  size={16} 
+                  className={`text-gray-400 transition-transform flex-shrink-0 ml-2 ${isExpanded ? 'rotate-180' : ''}`}
+                />
+              </div>
+              {/* Template Details - Expanded View */}
+              {isExpanded && (
+                <div className="p-3 border-t border-gray-100 bg-gray-50">
+                  <div className="space-y-2">
+                    {/* Community Version Option */}
+                    <div
+                      className={`flex items-center justify-between p-3 border rounded-sm
+                        bg-white cursor-pointer hover:bg-gray-50
+                        ${isCommunitySelected ? 'border-blue-300 ring-1 ring-blue-300' : 'border-gray-100'}`}
+                      onClick={() => {
+                        // If user has joined this version, toggle their joined collab
+                        if (hasJoinedCommunityVersion && joinedCommunityId) {
+                          toggleItem(joinedCommunityId);
+                        } 
+                        // Otherwise toggle the virtual community ID
+                        else if (remainingContent > 0 || isCommunitySelected) {
+                          toggleItem(communityId);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-blue-50 text-blue-500">
+                          <Globe size={16} />
+                        </div>
+                        <div>
+                          <div className="flex items-center">
+                            <span className="text-sm font-normal">
+                              Community Version
+                              {hasJoinedCommunityVersion && (
+                                <span className="ml-2 text-xs text-blue-500 flex items-center">
+                                  <Star size={10} className="mr-1" />
+                                  joined
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500 flex items-center justify-between w-full">
+                            <span className="mr-2">Random selection of content from all community and local collaborators</span>
+                            <span className="bg-blue-50 text-blue-500 rounded-full px-1.5 py-0.5 flex items-center gap-1 flex-shrink-0">
+                              <Users size={10} />
+                              {communityParticipantCounts[template.id] || 0}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center overflow-hidden">
+                        {isCommunitySelected && (
+                          <div className="bg-blue-500 w-full h-full flex items-center justify-center">
+                            <Check size={12} className="text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Local Version Option */}
+                    <div className="relative">
+                      <div
+                        className={`flex items-center justify-between p-3 border rounded-sm
+                          bg-white cursor-pointer hover:bg-gray-50
+                          ${isLocalSelected ? 'border-blue-300 ring-1 ring-blue-300' : 'border-gray-100'}`}
+                        onClick={() => {
+                          // If user has joined this version, toggle their joined collab
+                          if (hasJoinedLocalVersion && joinedLocalId) {
+                            toggleItem(joinedLocalId);
+                          }
+                          // Otherwise toggle the virtual local ID if we have space
+                          else if (remainingContent > 0 || isLocalSelected) {
+                            toggleItem(localId);
+                          }
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-50 text-green-500">
+                            <MapPin size={16} />
+                          </div>
+                          <div>
+                            <div className="flex items-center">
+                              <span className="text-sm font-normal">
+                                Local Version
+                                {hasJoinedLocalVersion && (
+                                  <span className="ml-2 text-xs text-blue-500 flex items-center">
+                                    <Star size={10} className="mr-1" />
+                                    joined
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center justify-between w-full">
+                              <div className="flex items-center gap-1 cursor-pointer"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleCityDropdown(template.id, e);
+                                }}
+                              >
+                                <span className="font-medium">{selectedCity}</span>
+                                <ChevronDown size={10} />
+                              </div>
+                              {availableCities.length > 0 && (
+                                <span className="bg-green-50 text-green-500 rounded-full px-1.5 py-0.5 flex items-center gap-1 ml-2 flex-shrink-0">
+                                  <Users size={10} />
+                                  {availableCities.find(c => 
+                                    `${c.name}${c.state ? `, ${c.state}` : ''}` === selectedCity || 
+                                    c.name === selectedCity.split(',')[0]
+                                  )?.participant_count || 0}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {isLocalSelected && (
+                            <div className="bg-blue-500 w-full h-full flex items-center justify-center">
+                              <Check size={12} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {/* Private Version Option - Only show if user has joined a private version */}
+                    {hasJoinedPrivateVersion && joinedPrivateId && (
+                      <div
+                        className={`flex items-center justify-between p-3 border rounded-sm
+                          bg-white cursor-pointer hover:bg-gray-50
+                          ${isPrivateSelected ? 'border-blue-300 ring-1 ring-blue-300' : 'border-gray-100'}`}
+                        onClick={() => {
+                          // Toggle the private collab
+                          toggleItem(joinedPrivateId);
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-50 text-purple-500">
+                            <Lock size={16} />
+                          </div>
+                          <div>
+                            <div className="flex items-center">
+                              <span className="text-sm font-normal">
+                                Private Version
+                                <span className="ml-2 text-xs text-blue-500 flex items-center">
+                                  <Star size={10} className="mr-1" />
+                                  joined
+                                </span>
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 flex items-center justify-between w-full">
+                              <span className="mr-2">Content from all private collaborators</span>
+                              <span className="bg-purple-50 text-purple-500 rounded-full px-1.5 py-0.5 flex items-center gap-1 flex-shrink-0">
+                                <Users size={10} />
+                                {joinedCollabs.find(c => c.id === joinedPrivateId)?.participant_count || 0}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="w-5 h-5 rounded-full border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {isPrivateSelected && (
+                            <div className="bg-blue-500 w-full h-full flex items-center justify-center">
+                              <Check size={12} className="text-white" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      
-      {/* Show when no templates are available */}
-      {templates.length === 0 && (
-        <div className="p-6 bg-gray-50 rounded-lg text-center mt-4">
-          <p className="text-gray-600 mb-2">No collaboration templates found for this period.</p>
+      {/* City dropdown (shared for all templates) */}
+      {Object.values(cityDropdownOpen).some(isOpen => isOpen) && (
+        <div 
+          ref={dropdownRef}
+          className="fixed bg-white border shadow-lg rounded-sm z-[1000] overflow-hidden"
+          style={{ 
+            width: "280px",
+            maxHeight: "300px",
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            transform: "translateX(-50%)"
+          }}
+        >
+          <div className="overflow-y-auto" style={{ maxHeight: "300px" }}>
+            {availableCities.map((city, index) => (
+              <div
+                key={index}
+                className="flex justify-between items-center px-4 py-3 hover:bg-gray-50 cursor-pointer"
+                onClick={(e) => {
+                  // Find which template's dropdown is open
+                  const templateId = Object.keys(cityDropdownOpen).find(key => cityDropdownOpen[key]);
+                  if (templateId) {
+                    selectCity(templateId, `${city.name}${city.state ? `, ${city.state}` : ''}`, e);
+                  }
+                }}
+              >
+                <span className="text-sm">
+                  {city.name}{city.state ? `, ${city.state}` : ''}
+                </span>
+                {city.participant_count > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500">
+                    {city.participant_count}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

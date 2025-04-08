@@ -1,18 +1,18 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Link2, 
   Users,
   Clock, 
-  UserPlus,
   X,
   Search,
   Check,
   ArrowLeft,
   Globe,
   MapPin,
-  Lock
+  Lock,
+  FileText,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -29,13 +29,15 @@ interface CollabTemplate {
   phases?: number;
   duration?: string;
   instructions?: string;
-  internal_reference?: any;
-  requirements?: any;
-  connection_rules?: any;
+  internal_reference?: Record<string, unknown>;
+  requirements?: Record<string, unknown>;
+  connection_rules?: Record<string, unknown>;
+  communityParticipantCount?: number;
+  localParticipantCount?: number;
 }
 
 interface User {
-  id: number | string;
+  id: string;
   name: string;
   bio: string;
   avatar: string;
@@ -49,6 +51,11 @@ interface CurrentPeriod {
 
 type ParticipationMode = 'community' | 'local' | 'private';
 
+type ErrorState = {
+  message: string;
+  isVisible: boolean;
+};
+
 export default function CollabsLibrary() {
   const router = useRouter();
   const [availablePrompts, setAvailablePrompts] = useState<CollabTemplate[]>([]);
@@ -58,32 +65,38 @@ export default function CollabsLibrary() {
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
   const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({
     id: '',
     season: 'Spring',
     year: 2025
   });
   
-  // Sample users for search results
+  // Sample users for search results - in production, this would come from the database
   const searchResults: User[] = [
-    { id: 1, name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '/api/placeholder/32/32' },
-    { id: 2, name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '/api/placeholder/32/32' },
-    { id: 3, name: 'Maria Garcia', bio: 'Visual Artist | Mixed Media', avatar: '/api/placeholder/32/32' },
-    { id: 4, name: 'James Liu', bio: 'Street Photographer | Documentary', avatar: '/api/placeholder/32/32' },
-    { id: 5, name: 'Maya Patel', bio: 'Illustrator | Digital Art', avatar: '/api/placeholder/32/32' }
+    { id: '1', name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '/api/placeholder/32/32' },
+    { id: '2', name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '/api/placeholder/32/32' },
+    { id: '3', name: 'Maria Garcia', bio: 'Visual Artist | Mixed Media', avatar: '/api/placeholder/32/32' },
+    { id: '4', name: 'James Liu', bio: 'Street Photographer | Documentary', avatar: '/api/placeholder/32/32' },
+    { id: '5', name: 'Maya Patel', bio: 'Illustrator | Digital Art', avatar: '/api/placeholder/32/32' }
   ];
 
-  useEffect(() => {
-    loadData();
-  }, []);
-  
-  const loadData = async () => {
+  const showError = (message: string) => {
+    setError({ message, isVisible: true });
+    setTimeout(() => {
+      setError(prev => ({ ...prev, isVisible: false }));
+    }, 5000);
+  };
+
+  const loadData = useCallback(async () => {
     const supabase = createClientComponentClient();
     setLoading(true);
     
     try {
       // 1. Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw new Error(userError.message);
+      
       if (!user) {
         router.push('/auth/signin');
         return;
@@ -98,33 +111,26 @@ export default function CollabsLibrary() {
         .limit(1)
         .single();
       
-      if (periodError || !activePeriod) {
-        console.error("Error fetching active period:", periodError);
-        return;
-      } 
+      if (periodError) throw new Error(`Failed to fetch active period: ${periodError.message}`);
+      if (!activePeriod) throw new Error('No active period found');
       
-      console.log("Active period:", activePeriod);
       setCurrentPeriod({
         id: activePeriod.id,
         season: activePeriod.season,
         year: activePeriod.year
       });
 
-      // 3. First, get all the user's active collaborations
+      // 3. Get all the user's active collaborations
       const { data: activeParticipations, error: participationsError } = await supabase
         .from('collab_participants')
         .select('collab_id')
         .eq('profile_id', user.id)
         .eq('status', 'active');
       
-      if (participationsError) {
-        console.error("Error fetching user participations:", participationsError);
-        return;
-      }
+      if (participationsError) throw new Error(`Failed to fetch active participations: ${participationsError.message}`);
       
       // Get the collab IDs
       const activeCollabIds = activeParticipations?.map(p => p.collab_id) || [];
-      console.log("User's active collab IDs:", activeCollabIds);
       
       // Get metadata for these collabs to extract template IDs
       let activeTemplateIds: string[] = [];
@@ -135,19 +141,17 @@ export default function CollabsLibrary() {
           .select('metadata')
           .in('id', activeCollabIds);
         
-        if (collabsError) {
-          console.error("Error fetching collabs:", collabsError);
-        } else if (collabs && collabs.length > 0) {
+        if (collabsError) throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
+        
+        if (collabs && collabs.length > 0) {
           activeTemplateIds = collabs
             .map(collab => {
               if (collab.metadata && typeof collab.metadata === 'object' && 'template_id' in collab.metadata) {
-                return collab.metadata.template_id;
+                return collab.metadata.template_id as string;
               }
               return null;
             })
             .filter((id): id is string => id !== null);
-          
-          console.log("User's active template IDs:", activeTemplateIds);
         }
       }
 
@@ -157,17 +161,12 @@ export default function CollabsLibrary() {
         .select('template_id')
         .eq('period_id', activePeriod.id);
       
-      if (periodTemplatesError) {
-        console.error("Error fetching period templates:", periodTemplatesError);
-        return;
-      }
+      if (periodTemplatesError) throw new Error(`Failed to fetch period templates: ${periodTemplatesError.message}`);
       
       const periodTemplateIds = periodTemplates?.map(pt => pt.template_id) || [];
-      console.log("Period template IDs:", periodTemplateIds);
       
-      // 5. Get full details of all templates for this period - include instruction fields
+      // 5. Get full details of all templates for this period
       if (periodTemplateIds.length === 0) {
-        console.log("No templates found for this period");
         setAvailablePrompts([]);
         setLoading(false);
         return;
@@ -178,19 +177,13 @@ export default function CollabsLibrary() {
         .select('*')
         .in('id', periodTemplateIds);
       
-      if (templatesError || !allTemplates) {
-        console.error("Error fetching templates:", templatesError);
-        return;
-      }
-      
-      console.log("All templates before filtering:", allTemplates);
+      if (templatesError) throw new Error(`Failed to fetch templates: ${templatesError.message}`);
+      if (!allTemplates) throw new Error('No templates found');
       
       // Filter out templates that the user has already joined
       const filteredTemplates = allTemplates.filter(template => 
         !activeTemplateIds.includes(template.id)
       );
-      
-      console.log("Available templates after filtering:", filteredTemplates);
       
       // Default type to 'theme' if not set
       const processedTemplates = filteredTemplates.map(template => ({
@@ -198,13 +191,116 @@ export default function CollabsLibrary() {
         type: template.type || 'theme'
       }));
       
+      // 6. For each template, get the participant counts for community and local
+      await Promise.all(
+        processedTemplates.map(async (template) => {
+          try {
+            // Get all collabs with this template_id - using a different approach for JSON filtering
+            const { data: templateCollabs, error: templCollabsError } = await supabase
+              .from('collabs')
+              .select('id, participation_mode, location, metadata')
+              .eq('period_id', activePeriod.id);
+              
+            if (templCollabsError) {
+              console.error("Error fetching template collabs:", JSON.stringify(templCollabsError));
+              // Continue with empty data instead of throwing
+              template.communityParticipantCount = 0;
+              template.localParticipantCount = 0;
+              return template;
+            }
+            
+            // Filter the collabs with the template_id in JavaScript instead of using Postgres JSON filtering
+            const filteredCollabs = templateCollabs ? templateCollabs.filter(collab => {
+              if (!collab.metadata || typeof collab.metadata !== 'object') return false;
+              
+              // Handle both possible structures of metadata
+              if ('template_id' in collab.metadata) {
+                return collab.metadata.template_id === template.id;
+              }
+              
+              return false;
+            }) : [];
+            
+            if (!templateCollabs || templateCollabs.length === 0) {
+              template.communityParticipantCount = 0;
+              template.localParticipantCount = 0;
+              return template;
+            }
+            
+            // Get collab IDs by mode
+            const communityIds = templateCollabs
+              .filter(collab => collab.participation_mode === 'community' || collab.participation_mode === 'local')
+              .map(collab => collab.id);
+              
+            const localIds = templateCollabs
+              .filter(collab => collab.participation_mode === 'local')
+              .map(collab => collab.id);
+            
+            // Count participants for community (including local)
+            if (communityIds.length > 0) {
+              const { count: commCount, error: commCountError } = await supabase
+                .from('collab_participants')
+                .select('*', { count: 'exact', head: true })
+                .in('collab_id', communityIds)
+                .eq('status', 'active');
+              
+              if (commCountError) {
+                console.error("Error counting community participants:", JSON.stringify(commCountError));
+                // Continue with a count of 0 instead of throwing
+                template.communityParticipantCount = 0;
+              } else {
+                template.communityParticipantCount = commCount || 0;
+              }
+              template.communityParticipantCount = commCount || 0;
+            } else {
+              template.communityParticipantCount = 0;
+            }
+            
+            // Count participants for local only
+            if (localIds.length > 0) {
+              const { count: localCountData, error: localCountError } = await supabase
+                .from('collab_participants')
+                .select('*', { count: 'exact', head: true })
+                .in('collab_id', localIds)
+                .eq('status', 'active');
+              
+              if (localCountError) {
+                console.error("Error counting local participants:", JSON.stringify(localCountError));
+                // Continue with a count of 0 instead of throwing
+                template.localParticipantCount = 0;
+              } else {
+                template.localParticipantCount = localCountData || 0;
+              }
+              template.localParticipantCount = localCountData || 0;
+            } else {
+              template.localParticipantCount = 0;
+            }
+            
+            return template;
+          } catch (error) {
+            // Handle errors but keep loading other templates
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            template.communityParticipantCount = 0;
+            template.localParticipantCount = 0;
+            return template;
+          }
+        })
+      );
+      
       setAvailablePrompts(processedTemplates);
-    } catch (error) {
-      console.error('Error loading collab data:', error);
+    } catch (err) {
+      console.error("Load data error:", err);
+      const message = err instanceof Error ? err.message : "Failed to load collaboration data";
+      showError(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    loadData();
+    // loadData is included in the dependency array as it's wrapped in useCallback
+  }, [loadData]);
 
   const handleJoinClick = async (collabId: string, title: string, mode: ParticipationMode) => {
     try {
@@ -216,13 +312,10 @@ export default function CollabsLibrary() {
         return;
       }
       
-      console.log(`Joining ${mode} collab:`, title, "ID:", collabId);
-      
       // Find the template in available prompts
       const template = availablePrompts.find(p => p.id === collabId);
       if (!template) {
-        console.error('Template not found in available prompts:', collabId);
-        alert('Error: Template not found');
+        showError('Error: Template not found');
         return;
       }
       
@@ -230,9 +323,14 @@ export default function CollabsLibrary() {
       const supabase = createClientComponentClient();
       
       // Get the current user
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) {
+        console.error("Auth error:", JSON.stringify(userError));
+        throw new Error(userError.message || "Authentication error");
+      }
+      
       if (!user) {
-        alert('You must be logged in to join a collaboration');
+        showError('You must be logged in to join a collaboration');
         return;
       }
       
@@ -244,6 +342,8 @@ export default function CollabsLibrary() {
           description: template.display_text,
           type: template.type || 'theme',
           is_private: false,
+          participation_mode: mode,
+          location: mode === 'local' ? "San Francisco" : null,
           created_by: user.id,
           total_phases: template.phases || null,
           current_phase: 1,
@@ -256,11 +356,7 @@ export default function CollabsLibrary() {
         .select()
         .single();
       
-      if (collabError) {
-        console.error("Error creating collab:", collabError);
-        alert('Could not create collaboration. Please try again later.');
-        return;
-      }
+      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
       
       // Now add the user as a participant
       const { error: participantError } = await supabase
@@ -274,103 +370,184 @@ export default function CollabsLibrary() {
           location: mode === 'local' ? "San Francisco" : null
         });
       
-      if (participantError) {
-        console.error("Error adding participant:", participantError);
-        alert('Could not join collaboration. Please try again later.');
-        return;
-      }
+      if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
       
       // Update UI immediately
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
       
       // Success message and redirect
-      alert(`You've successfully joined the "${title}" collaboration in ${mode} mode.`);
-      window.location.href = '/dashboard';
+      alert("You have successfully joined the \"" + title + "\" collaboration in " + mode + " mode.");
+      router.push('/dashboard');
     } catch (error) {
-      console.error('Exception in handleJoinClick:', error);
-      alert(`Could not join the collaboration due to an unexpected error. Please try again later.`);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      showError(`Could not join the collaboration: ${errorMessage}`);
+    }
+  };
+
+  const createPrivateCollab = async () => {
+    try {
+      const supabase = createClientComponentClient();
+      
+      // Get the current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw new Error(userError.message);
+      
+      if (!user) {
+        showError('You must be logged in to create a collaboration');
+        return;
+      }
+      
+      // Get template info
+      const template = availablePrompts.find(t => t.id === selectedCollabId);
+      if (!template) {
+        showError('Template not found');
+        return;
+      }
+      
+      // Create the private collab with explicit data
+      const { data: collab, error: collabError } = await supabase
+        .from('collabs')
+        .insert({
+          title: template.name,
+          description: template.display_text,
+          type: template.type || 'theme',
+          is_private: true,
+          participation_mode: 'private',
+          location: null,
+          created_by: user.id,
+          total_phases: template.phases || null,
+          current_phase: 1,
+          metadata: {
+            template_id: template.id,
+            participation_mode: 'private',
+            location: null
+          }
+        })
+        .select()
+        .single();
+      
+      if (collabError) throw new Error(`Could not create private collaboration: ${collabError.message}`);
+      
+      // Add the current user as organizer
+      const { error: organizerError } = await supabase
+        .from('collab_participants')
+        .insert({
+          profile_id: user.id,
+          collab_id: collab.id,
+          role: 'organizer',
+          status: 'active',
+          participation_mode: 'private',
+          location: null
+        });
+      
+      if (organizerError) throw new Error(`Could not add you as organizer: ${organizerError.message}`);
+      
+              // Add selected users as members (invited)
+      if (selectedUsers.length > 0) {
+        const invites = selectedUsers.map(selectedUser => ({
+          profile_id: selectedUser.id,
+          collab_id: collab.id,
+          role: 'member',
+          status: 'invited',
+          participation_mode: 'private',
+          location: null
+        }));
+        
+        const inviteResult = await supabase
+          .from('collab_participants')
+          .insert(invites);
+        
+        if (inviteResult.error) {
+          // Log the error but don't fail the whole operation
+          console.error("Could not send all invites:", inviteResult.error);
+        }
+      }
+      
+      // Update UI immediately
+      setAvailablePrompts(prev => prev.filter(c => c.id !== selectedCollabId));
+      setShowInviteDialog(false);
+      
+      // Success message and redirect
+      alert("You have successfully created a private collaboration with " + selectedUsers.length + " invited participants.");
+      router.push('/dashboard');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      showError(`Could not create private collaboration: ${errorMessage}`);
     }
   };
 
   const toggleUser = (user: User) => {
-    if (selectedUsers.find(u => u.id === user.id)) {
-      setSelectedUsers(selectedUsers.filter(u => u.id !== user.id));
-    } else {
-      setSelectedUsers([...selectedUsers, user]);
-    }
+    setSelectedUsers(prev => {
+      if (prev.find(u => u.id === user.id)) {
+        return prev.filter(u => u.id !== user.id);
+      } else {
+        return [...prev, user];
+      }
+    });
   };
 
+  // Render a collab card with updated styling to match dashboard
   const CollabCard = ({ collab }: { collab: CollabTemplate }) => {
     // Use a default type if none exists
     const displayType = collab.type || 'theme';
     
+    // Get community and local participant counts safely
+    const communityCount = collab.communityParticipantCount || 0;
+    const localCount = collab.localParticipantCount || 0;
+    
     return (
-      <Card className="hover:shadow-lg transition-all duration-300 h-full flex flex-col">
-        <div className="p-6 flex flex-col h-full">
-          {/* Header with title and type badge */}
-          <div className="flex items-start justify-between mb-4">
-            <h3 className="text-lg font-medium line-clamp-2">{collab.name}</h3>
-            <div className="ml-3 flex-shrink-0">
-              {displayType === 'chain' && (
-                <div className="bg-blue-100 text-blue-600 px-2 py-1 rounded-full text-xs flex items-center gap-1 whitespace-nowrap">
-                  <Link2 size={12} />
-                  Chain
-                </div>
-              )}
-              {displayType === 'theme' && (
-                <div className="bg-emerald-100 text-emerald-600 px-2 py-1 rounded-full text-xs whitespace-nowrap">
-                  Theme
-                </div>
-              )}
-              {displayType === 'narrative' && (
-                <div className="bg-amber-100 text-amber-600 px-2 py-1 rounded-full text-xs whitespace-nowrap">
-                  Narrative
-                </div>
-              )}
-            </div>
+      <div className="border border-gray-100 rounded-md shadow-sm hover:shadow-md transition-all bg-white hover:border-gray-200">
+        <div className="p-4">
+          {/* Header with title only (no type badge) */}
+          <div className="mb-3">
+            <h3 className="text-base font-medium line-clamp-2">{collab.name}</h3>
           </div>
           
-          {/* Description with fixed height */}
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 line-clamp-3 min-h-[3rem]">
-              {collab.display_text}
-            </p>
-          </div>
+          {/* Description */}
+          <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+            {collab.display_text}
+          </p>
           
-          {/* Instructions with fixed height and scrollable if needed */}
-          {collab.instructions ? (
-            <div className="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100 max-h-28 overflow-y-auto">
-              <p className="text-sm text-gray-700 whitespace-pre-line">
-                {collab.instructions}
-              </p>
+          {/* Instructions with updated styling */}
+          {collab.instructions && (
+            <div className="mb-4">
+              <div className="bg-blue-50 p-4 rounded-sm border-l-4 border-blue-500 shadow-sm">
+                <h3 className="font-medium text-blue-800 mb-2 flex items-center text-sm">
+                  <FileText className="h-4 w-4 mr-1.5" />
+                  INSTRUCTIONS
+                </h3>
+                <div className="text-sm text-gray-700 whitespace-pre-line">
+                  {collab.instructions}
+                </div>
+              </div>
             </div>
-          ) : (
-            <div className="mb-4 min-h-[1rem]"></div>
           )}
           
-          {/* Tags with fixed height */}
-          <div className="mb-4 min-h-[2rem]">
-            <div className="flex flex-wrap gap-1">
-              {collab.tags?.slice(0, 3).map((tag: string, index: number) => (
-                <span 
-                  key={index}
-                  className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs"
-                >
-                  {tag}
-                </span>
-              ))}
+          {/* Tags */}
+          {collab.tags && collab.tags.length > 0 && (
+            <div className="mb-4">
+              <div className="flex flex-wrap gap-1">
+                {collab.tags.slice(0, 3).map((tag: string, index: number) => (
+                  <span 
+                    key={index}
+                    className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-sm text-xs"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Participant stats */}
-          <div className="flex flex-col gap-2 bg-gray-50 p-3 rounded-lg mb-4">
-            <div className="flex items-center gap-2 text-xs">
-              <Globe size={14} className="text-green-500 flex-shrink-0" />
-              <span><strong>{collab.participant_count || Math.floor(Math.random() * 30) + 5}</strong> participants in Community pool</span>
+          {/* Participant stats - inline modern approach */}
+          <div className="flex items-center gap-4 mb-4 text-xs text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <Globe size={14} className="text-blue-500" />
+              <span><strong>{communityCount}</strong> community</span>
             </div>
-            <div className="flex items-center gap-2 text-xs">
-              <MapPin size={14} className="text-amber-500 flex-shrink-0" />
-              <span><strong>{Math.floor(Math.random() * 15) + 3}</strong> participants in San Francisco</span>
+            <div className="flex items-center gap-1.5">
+              <MapPin size={14} className="text-green-500" />
+              <span><strong>{localCount}</strong> local</span>
             </div>
           </div>
 
@@ -382,264 +559,198 @@ export default function CollabsLibrary() {
             </div>
           )}
 
-          {/* Action buttons - using mt-auto to push to bottom */}
-          <div className="grid grid-cols-3 gap-2 mt-auto">
+          {/* Action buttons - Modern, lighter approach */}
+          <div className="grid grid-cols-3 gap-2 mt-4">
             <button 
-              className="bg-green-500 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1 hover:bg-green-600 transition-colors text-xs"
+              className="bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition-colors text-xs"
               onClick={() => handleJoinClick(collab.id, collab.name, 'community')}
             >
               <Globe size={14} />
               Community
             </button>
             <button 
-              className="bg-amber-500 text-white px-2 py-1.5 rounded-lg flex items-center justify-center gap-1 hover:bg-amber-600 transition-colors text-xs"
+              className="bg-green-50 text-green-600 border border-green-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-green-100 transition-colors text-xs"
               onClick={() => handleJoinClick(collab.id, collab.name, 'local')}
             >
               <MapPin size={14} />
               Local
             </button>
             <button 
-              className="border border-indigo-500 text-indigo-500 px-2 py-1.5 rounded-lg flex items-center justify-center gap-1 hover:bg-indigo-50 transition-colors text-xs"
+              className="bg-purple-50 text-purple-600 border border-purple-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-purple-100 transition-colors text-xs"
               onClick={() => handleJoinClick(collab.id, collab.name, 'private')}
             >
-              <UserPlus size={14} />
+              <Lock size={14} />
               Private
             </button>
           </div>
         </div>
-      </Card>
+      </div>
     );
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <div className="mb-8">
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="mb-4">
         <Link 
           href="/dashboard"
-          className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Dashboard</span>
         </Link>
       </div>
 
-      <h1 className="text-3xl font-light mb-6">
+      <h1 className="text-xl md:text-2xl font-medium mb-4">
         {currentPeriod.season} {currentPeriod.year} Collab Prompts
       </h1>
+      
+      <div className="mb-6">
+        <p className="text-sm text-gray-600">
+          Join collaboration templates to create or participate in creative projects with other contributors.
+        </p>
+      </div>
+
+      {/* Error display */}
+      {error.isVisible && (
+        <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center">
+          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+          <p className="text-sm">{error.message}</p>
+        </div>
+      )}
 
       {loading ? (
-        <div className="text-center py-10">Loading collaboration prompts...</div>
+        <div className="p-8 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mr-3" />
+          <span className="text-gray-600">Loading collaboration prompts...</span>
+        </div>
       ) : availablePrompts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {availablePrompts.map(collab => (
             <CollabCard key={collab.id} collab={collab} />
           ))}
         </div>
       ) : (
-        <div className="text-center py-10 text-gray-500">
-          <p>You've joined all available collaboration prompts for this period.</p>
+        <div className="p-8 text-center bg-gray-50 border border-gray-100 rounded-sm">
+          <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-sm flex items-center justify-center">
+            <Users size={20} className="text-gray-400" />
+          </div>
+          <p className="text-gray-600 mb-4">You've joined all available collaboration prompts for this period.</p>
           <button 
             onClick={loadData}
-            className="mt-4 px-4 py-2 text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="py-2.5 px-4 rounded-sm text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
           >
             Refresh List
           </button>
         </div>
       )}
 
-      {/* Simple Modal Dialog - No shadcn/ui dependencies */}
+      {/* User Invite Modal Dialog */}
       {showInviteDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-lg w-full mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold flex items-center gap-2">
-                <UserPlus size={20} />
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-sm max-w-lg w-full mx-auto">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-medium flex items-center gap-2">
+                <Lock size={18} />
                 Start Private Collab: {selectedCollabTitle}
               </h2>
               <button 
                 onClick={() => setShowInviteDialog(false)}
                 className="p-1 rounded-full hover:bg-gray-100"
+                aria-label="Close"
               >
                 <X size={18} />
               </button>
             </div>
             
-            <div className="space-y-6 my-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                <input
-                  type="text"
-                  placeholder="Search online//offline contributors..."
-                  className="w-full pl-10 pr-4 py-3 border rounded-lg"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              {selectedUsers.length > 0 && (
-                <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg">
-                  {selectedUsers.map(user => (
-                    <div 
-                      key={user.id}
-                      className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border"
-                    >
-                      <img src={user.avatar} alt="" className="w-5 h-5 rounded-full" />
-                      <span className="text-sm">{user.name}</span>
-                      <button 
-                        onClick={() => toggleUser(user)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
+            <div className="p-4">
+              <div className="space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <input
+                    type="text"
+                    placeholder="Search online//offline contributors..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-sm"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    aria-label="Search contributors"
+                  />
                 </div>
-              )}
 
-              <div className="border rounded-lg overflow-hidden divide-y max-h-64 overflow-y-auto">
-                {searchResults
-                  .filter(user => 
-                    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    user.bio.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map(user => {
-                    const isSelected = selectedUsers.find(u => u.id === user.id);
-                    return (
+                {selectedUsers.length > 0 && (
+                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-sm">
+                    {selectedUsers.map(user => (
                       <div 
                         key={user.id}
-                        className={`p-4 flex items-center justify-between hover:bg-gray-50 cursor-pointer
-                          ${isSelected ? 'bg-blue-50' : ''}`}
-                        onClick={() => toggleUser(user)}
+                        className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-sm border"
                       >
-                        <div className="flex items-center gap-3">
-                          <img src={user.avatar} alt="" className="w-8 h-8 rounded-full" />
-                          <div>
-                            <div className="font-medium">{user.name}</div>
-                            <div className="text-sm text-gray-600">{user.bio}</div>
+                        {/* Using img for simplicity, would be replaced with next/image in production */}
+                        <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs overflow-hidden">
+                          {user.name.charAt(0)}
+                        </span>
+                        <span className="text-sm">{user.name}</span>
+                        <button 
+                          onClick={() => toggleUser(user)}
+                          className="text-gray-400 hover:text-gray-600"
+                          aria-label={`Remove ${user.name}`}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border rounded-sm overflow-hidden divide-y max-h-64 overflow-y-auto">
+                  {searchResults
+                    .filter(user => 
+                      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      user.bio.toLowerCase().includes(searchTerm.toLowerCase())
+                    )
+                    .map(user => {
+                      const isSelected = selectedUsers.find(u => u.id === user.id);
+                      return (
+                        <div 
+                          key={user.id}
+                          className={`p-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer
+                            ${isSelected ? 'bg-blue-50' : ''}`}
+                          onClick={() => toggleUser(user)}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Using a text avatar instead of img for Next.js optimization */}
+                            <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium overflow-hidden">
+                              {user.name.charAt(0)}
+                            </span>
+                            <div>
+                              <div className="font-medium">{user.name}</div>
+                              <div className="text-sm text-gray-600">{user.bio}</div>
+                            </div>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                            isSelected ? 'bg-blue-500 text-white' : 'border'
+                          }`}>
+                            {isSelected && <Check size={14} />}
                           </div>
                         </div>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                          isSelected ? 'bg-blue-500 text-white' : 'border'
-                        }`}>
-                          {isSelected && <Check size={14} />}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                </div>
               </div>
-            </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-              <button 
-                onClick={() => setShowInviteDialog(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded"
-              >
-                Cancel
-              </button>
-              <button 
-                disabled={selectedUsers.length === 0}
-                className={`px-4 py-2 rounded ${selectedUsers.length === 0 ? 'bg-blue-300' : 'bg-blue-500 hover:bg-blue-600'} text-white`}
-                onClick={async () => {
-                  try {
-                    console.log("Creating private collab with template ID:", selectedCollabId);
-                    
-                    // Handle directly with Supabase
-                    const supabase = createClientComponentClient();
-                    
-                    // Get the current user
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (!user) {
-                      alert('You must be logged in to create a collaboration');
-                      return;
-                    }
-                    
-                    // Get template info
-                    const template = availablePrompts.find(t => t.id === selectedCollabId);
-                    if (!template) {
-                      alert('Template not found');
-                      return;
-                    }
-                    
-                    // Create the private collab with explicit data
-                    const { data: collab, error: collabError } = await supabase
-                      .from('collabs')
-                      .insert({
-                        title: template.name,
-                        description: template.display_text,
-                        type: template.type || 'theme',
-                        is_private: true,
-                        created_by: user.id,
-                        total_phases: template.phases || null,
-                        current_phase: 1,
-                        metadata: {
-                          template_id: template.id,
-                          participation_mode: 'private',
-                          location: null
-                        }
-                      })
-                      .select()
-                      .single();
-                    
-                    if (collabError) {
-                      console.error("Error creating private collab:", collabError);
-                      alert('Could not create private collaboration. Please try again later.');
-                      return;
-                    }
-                    
-                    // Add the current user as organizer
-                    const { error: organizerError } = await supabase
-                      .from('collab_participants')
-                      .insert({
-                        profile_id: user.id,
-                        collab_id: collab.id,
-                        role: 'organizer',
-                        status: 'active',
-                        participation_mode: 'private',
-                        location: null
-                      });
-                    
-                    if (organizerError) {
-                      console.error("Error adding organizer:", organizerError);
-                      alert('Could not add you as organizer. Please try again later.');
-                      return;
-                    }
-                    
-                    // Add selected users as members (invited)
-                    if (selectedUsers.length > 0) {
-                      const invites = selectedUsers.map(selectedUser => ({
-                        profile_id: selectedUser.id.toString(),
-                        collab_id: collab.id,
-                        role: 'member',
-                        status: 'invited',
-                        participation_mode: 'private',
-                        location: null
-                      }));
-                      
-                      const { error: inviteError } = await supabase
-                        .from('collab_participants')
-                        .insert(invites);
-                      
-                      if (inviteError) {
-                        console.error("Error inviting members:", inviteError);
-                        // Don't fail the whole operation if invites fail
-                      }
-                    }
-                    
-                    // Update UI immediately
-                    setAvailablePrompts(prev => prev.filter(c => c.id !== selectedCollabId));
-                    setShowInviteDialog(false);
-                    
-                    // Success message and redirect
-                    alert(`You've successfully created a private collaboration with ${selectedUsers.length} invited participants.`);
-                    window.location.href = '/dashboard';
-                  } catch (error) {
-                    console.error("Error creating private collab:", error);
-                    alert(`Could not create private collaboration due to an unexpected error. Please try again later.`);
-                  }
-                }}
-              >
-                Send Invites ({selectedUsers.length})
-              </button>
+                <div className="flex justify-end gap-3 mt-6">
+                <button 
+                  onClick={() => setShowInviteDialog(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-sm"
+                >
+                  Cancel
+                </button>
+                <button 
+                  disabled={selectedUsers.length === 0}
+                  className={`px-4 py-2 rounded-sm ${selectedUsers.length === 0 ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                  onClick={createPrivateCollab}
+                >
+          Send Invites ({selectedUsers.length})
+                </button>
+              </div>
             </div>
           </div>
         </div>
