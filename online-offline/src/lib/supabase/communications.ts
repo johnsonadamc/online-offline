@@ -24,17 +24,29 @@ interface Period {
   end_date: string;
 }
 
-interface Profile {
-  id: string;
-  first_name: string;
-  last_name: string;
+// Note: The following interfaces are used as part of the return types from database queries
+interface ProfileData {
+  first_name?: string;
+  last_name?: string;
   avatar_url?: string;
-  profile_types?: { type: string }[];
+  [key: string]: unknown;
 }
 
-interface CommunicationWithPeriod {
-  period_id: string;
-  periods: Period;
+interface CommunicationRecord {
+  id?: string;
+  subject?: string;
+  content?: string;
+  image_url?: string | null;
+  status?: string;
+  updated_at?: string;
+  created_at?: string;
+  period_id?: string;
+  recipient_id?: string;
+  sender_id?: string;
+  is_selected?: boolean;
+  periods?: Period;
+  profiles?: ProfileData | ProfileData[];
+  [key: string]: unknown;
 }
 
 // Get all draft communications for the current user
@@ -301,7 +313,7 @@ export const submitCommunication = async (id: string) => {
 export async function withdrawCommunication(communicationId: string): Promise<{
   success: boolean;
   error?: string;
-  communication?: any;
+  communication?: CommunicationRecord;
 }> {
   const supabase = createClientComponentClient();
   
@@ -385,7 +397,7 @@ export const getContributors = async () => {
     
     // Filter for those with contributor type
     const contributors = data.filter(profile => 
-      profile.profile_types?.some(pt => pt.type === 'contributor')
+      profile.profile_types?.some((pt: { type: string }) => pt.type === 'contributor')
     );
     
     return { success: true, contributors };
@@ -419,8 +431,12 @@ export const selectCommunications = async (
         .eq('status', 'submitted')
         .eq('period_id', periodId);
       
-      if (queryError || !allComms) {
-        throw queryError || new Error('No communications found');
+      if (queryError) {
+        throw queryError;
+      }
+      
+      if (!allComms) {
+        throw new Error('No communications found');
       }
       
       // Randomly select up to 10
@@ -430,12 +446,14 @@ export const selectCommunications = async (
     }
     
     // Update all selected communications
-    const { data, error } = await supabase
+    const updatedRecords = {
+      is_selected: true,
+      selection_method: selectionMethod
+    };
+    
+    const { error } = await supabase
       .from('communications')
-      .update({
-        is_selected: true,
-        selection_method: selectionMethod
-      })
+      .update(updatedRecords)
       .in('id', communicationIds)
       .eq('recipient_id', user.id)
       .eq('status', 'submitted')

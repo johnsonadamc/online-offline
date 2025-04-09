@@ -1,15 +1,14 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Search, Lock, Clock, User, Shield } from 'lucide-react';
-import { sendFollowRequest, getPendingFollowRequests, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
+import { Search, Lock, Shield } from 'lucide-react';
+import { sendFollowRequest, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
 
 interface Follower {
   id: string;
@@ -46,12 +45,33 @@ interface BlockedUser {
   avatar: string;
 }
 
+interface BankInfo {
+  accountNumber: string;
+  routingNumber: string;
+  accountType: string;
+}
+
+interface CuratorPaymentInfo {
+  cardNumber: string;
+  expiryDate: string;
+  cvv: string;
+}
+
+interface ProfileState {
+  firstName: string;
+  lastName: string;
+  profileTypes: string[];
+  isPublic: boolean;
+  bankInfo: BankInfo;
+  curatorPaymentInfo: CuratorPaymentInfo;
+}
+
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState({
+  const [profile, setProfile] = useState<ProfileState>({
     firstName: '',
     lastName: '',
-    profileTypes: [] as string[],
+    profileTypes: [],
     isPublic: true,
     bankInfo: {
       accountNumber: '',
@@ -82,20 +102,13 @@ export default function ProfilePage() {
     isPrivate: boolean;
   }>>([]);
 
-  useEffect(() => {
-    getProfile();
-    loadConnectionsData();
-    loadFollowRequests();
-  }, []);
-
-  function calculateDuration(startDate: string): string {
+  const calculateDuration = useCallback((startDate: string): string => {
     const start = new Date(startDate);
     const now = new Date();
     const months = (now.getFullYear() - start.getFullYear()) * 12 + now.getMonth() - start.getMonth();
     return months <= 0 ? 'Less than a month' : `${months} month${months !== 1 ? 's' : ''}`;
-  }
-
-  async function getProfile() {
+  }, []);
+  const getProfile = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -108,6 +121,11 @@ export default function ProfilePage() {
           `)
           .eq('id', user.id)
           .single();
+
+        if (error) {
+          console.error("Error fetching profile:", error);
+          return;
+        }
 
         if (data) {
           setProfile({
@@ -129,11 +147,11 @@ export default function ProfilePage() {
         }
       }
     } catch (error) {
-      console.log(error);
+      console.error("Error in getProfile:", error);
     } finally {
       setLoading(false);
     }
-  }
+  }, [supabase]);
   
   const updateBankInfo = (field: string, value: string) => {
     setProfile(prev => ({
@@ -154,7 +172,8 @@ export default function ProfilePage() {
       }
     }));
   };
-  async function searchProfiles(query: string) {
+
+  const searchProfiles = async (query: string) => {
     try {
       if (query.length < 1) {
         setSearchResults([]);
@@ -194,11 +213,10 @@ export default function ProfilePage() {
         setSearchResults([]);
       }
     } catch (error) {
-      console.log('Error searching profiles:', error);
+      console.error('Error searching profiles:', error);
     }
-  }
-
-  async function loadConnectionsData() {
+  };
+  const loadConnectionsData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -223,7 +241,10 @@ export default function ProfilePage() {
         .eq('status', 'approved')
         .eq('relationship_type', 'follow');
   
-      if (followingError) throw followingError;
+      if (followingError) {
+        console.error("Error fetching following data:", followingError);
+        throw followingError;
+      }
   
       if (followingData) {
         const formattedFollowing = followingData.map(item => {
@@ -263,7 +284,10 @@ export default function ProfilePage() {
         .eq('status', 'approved')
         .eq('relationship_type', 'follow');
   
-      if (followerError) throw followerError;
+      if (followerError) {
+        console.error("Error fetching follower data:", followerError);
+        throw followerError;
+      }
   
       if (followerData) {
         const formattedFollowers = followerData.map(item => {
@@ -302,7 +326,10 @@ export default function ProfilePage() {
         .eq('status', 'blocked')
         .eq('relationship_type', 'follow');
   
-      if (blockedError) throw blockedError;
+      if (blockedError) {
+        console.error("Error fetching blocked data:", blockedError);
+        throw blockedError;
+      }
   
       if (blockedData) {
         const formattedBlocked = blockedData.map(item => {
@@ -324,8 +351,9 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Error loading connections data:", error);
     }
-  }
-  async function loadFollowRequests() {
+  }, [supabase, calculateDuration]);
+
+  const loadFollowRequests = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -349,7 +377,10 @@ export default function ProfilePage() {
         .eq('status', 'pending')
         .eq('relationship_type', 'follow');
   
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching follow requests:", error);
+        throw error;
+      }
   
       if (data) {
         const formattedRequests = data.map(request => {
@@ -372,9 +403,14 @@ export default function ProfilePage() {
     } catch (error) {
       console.error("Error loading access requests:", error);
     }
-  }
+  }, [supabase]);
 
-  async function updateProfile() {
+  useEffect(() => {
+    getProfile();
+    loadConnectionsData();
+    loadFollowRequests();
+  }, [getProfile, loadConnectionsData, loadFollowRequests]);
+  const updateProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -397,12 +433,12 @@ export default function ProfilePage() {
 
       alert('Profile updated!');
     } catch (error) {
-      console.log(error);
+      console.error("Error updating profile:", error);
       alert('Error updating profile!');
     }
-  }
+  };
   
-  async function handleFollowRequest(profileId: string) {
+  const handleFollowRequest = async (profileId: string) => {
     try {
       const result = await sendFollowRequest(profileId);
       
@@ -430,9 +466,9 @@ export default function ProfilePage() {
       console.error("Error sending access request:", error);
       alert('An unexpected error occurred.');
     }
-  }
+  };
   
-  async function handleApproveRequest(requestId: string) {
+  const handleApproveRequest = async (requestId: string) => {
     try {
       const result = await approveFollowRequest(requestId);
       
@@ -448,9 +484,9 @@ export default function ProfilePage() {
       console.error("Error approving access request:", error);
       alert('Error approving request');
     }
-  }
+  };
 
-  async function handleDenyRequest(requestId: string) {
+  const handleDenyRequest = async (requestId: string) => {
     try {
       const result = await rejectFollowRequest(requestId);
       
@@ -465,8 +501,9 @@ export default function ProfilePage() {
       console.error("Error denying access request:", error);
       alert('Error denying request');
     }
-  }
-  async function handleUnfollow(profileId: string) {
+  };
+
+  const handleUnfollow = async (profileId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -505,9 +542,8 @@ export default function ProfilePage() {
       console.error("Error removing access:", error);
       alert('Error removing access');
     }
-  }
-
-  async function handleBlockUser(userId: string) {
+  };
+  const handleBlockUser = async (userId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -523,7 +559,11 @@ export default function ProfilePage() {
         .eq('relationship_type', 'follow')
         .maybeSingle();
         
-      if (!findError && existingConn) {
+      if (findError) {
+        console.error("Error finding connection:", findError);
+      }
+        
+      if (existingConn) {
         connectionId = existingConn.id;
       }
       
@@ -537,7 +577,10 @@ export default function ProfilePage() {
           })
           .eq('id', connectionId);
           
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error("Error updating connection:", updateError);
+          throw updateError;
+        }
       } else {
         // Create a new blocked connection
         const { error: insertError } = await supabase
@@ -551,7 +594,10 @@ export default function ProfilePage() {
             updated_at: new Date().toISOString()
           });
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error("Error inserting connection:", insertError);
+          throw insertError;
+        }
       }
       
       // Refresh data
@@ -562,9 +608,9 @@ export default function ProfilePage() {
       console.error("Error blocking user:", error);
       alert('Error blocking user');
     }
-  }
+  };
 
-  async function handleUnblockUser(userId: string) {
+  const handleUnblockUser = async (userId: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -604,7 +650,7 @@ export default function ProfilePage() {
       console.error("Error unblocking user:", error);
       alert('Error unblocking user');
     }
-  }
+  };
 
   if (loading) {
     return <div>Loading...</div>;
@@ -688,7 +734,6 @@ export default function ProfilePage() {
                   </div>
                 </div>
               </div>
-              
               <div className="space-y-2">
                 <Label>Profile Type</Label>
                 <div className="flex gap-4">
@@ -818,7 +863,6 @@ export default function ProfilePage() {
             </Button>
           </div>
         </TabsContent>
-
         <TabsContent value="connections">
           {/* Search section at the top for easy discovery */}
           <Card className="mb-6">
@@ -869,7 +913,7 @@ export default function ProfilePage() {
                           >
                             Request Access
                           </Button>
-                        ) : null  // Don't show any button for public profiles
+                        ) : null  // Don&apos;t show any button for public profiles
                       )}
                     </div>
                   ))}
@@ -877,7 +921,6 @@ export default function ProfilePage() {
               )}
             </CardContent>
           </Card>
-
           {/* Pending Requests section - only shown if there are pending requests */}
           {followRequests.length > 0 && (
             <Card className="mb-6">
@@ -922,7 +965,6 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
           )}
-
           {/* Private Profiles You Have Access To */}
           <Card className="mb-6">
             <CardHeader className="py-4">
@@ -934,7 +976,7 @@ export default function ProfilePage() {
             <CardContent>
               <div className="space-y-3">
                 {following.filter(profile => profile.isPrivate).length === 0 ? (
-                  <p className="text-gray-500 py-2">You don't have access to any private profiles yet</p>
+                  <p className="text-gray-500 py-2">You don&apos;t have access to any private profiles yet</p>
                 ) : (
                   following.filter(profile => profile.isPrivate).map(profile => (
                     <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -964,7 +1006,6 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
-
           {/* People Who Have Access to You */}
           <Card>
             <CardHeader className="py-4">
@@ -998,7 +1039,6 @@ export default function ProfilePage() {
               </div>
             </CardContent>
           </Card>
-
           {/* Blocked Users section - only shown if there are blocked users */}
           {blockedUsers.length > 0 && (
             <Card className="mt-6">

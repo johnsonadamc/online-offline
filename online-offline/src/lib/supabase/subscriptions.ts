@@ -14,19 +14,13 @@ interface SubscriptionStats {
   }[];
 }
 
-interface Period {
-  name: string;
-  season: string;
-  year: number;
-}
-
-interface HistoricalStat {
-  subscriber_count: number;
-  content_id: string;
-  periods: Period;
-  content: {
-    creator_id: string;
-  }[];
+// Define a type for the historical stats data
+interface HistoricalStatRecord {
+  subscriber_count?: number | null;
+  content_id?: string;
+  periods?: unknown; // Using unknown for dynamic data that could be array or object
+  content?: { creator_id?: string }[];
+  [key: string]: unknown; // Allow for other properties
 }
 
 export async function getSubscriptionStats(): Promise<SubscriptionStats> {
@@ -74,13 +68,38 @@ export async function getSubscriptionStats(): Promise<SubscriptionStats> {
         subscriberCount: currentStats.subscriber_count,
         contentId: currentStats.content_id
       } : null,
-      historicalStats: (historicalStats || []).map((stat: any) => ({
-        period: stat.periods.name,
-        season: stat.periods.season,
-        year: stat.periods.year,
-        subscriberCount: stat.subscriber_count,
-        contentId: stat.content_id
-      }))
+      historicalStats: (historicalStats || []).map((stat: HistoricalStatRecord) => {
+        let name = '';
+        let season = '';
+        let year = 0;
+        
+        // Extract period data safely with type safety
+        const periods = stat.periods;
+        
+        if (periods) {
+          if (Array.isArray(periods) && periods.length > 0) {
+            // Use a type assertion here to tell TypeScript about the structure
+            const firstPeriod = periods[0] as Record<string, unknown>;
+            name = String(firstPeriod?.name || '');
+            season = String(firstPeriod?.season || '');
+            year = Number(firstPeriod?.year) || 0;
+          } else {
+            // It's an object - but use type assertion to access properties
+            const periodData = periods as Record<string, unknown>;
+            name = String(periodData?.name || '');
+            season = String(periodData?.season || '');
+            year = Number(periodData?.year) || 0;
+          }
+        }
+        
+        return {
+          period: name,
+          season: season,
+          year: year,
+          subscriberCount: Number(stat.subscriber_count) || 0,
+          contentId: String(stat.content_id || '')
+        };
+      })
     };
   } catch (error) {
     console.error('Error fetching subscription stats:', error);

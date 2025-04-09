@@ -41,15 +41,31 @@ export interface CityParticipantData {
 }
 
 /**
+ * Interface to describe the structure of data from getUserCollabs
+ */
+interface UserCollabItem {
+  id: string;
+  title: string;
+  type?: 'chain' | 'theme' | 'narrative';
+  is_private?: boolean;
+  sourceType?: string;
+  participation_mode?: string;
+  location?: string | null;
+  participantCount?: number;
+  metadata?: Record<string, unknown>;
+  description?: string;
+  template_id?: string;
+  [key: string]: unknown;
+}
+
+/**
  * Get all collaborations for the current period organized by type
  */
-export async function getCollaborationsForCuration(periodId: string): Promise<{
+export async function getCollaborationsForCuration(): Promise<{
   success: boolean;
   error?: string;
   joinedCollabs?: CollabData[];
 }> {
-  const supabase = createClientComponentClient();
-  
   try {
     // First, get the user's joined collabs using the existing function
     const userCollabsResult = await getUserCollabs();
@@ -58,31 +74,17 @@ export async function getCollaborationsForCuration(periodId: string): Promise<{
       return { success: false, error: "Failed to fetch user collaborations" };
     }
     
-    // Create typed arrays to avoid 'never' type issues
-    type CollabItem = {
-      id: string;
-      title: string;
-      type?: string;
-      is_private?: boolean;
-      participation_mode?: string;
-      location?: string | null;
-      description?: string;
-      participantCount?: number;
-      template_id?: string;
-      [key: string]: any; // Allow other properties
-    };
-    
-    // Convert to typed arrays
-    const privateCollabs: CollabItem[] = userCollabsResult.private || [];
-    const communityCollabs: CollabItem[] = userCollabsResult.community || [];
-    const localCollabs: CollabItem[] = userCollabsResult.local || [];
+    // Safely extract data from each array with type assertions
+    const privateCollabs = userCollabsResult.private || [];
+    const communityCollabs = userCollabsResult.community || [];
+    const localCollabs = userCollabsResult.local || [];
     
     // Combine all types of collabs
     const allUserCollabs = [
       ...privateCollabs.map(c => ({ ...c, sourceType: 'private' })),
       ...communityCollabs.map(c => ({ ...c, sourceType: 'community' })),
       ...localCollabs.map(c => ({ ...c, sourceType: 'local' }))
-    ];
+    ] as UserCollabItem[];
     
     // Format the collabs for the curation interface
     const formattedCollabs: CollabData[] = allUserCollabs.map(collab => {
@@ -101,6 +103,25 @@ export async function getCollaborationsForCuration(periodId: string): Promise<{
         participationMode = 'private';
       }
       
+      // Extract description and template_id safely
+      let description = '';
+      let templateId = '';
+      
+      // Try to extract description from various places it might exist
+      if (typeof collab.description === 'string') {
+        description = collab.description;
+      } else if (collab.metadata && typeof collab.metadata === 'object') {
+        const metadataDescription = collab.metadata.description;
+        if (typeof metadataDescription === 'string') {
+          description = metadataDescription;
+        }
+      }
+      
+      // Try to extract template_id if it exists
+      if (typeof collab.template_id === 'string') {
+        templateId = collab.template_id;
+      }
+      
       // Build the formatted collab object with safe defaults
       return {
         id: collab.id || '',
@@ -109,9 +130,9 @@ export async function getCollaborationsForCuration(periodId: string): Promise<{
         participation_mode: participationMode,
         participant_count: collab.participantCount || 0,
         location: collab.location || null,
-        description: collab.description || '',
+        description: description,
         is_joined: true,
-        template_id: collab.template_id || ''
+        template_id: templateId
       };
     });
     
@@ -158,7 +179,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
     }
 
     // Extract the templates from the nested structure
-    let templates: CollabTemplate[] = [];
+    const templates: CollabTemplate[] = [];
     
     if (data) {
       data.forEach(item => {
@@ -195,7 +216,6 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
 }
 
 /**
- /**
  * Get curator's selected collaborations for a period
  */
 export async function getCuratorCollabSelections(

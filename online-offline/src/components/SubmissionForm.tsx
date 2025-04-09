@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { uploadMedia } from '@/lib/supabase/storage';
 import { 
-  Upload, X, Camera, Maximize2, Plus, Clock, ArrowLeft,
+  Upload, X, Camera, Maximize2, Plus, ArrowLeft,
   ChevronDown, ChevronUp, Tag, Info, Save, Send
 } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Image from 'next/image';
 
 interface Entry {
   id: number;
@@ -83,49 +84,53 @@ export default function SubmissionForm() {
     const loadDraft = async () => {
       if (!draftId) return;
   
-      const { data, error } = await supabase
-        .from('content')
-        .select(`
-          *,
-          content_entries (
+      try {
+        const { data, error } = await supabase
+          .from('content')
+          .select(`
             *,
-            content_tags (
-              *
+            content_entries (
+              *,
+              content_tags (
+                *
+              )
             )
-          )
-        `)
-        .eq('id', draftId)
-        .single();
+          `)
+          .eq('id', draftId)
+          .single();
   
-      if (error) {
-        console.error('Error loading draft:', error);
-        return;
-      }
-  
-      if (data) {
-        setSubmissionType(data.type);
-        setStatus(data.status);
-        
-        // Add support for page title from database
-        if (data.page_title) {
-          setPageTitle(data.page_title);
+        if (error) {
+          console.error('Error loading draft:', error);
+          return;
         }
-        
-        // Map database entries to our state format
-        if (data.content_entries && data.content_entries.length > 0) {
-          setEntries(data.content_entries.map((entry: ContentEntry) => ({
-            id: entry.id,
-            title: entry.title || '',
-            caption: entry.caption || '',
-            selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
-            imageUrl: entry.media_url,
-            isFeature: entry.is_feature || false,
-            isFullSpread: entry.is_full_spread || false
-          })));
+  
+        if (data) {
+          setSubmissionType(data.type);
+          setStatus(data.status);
           
-          // Set current slide to the first entry
-          setCurrentSlide(0);
+          // Add support for page title from database
+          if (data.page_title) {
+            setPageTitle(data.page_title);
+          }
+          
+          // Map database entries to our state format
+          if (data.content_entries && data.content_entries.length > 0) {
+            setEntries(data.content_entries.map((entry: ContentEntry) => ({
+              id: entry.id,
+              title: entry.title || '',
+              caption: entry.caption || '',
+              selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
+              imageUrl: entry.media_url,
+              isFeature: entry.is_feature || false,
+              isFullSpread: entry.is_full_spread || false
+            })));
+            
+            // Set current slide to the first entry
+            setCurrentSlide(0);
+          }
         }
+      } catch (loadError) {
+        console.error('Unexpected error loading draft:', loadError);
       }
     };
   
@@ -135,27 +140,36 @@ export default function SubmissionForm() {
   // Load period data (maintaining original functionality)
   useEffect(() => {
     const loadPeriod = async () => {
-      const { period, error } = await getCurrentPeriod();
-      if (period) {
-        // Get current PST date and time
-        const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      try {
+        const { period, error } = await getCurrentPeriod();
+        if (error) {
+          console.error('Error fetching current period:', error);
+          return;
+        }
         
-        // Get period end date in PST
-        const pstEndDate = new Date(period.end_date);
-        pstEndDate.setTime(pstEndDate.getTime() + pstEndDate.getTimezoneOffset() * 60 * 1000);
-        const pstEndDateTime = new Date(pstEndDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+        if (period) {
+          // Get current PST date and time
+          const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+          
+          // Get period end date in PST
+          const pstEndDate = new Date(period.end_date);
+          pstEndDate.setTime(pstEndDate.getTime() + pstEndDate.getTimezoneOffset() * 60 * 1000);
+          const pstEndDateTime = new Date(pstEndDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
 
-        // Calculate difference
-        const difference = pstEndDateTime.getTime() - pstNow.getTime();
-        const daysLeft = Math.floor(difference / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        
-        setCurrentPeriod({
-          quarter: `${period.season} ${period.year}`,
-          season: period.season.toLowerCase()
-        });
-  
-        setTimeLeft({ days: daysLeft, hours });
+          // Calculate difference
+          const difference = pstEndDateTime.getTime() - pstNow.getTime();
+          const daysLeft = Math.floor(difference / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          
+          setCurrentPeriod({
+            quarter: `${period.season} ${period.year}`,
+            season: period.season.toLowerCase()
+          });
+    
+          setTimeLeft({ days: daysLeft, hours });
+        }
+      } catch (periodError) {
+        console.error('Unexpected error loading period:', periodError);
       }
     };
     
@@ -205,13 +219,19 @@ export default function SubmissionForm() {
     console.log('Saving draft with ID, status, and page title:', draftId, status, pageTitle);
     setSaveStatus('saving');
     
-    // Modified to include page_title in save parameters
-    const result = await saveContent(submissionType, status, entries, draftId || undefined, pageTitle);
-    
-    if (result.success) {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus(''), 2000);
-    } else {
+    try {
+      // Modified to include page_title in save parameters
+      const result = await saveContent(submissionType, status, entries, draftId || undefined, pageTitle);
+      
+      if (result.success) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus('error');
+        alert('Error saving draft: ' + (result.error || 'Unknown error'));
+      }
+    } catch (saveError) {
+      console.error('Unexpected error saving draft:', saveError);
       setSaveStatus('error');
       alert('Error saving draft');
     }
@@ -219,12 +239,17 @@ export default function SubmissionForm() {
 
   // Submit functionality, now including pageTitle
   const handleSubmit = async () => {
-    // Modified to include page_title in save parameters
-    const result = await saveContent(submissionType, 'submitted', entries, draftId || undefined, pageTitle);
-    
-    if (result.success) {
-      setStatus('submitted');
-    } else {
+    try {
+      // Modified to include page_title in save parameters
+      const result = await saveContent(submissionType, 'submitted', entries, draftId || undefined, pageTitle);
+      
+      if (result.success) {
+        setStatus('submitted');
+      } else {
+        alert('Error submitting content: ' + (result.error || 'Unknown error'));
+      }
+    } catch (submitError) {
+      console.error('Unexpected error submitting content:', submitError);
       alert('Error submitting content');
     }
   };
@@ -262,26 +287,6 @@ export default function SubmissionForm() {
     
     // Automatically navigate to the new entry
     setCurrentSlide(entries.length);
-  };
-  
-  // Helper to get current entry
-  const currentEntry = entries[currentSlide] || null;
-
-  // Helper to close other panels when opening a new one
-  const openPanel = (panel: 'details' | 'tags' | 'imageControls') => {
-    if (panel === 'details') {
-      setShowDetails(true);
-      setShowTagsPanel(false);
-      setShowImageControls(false);
-    } else if (panel === 'tags') {
-      setShowDetails(false);
-      setShowTagsPanel(true);
-      setShowImageControls(false);
-    } else if (panel === 'imageControls') {
-      setShowDetails(false);
-      setShowTagsPanel(false);
-      setShowImageControls(true);
-    }
   };
 
   return (
@@ -391,11 +396,17 @@ export default function SubmissionForm() {
           <div className="h-full flex-1 flex items-center justify-center p-4">
             {entries.length > 0 && entries[0]?.imageUrl ? (
               <div className="relative w-full h-full flex items-center justify-center">
-                <img
-                  src={entries[0].imageUrl}
-                  alt={entries[0].title || "Full page spread"}
-                  className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-                />
+                <div className="relative max-w-full max-h-full">
+                  <Image
+                    src={entries[0].imageUrl}
+                    alt={entries[0].title || "Full page spread"}
+                    width={400}
+                    height={400}
+                    className="object-contain rounded-lg shadow-md"
+                    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                    unoptimized={entries[0].imageUrl.startsWith('blob:')}
+                  />
+                </div>
                 
                 {/* Remove button */}
                 {status === 'draft' && (
@@ -587,11 +598,16 @@ export default function SubmissionForm() {
                 >
                   {entry.imageUrl ? (
                     <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                      <img 
-                        src={entry.imageUrl} 
-                        alt="" 
-                        className="w-full h-full object-cover" 
-                      />
+                      <div className="absolute inset-0">
+                        <Image 
+                          src={entry.imageUrl} 
+                          alt={`Thumbnail ${index + 1}`}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                          unoptimized={entry.imageUrl.startsWith('blob:')}
+                        />
+                      </div>
                       {entry.isFeature && (
                         <div className="absolute inset-0 bg-amber-500/20 border border-amber-500 rounded-full"></div>
                       )}
@@ -631,11 +647,17 @@ export default function SubmissionForm() {
                 <div className="h-full flex-1 flex items-center justify-center p-4">
                   {entry.imageUrl ? (
                     <div className="relative w-full h-full flex items-center justify-center">
-                      <img
-                        src={entry.imageUrl}
-                        alt={entry.title || `Image ${index + 1}`}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-                      />
+                      <div className="relative max-w-full max-h-full">
+                        <Image
+                          src={entry.imageUrl}
+                          alt={entry.title || `Image ${index + 1}`}
+                          width={400}
+                          height={400}
+                          className="object-contain rounded-lg shadow-md"
+                          style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                          unoptimized={entry.imageUrl.startsWith('blob:')}
+                        />
+                      </div>
                       
                       {/* Remove button */}
                       {status === 'draft' && (

@@ -72,7 +72,7 @@ export default function CollabsLibrary() {
     year: 2025
   });
   
-  // Sample users for search results - in production, this would come from the database
+  // Sample users for search results - in production this would come from the database
   const searchResults: User[] = [
     { id: '1', name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '/api/placeholder/32/32' },
     { id: '2', name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '/api/placeholder/32/32' },
@@ -87,7 +87,8 @@ export default function CollabsLibrary() {
       setError(prev => ({ ...prev, isVisible: false }));
     }, 5000);
   };
-
+  
+  // Use callback to prevent recreation on every render
   const loadData = useCallback(async () => {
     const supabase = createClientComponentClient();
     setLoading(true);
@@ -95,7 +96,10 @@ export default function CollabsLibrary() {
     try {
       // 1. Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw new Error(userError.message);
+      if (userError) {
+        console.error("Auth error:", JSON.stringify(userError));
+        throw new Error(userError.message || "Authentication error");
+      }
       
       if (!user) {
         router.push('/auth/signin');
@@ -111,8 +115,14 @@ export default function CollabsLibrary() {
         .limit(1)
         .single();
       
-      if (periodError) throw new Error(`Failed to fetch active period: ${periodError.message}`);
-      if (!activePeriod) throw new Error('No active period found');
+      if (periodError) {
+        console.error("Period error:", JSON.stringify(periodError));
+        throw new Error(`Failed to fetch active period: ${periodError.message}`);
+      }
+      
+      if (!activePeriod) {
+        throw new Error('No active period found');
+      }
       
       setCurrentPeriod({
         id: activePeriod.id,
@@ -127,7 +137,10 @@ export default function CollabsLibrary() {
         .eq('profile_id', user.id)
         .eq('status', 'active');
       
-      if (participationsError) throw new Error(`Failed to fetch active participations: ${participationsError.message}`);
+      if (participationsError) {
+        console.error("Participations error:", JSON.stringify(participationsError));
+        throw new Error(`Failed to fetch active participations: ${participationsError.message}`);
+      }
       
       // Get the collab IDs
       const activeCollabIds = activeParticipations?.map(p => p.collab_id) || [];
@@ -141,7 +154,10 @@ export default function CollabsLibrary() {
           .select('metadata')
           .in('id', activeCollabIds);
         
-        if (collabsError) throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
+        if (collabsError) {
+          console.error("Collabs error:", JSON.stringify(collabsError));
+          throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
+        }
         
         if (collabs && collabs.length > 0) {
           activeTemplateIds = collabs
@@ -161,7 +177,10 @@ export default function CollabsLibrary() {
         .select('template_id')
         .eq('period_id', activePeriod.id);
       
-      if (periodTemplatesError) throw new Error(`Failed to fetch period templates: ${periodTemplatesError.message}`);
+      if (periodTemplatesError) {
+        console.error("Period templates error:", JSON.stringify(periodTemplatesError));
+        throw new Error(`Failed to fetch period templates: ${periodTemplatesError.message}`);
+      }
       
       const periodTemplateIds = periodTemplates?.map(pt => pt.template_id) || [];
       
@@ -177,8 +196,14 @@ export default function CollabsLibrary() {
         .select('*')
         .in('id', periodTemplateIds);
       
-      if (templatesError) throw new Error(`Failed to fetch templates: ${templatesError.message}`);
-      if (!allTemplates) throw new Error('No templates found');
+      if (templatesError) {
+        console.error("Templates error:", JSON.stringify(templatesError));
+        throw new Error(`Failed to fetch templates: ${templatesError.message}`);
+      }
+      
+      if (!allTemplates) {
+        throw new Error('No templates found');
+      }
       
       // Filter out templates that the user has already joined
       const filteredTemplates = allTemplates.filter(template => 
@@ -192,94 +217,88 @@ export default function CollabsLibrary() {
       }));
       
       // 6. For each template, get the participant counts for community and local
-      await Promise.all(
+      const templatesWithCounts = await Promise.all(
         processedTemplates.map(async (template) => {
           try {
-            // Get all collabs with this template_id - using a different approach for JSON filtering
-            const { data: templateCollabs, error: templCollabsError } = await supabase
+            // Get all collabs for this period
+            const { data: collabsData, error: collabsError } = await supabase
               .from('collabs')
               .select('id, participation_mode, location, metadata')
               .eq('period_id', activePeriod.id);
               
-            if (templCollabsError) {
-              console.error("Error fetching template collabs:", JSON.stringify(templCollabsError));
-              // Continue with empty data instead of throwing
+            if (collabsError) {
+              console.error("Collabs fetch error:", JSON.stringify(collabsError));
               template.communityParticipantCount = 0;
               template.localParticipantCount = 0;
               return template;
             }
             
-            // Filter the collabs with the template_id in JavaScript instead of using Postgres JSON filtering
-            const filteredCollabs = templateCollabs ? templateCollabs.filter(collab => {
+            if (!collabsData || collabsData.length === 0) {
+              template.communityParticipantCount = 0;
+              template.localParticipantCount = 0;
+              return template;
+            }
+            
+            // Filter to find collabs with this template ID
+            const matchingCollabs = collabsData.filter(collab => {
               if (!collab.metadata || typeof collab.metadata !== 'object') return false;
-              
-              // Handle both possible structures of metadata
-              if ('template_id' in collab.metadata) {
-                return collab.metadata.template_id === template.id;
-              }
-              
-              return false;
-            }) : [];
+              return 'template_id' in collab.metadata && collab.metadata.template_id === template.id;
+            });
             
-            if (!templateCollabs || templateCollabs.length === 0) {
+            if (matchingCollabs.length === 0) {
               template.communityParticipantCount = 0;
               template.localParticipantCount = 0;
               return template;
             }
             
-            // Get collab IDs by mode
-            const communityIds = templateCollabs
+            // Get IDs by mode
+            const communityIds = matchingCollabs
               .filter(collab => collab.participation_mode === 'community' || collab.participation_mode === 'local')
               .map(collab => collab.id);
               
-            const localIds = templateCollabs
+            const localIds = matchingCollabs
               .filter(collab => collab.participation_mode === 'local')
               .map(collab => collab.id);
             
-            // Count participants for community (including local)
+            // Get participant counts
             if (communityIds.length > 0) {
-              const { count: commCount, error: commCountError } = await supabase
+              const { count, error: countError } = await supabase
                 .from('collab_participants')
                 .select('*', { count: 'exact', head: true })
                 .in('collab_id', communityIds)
                 .eq('status', 'active');
-              
-              if (commCountError) {
-                console.error("Error counting community participants:", JSON.stringify(commCountError));
-                // Continue with a count of 0 instead of throwing
+                
+              if (countError) {
+                console.error("Community count error:", JSON.stringify(countError));
                 template.communityParticipantCount = 0;
               } else {
-                template.communityParticipantCount = commCount || 0;
+                template.communityParticipantCount = count || 0;
               }
-              template.communityParticipantCount = commCount || 0;
             } else {
               template.communityParticipantCount = 0;
             }
             
-            // Count participants for local only
+            // Get local participants count
             if (localIds.length > 0) {
-              const { count: localCountData, error: localCountError } = await supabase
+              const { count, error: countError } = await supabase
                 .from('collab_participants')
                 .select('*', { count: 'exact', head: true })
                 .in('collab_id', localIds)
                 .eq('status', 'active');
-              
-              if (localCountError) {
-                console.error("Error counting local participants:", JSON.stringify(localCountError));
-                // Continue with a count of 0 instead of throwing
+                
+              if (countError) {
+                console.error("Local count error:", JSON.stringify(countError));
                 template.localParticipantCount = 0;
               } else {
-                template.localParticipantCount = localCountData || 0;
+                template.localParticipantCount = count || 0;
               }
-              template.localParticipantCount = localCountData || 0;
             } else {
               template.localParticipantCount = 0;
             }
             
             return template;
-          } catch (error) {
-            // Handle errors but keep loading other templates
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          } catch (err) {
+            console.error("Template count error:", err);
             template.communityParticipantCount = 0;
             template.localParticipantCount = 0;
             return template;
@@ -287,11 +306,10 @@ export default function CollabsLibrary() {
         })
       );
       
-      setAvailablePrompts(processedTemplates);
+      setAvailablePrompts(templatesWithCounts);
     } catch (err) {
       console.error("Load data error:", err);
-      const message = err instanceof Error ? err.message : "Failed to load collaboration data";
-      showError(message);
+      showError(err instanceof Error ? err.message : "Failed to load collaboration data");
     } finally {
       setLoading(false);
     }
@@ -325,7 +343,7 @@ export default function CollabsLibrary() {
       // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) {
-        console.error("Auth error:", JSON.stringify(userError));
+        console.error("User error:", JSON.stringify(userError));
         throw new Error(userError.message || "Authentication error");
       }
       
@@ -356,7 +374,10 @@ export default function CollabsLibrary() {
         .select()
         .single();
       
-      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+      if (collabError) {
+        console.error("Collab create error:", JSON.stringify(collabError));
+        throw new Error(`Could not create collaboration: ${collabError.message}`);
+      }
       
       // Now add the user as a participant
       const { error: participantError } = await supabase
@@ -370,17 +391,19 @@ export default function CollabsLibrary() {
           location: mode === 'local' ? "San Francisco" : null
         });
       
-      if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
+      if (participantError) {
+        console.error("Participant error:", JSON.stringify(participantError));
+        throw new Error(`Could not join collaboration: ${participantError.message}`);
+      }
       
       // Update UI immediately
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
       
       // Success message and redirect
-      alert("You have successfully joined the \"" + title + "\" collaboration in " + mode + " mode.");
+      alert("You have successfully joined the " + title + " collaboration in " + mode + " mode.");
       router.push('/dashboard');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showError(`Could not join the collaboration: ${errorMessage}`);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Could not join the collaboration");
     }
   };
 
@@ -390,7 +413,10 @@ export default function CollabsLibrary() {
       
       // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw new Error(userError.message);
+      if (userError) {
+        console.error("User error:", JSON.stringify(userError));
+        throw new Error(userError.message || "Authentication error");
+      }
       
       if (!user) {
         showError('You must be logged in to create a collaboration');
@@ -426,7 +452,10 @@ export default function CollabsLibrary() {
         .select()
         .single();
       
-      if (collabError) throw new Error(`Could not create private collaboration: ${collabError.message}`);
+      if (collabError) {
+        console.error("Collab error:", JSON.stringify(collabError));
+        throw new Error(`Could not create private collaboration: ${collabError.message}`);
+      }
       
       // Add the current user as organizer
       const { error: organizerError } = await supabase
@@ -440,9 +469,12 @@ export default function CollabsLibrary() {
           location: null
         });
       
-      if (organizerError) throw new Error(`Could not add you as organizer: ${organizerError.message}`);
+      if (organizerError) {
+        console.error("Organizer error:", JSON.stringify(organizerError));
+        throw new Error(`Could not add you as organizer: ${organizerError.message}`);
+      }
       
-              // Add selected users as members (invited)
+      // Add selected users as members (invited)
       if (selectedUsers.length > 0) {
         const invites = selectedUsers.map(selectedUser => ({
           profile_id: selectedUser.id,
@@ -453,13 +485,13 @@ export default function CollabsLibrary() {
           location: null
         }));
         
-        const inviteResult = await supabase
+        const { error: inviteError } = await supabase
           .from('collab_participants')
           .insert(invites);
         
-        if (inviteResult.error) {
+        if (inviteError) {
           // Log the error but don't fail the whole operation
-          console.error("Could not send all invites:", inviteResult.error);
+          console.error("Invite error:", JSON.stringify(inviteError));
         }
       }
       
@@ -470,9 +502,8 @@ export default function CollabsLibrary() {
       // Success message and redirect
       alert("You have successfully created a private collaboration with " + selectedUsers.length + " invited participants.");
       router.push('/dashboard');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      showError(`Could not create private collaboration: ${errorMessage}`);
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Could not create private collaboration");
     }
   };
 
@@ -634,7 +665,7 @@ export default function CollabsLibrary() {
           <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-sm flex items-center justify-center">
             <Users size={20} className="text-gray-400" />
           </div>
-          <p className="text-gray-600 mb-4">You've joined all available collaboration prompts for this period.</p>
+          <p className="text-gray-600 mb-4">You have joined all available collaboration prompts for this period.</p>
           <button 
             onClick={loadData}
             className="py-2.5 px-4 rounded-sm text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
@@ -683,7 +714,7 @@ export default function CollabsLibrary() {
                         key={user.id}
                         className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-sm border"
                       >
-                        {/* Using img for simplicity, would be replaced with next/image in production */}
+                        {/* Using a text avatar instead of img for Next.js optimization */}
                         <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs overflow-hidden">
                           {user.name.charAt(0)}
                         </span>
@@ -691,7 +722,7 @@ export default function CollabsLibrary() {
                         <button 
                           onClick={() => toggleUser(user)}
                           className="text-gray-400 hover:text-gray-600"
-                          aria-label={`Remove ${user.name}`}
+                          aria-label={"Remove " + user.name}
                         >
                           <X size={14} />
                         </button>
@@ -736,7 +767,7 @@ export default function CollabsLibrary() {
                 </div>
               </div>
 
-                <div className="flex justify-end gap-3 mt-6">
+              <div className="flex justify-end gap-3 mt-6">
                 <button 
                   onClick={() => setShowInviteDialog(false)}
                   className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-sm"
@@ -748,7 +779,7 @@ export default function CollabsLibrary() {
                   className={`px-4 py-2 rounded-sm ${selectedUsers.length === 0 ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
                   onClick={createPrivateCollab}
                 >
-          Send Invites ({selectedUsers.length})
+                  Send Invites ({selectedUsers.length})
                 </button>
               </div>
             </div>
