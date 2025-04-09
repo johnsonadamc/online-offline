@@ -1,55 +1,106 @@
 // lib/supabase/collabs.ts
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-// Define the shape of the database response
-interface ProfileData {
-  id: string;
-  first_name?: string | null;
-  last_name?: string | null;
-}
-
-interface ParticipantData {
-  id: string;
+// Define typed participant interface
+interface Participant {
+  name: string;
   role: string;
-  profile_id: string;
-  collab_id: string;
-  participation_mode?: 'community' | 'local' | 'private';
-  location?: string | null;
-  profiles?: ProfileData;
 }
 
-interface CollabData {
+// Define detailed participant with profile data
+interface DetailedParticipant {
+  id: string;
+  name: string;
+  role: string;
+  participation_mode: 'community' | 'local' | 'private';
+  location: string | null;
+}
+
+// Define formatted collaboration interface
+interface FormattedCollab {
   id: string;
   title: string;
   type: 'chain' | 'theme' | 'narrative';
-  is_private: boolean | string | number;
-  created_by: string;
+  is_private: boolean;
+  participation_mode: 'community' | 'local' | 'private';
+  location: string | null;
+  participants: Participant[];
+  participantCount: number;
   current_phase: number | null;
   total_phases: number | null;
+  last_active: string;
+}
+
+// Define detailed collaboration data interface
+interface DetailedCollabData extends FormattedCollab {
+  description: string;
+  prompt_text: string;
+  metadata: Record<string, unknown>;
+  participants: DetailedParticipant[];
   created_at: string;
   updated_at: string;
-  metadata?: {
-    participation_mode?: 'community' | 'local' | 'private';
-    location?: string | null;
-  };
+}
+
+// Type for getUserCollabs response
+interface UserCollabsResponse {
+  private: FormattedCollab[];
+  community: FormattedCollab[];
+  local: FormattedCollab[];
+}
+
+// Type for getCollabById response
+interface CollabDetailResponse {
+  success: boolean;
+  error?: string;
+  collab?: DetailedCollabData;
+}
+
+// Type for leave collab response
+interface LeaveCollabResponse {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Helper function to extract profile name safely
+ * Handles both array and object responses from Supabase
+ */
+function getNameFromProfile(profile: unknown): string {
+  // If profile is null or undefined
+  if (!profile) return 'Unknown User';
+  
+  // If profile is an array
+  if (Array.isArray(profile)) {
+    if (profile.length === 0) return 'Unknown User';
+    
+    const first = profile[0]?.first_name || '';
+    const last = profile[0]?.last_name || '';
+    return `${first} ${last}`.trim() || 'User';
+  }
+  
+  // If profile is a single object
+  if (typeof profile === 'object' && profile !== null) {
+    const profileObj = profile as Record<string, unknown>;
+    const first = (profileObj.first_name as string) || '';
+    const last = (profileObj.last_name as string) || '';
+    return `${first} ${last}`.trim() || 'User';
+  }
+  
+  return 'Unknown User';
 }
 
 // getUserCollabs function with improved private/community/local detection
-export async function getUserCollabs() {
+export async function getUserCollabs(): Promise<UserCollabsResponse> {
   const supabase = createClientComponentClient();
   
   // Get current user ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    console.error("No authenticated user found");
     return { private: [], community: [], local: [] };
   }
-  
-  console.log("Getting collabs for user ID:", user.id);
 
   try {
     // Fetch all collab participants for the current user
-    console.log("Querying collab_participants for user:", user.id);
     const { data: participantsData, error: participantsError } = await supabase
       .from('collab_participants')
       .select(`
@@ -64,24 +115,14 @@ export async function getUserCollabs() {
       .eq('profile_id', user.id)
       .eq('status', 'active');
       
-    if (participantsError) {
-      console.error("Error fetching participant data:", participantsError);
-      return { private: [], community: [], local: [] };
-    }
-    
-    console.log("Participant records found:", participantsData?.length || 0);
-    
-    if (!participantsData || participantsData.length === 0) {
-      console.log("No participant records found for user");
+    if (participantsError || !participantsData || participantsData.length === 0) {
       return { private: [], community: [], local: [] };
     }
     
     // Extract collab IDs from participant records
     const collabIds = participantsData.map(p => p.collab_id);
-    console.log("Collab IDs found:", collabIds);
     
     // Fetch the actual collab data
-    console.log("Querying collabs table for IDs:", collabIds);
     const { data: collabsData, error: collabsError } = await supabase
       .from('collabs')
       .select(`
@@ -98,22 +139,12 @@ export async function getUserCollabs() {
       `)
       .in('id', collabIds);
       
-    if (collabsError) {
-      console.error("Error fetching collab data:", collabsError);
-      return { private: [], community: [], local: [] };
-    }
-    
-    console.log("Collabs data found:", collabsData?.length || 0);
-    console.log("Detailed collab data:", collabsData);
-    
-    if (!collabsData || collabsData.length === 0) {
-      console.log("No collab records found");
+    if (collabsError || !collabsData || collabsData.length === 0) {
       return { private: [], community: [], local: [] };
     }
     
     // Now get all participants for these collabs for display
-    console.log("Fetching all participants for these collabs");
-    const { data: allParticipantsData, error: allParticipantsError } = await supabase
+    const { data: allParticipantsData } = await supabase
       .from('collab_participants')
       .select(`
         id,
@@ -130,41 +161,26 @@ export async function getUserCollabs() {
       `)
       .in('collab_id', collabIds);
       
-    if (allParticipantsError) {
-      console.error("Error fetching all participants:", allParticipantsError);
-    }
+    // Initialize arrays for different collab types
+    const privateCollabs: FormattedCollab[] = [];
+    const communityCollabs: FormattedCollab[] = [];
+    const localCollabs: FormattedCollab[] = [];
     
-    // Format the data for the frontend
-    const privateCollabs = [];
-    const communityCollabs = [];
-    const localCollabs = [];
-    
-    for (const collab of collabsData || []) {
-      // Log raw collab data for debugging
-      console.log(`\nProcessing collab ${collab.id} - ${collab.title}`);
-      console.log(`Raw is_private value: ${collab.is_private} (${typeof collab.is_private})`);
-      
+    // Process each collaboration
+    for (const collab of collabsData) {
       // Get participants for this collab
       const collabParticipants = allParticipantsData?.filter(p => p.collab_id === collab.id) || [];
       
       // Format participant data
-      const participants = collabParticipants.map((p: any) => {
-        let name = 'Unknown User';
-        if (p.profiles) {
-          const firstName = p.profiles.first_name || '';
-          const lastName = p.profiles.last_name || '';
-          name = `${firstName} ${lastName}`.trim();
-          if (!name) name = 'User';  // Fallback if both names are empty
-        }
-        
+      const participants: Participant[] = collabParticipants.map((p) => {
         return {
-          name: name,
+          name: getNameFromProfile(p.profiles),
           role: p.role
         };
       });
       
       // Get ISO date string
-      let lastActive = collab.updated_at || collab.created_at;
+      let lastActive = collab.updated_at || collab.created_at || '';
       // Convert ISO date to localized date string
       if (lastActive) {
         const date = new Date(lastActive);
@@ -177,7 +193,7 @@ export async function getUserCollabs() {
       const userParticipation = participantsData.find(p => p.collab_id === collab.id);
       
       // Check for participation mode first
-      let participationMode = userParticipation?.participation_mode || 'community';
+      let participationMode: 'private' | 'local' | 'community' = userParticipation?.participation_mode as 'private' | 'local' | 'community' || 'community';
       
       // For backward compatibility, also check is_private
       let isPrivate = participationMode === 'private';
@@ -197,17 +213,14 @@ export async function getUserCollabs() {
         }
       }
       
-      console.log(`Participation mode: ${participationMode}`);
-      console.log(`Is private: ${isPrivate}`);
-      
-      const formattedCollab = {
+      const formattedCollab: FormattedCollab = {
         id: collab.id,
         title: collab.title,
         type: collab.type,
         is_private: isPrivate,
         participation_mode: participationMode,
         location: userParticipation?.location || null,
-        participants: participants,
+        participants,
         participantCount: participants.length,
         current_phase: collab.current_phase,
         total_phases: collab.total_phases,
@@ -216,21 +229,13 @@ export async function getUserCollabs() {
       
       // Add to appropriate array based on participation mode
       if (participationMode === 'private') {
-        console.log(`Adding to PRIVATE collabs array`);
         privateCollabs.push(formattedCollab);
       } else if (participationMode === 'local') {
-        console.log(`Adding to LOCAL collabs array`);
         localCollabs.push(formattedCollab);
       } else {
-        console.log(`Adding to COMMUNITY collabs array`);
         communityCollabs.push(formattedCollab);
       }
     }
-    
-    console.log("\nFinal counts:");
-    console.log("Private collabs:", privateCollabs.length);
-    console.log("Local collabs:", localCollabs.length);
-    console.log("Community collabs:", communityCollabs.length);
     
     return {
       private: privateCollabs,
@@ -239,16 +244,17 @@ export async function getUserCollabs() {
     };
     
   } catch (error: unknown) {
-    console.error("Unexpected error in getUserCollabs:", error);
     if (error instanceof Error) {
-      console.error(error.stack);
+      console.error("Error in getUserCollabs:", error.message);
+    } else {
+      console.error("Unknown error in getUserCollabs");
     }
     return { private: [], community: [], local: [] };
   }
 }
 
 // Leave a collab by deleting the participant record
-export async function leaveCollab(collabId: string) {
+export async function leaveCollab(collabId: string): Promise<LeaveCollabResponse> {
   const supabase = createClientComponentClient();
   
   try {
@@ -257,10 +263,7 @@ export async function leaveCollab(collabId: string) {
       return { success: false, error: "No authenticated user found" };
     }
     
-    console.log("Leaving collab:", collabId);
-    
-    // First, check the schema to see what statuses are allowed
-    console.log("Checking for existing participant record");
+    // First, check for existing participant record
     const { data: participantData, error: fetchError } = await supabase
       .from('collab_participants')
       .select('id, status')
@@ -269,33 +272,25 @@ export async function leaveCollab(collabId: string) {
       .single();
       
     if (fetchError) {
-      console.error("Error fetching participant:", fetchError);
-      const errorMessage = fetchError.message || String(fetchError);
-      return { success: false, error: errorMessage };
+      return { success: false, error: fetchError.message || String(fetchError) };
     }
     
     if (!participantData) {
       return { success: false, error: "No participant record found" };
     }
     
-    // Try to delete the record instead of updating status
-    console.log("Deleting participant record:", participantData.id);
+    // Delete the record
     const { error } = await supabase
       .from('collab_participants')
       .delete()
       .eq('id', participantData.id);
       
     if (error) {
-      console.error("Error deleting participant:", error);
-      // Safe error extraction
-      const errorMessage = error.message || String(error);
-      return { success: false, error: errorMessage };
+      return { success: false, error: error.message || String(error) };
     }
     
-    console.log("Successfully left collab:", collabId);
     return { success: true };
   } catch (error: unknown) {
-    console.error("Error in leaveCollab:", error);
     let errorMessage = "Unknown error";
     if (error instanceof Error) {
       errorMessage = error.message;
@@ -308,13 +303,11 @@ export async function leaveCollab(collabId: string) {
   }
 }
 
-// Update the getCollabById function to include participation_mode
-export async function getCollabById(collabId: string) {
+// Get detailed information about a specific collaboration
+export async function getCollabById(collabId: string): Promise<CollabDetailResponse> {
   const supabase = createClientComponentClient();
   
   try {
-    console.log("Fetching collab details for ID:", collabId);
-    
     // First, check if the collab exists with a simpler query
     const { data: collabExists, error: existsError } = await supabase
       .from('collabs')
@@ -322,17 +315,9 @@ export async function getCollabById(collabId: string) {
       .eq('id', collabId)
       .single();
       
-    if (existsError) {
-      console.error("Error checking if collab exists:", existsError);
-      return { success: false, error: `Collab not found: ${existsError.message}` };
+    if (existsError || !collabExists) {
+      return { success: false, error: "Collaboration not found" };
     }
-
-    if (!collabExists) {
-      console.log("No collab found with ID:", collabId);
-      return { success: false, error: "Collab not found" };
-    }
-    
-    console.log("Found basic collab info:", collabExists);
     
     // Now fetch the full collab data
     const { data, error } = await supabase
@@ -354,20 +339,12 @@ export async function getCollabById(collabId: string) {
       .eq('id', collabId)
       .single();
       
-    if (error) {
-      console.error("Error fetching full collab details:", error);
-      return { success: false, error: `Failed to fetch details: ${error.message}` };
+    if (error || !data) {
+      return { success: false, error: "Failed to fetch collaboration details" };
     }
-
-    if (!data) {
-      console.log("No collab data found with ID:", collabId);
-      return { success: false, error: "Collab details not found" };
-    }
-    
-    console.log("Full collab data found:", data);
     
     // Get participants for this collab including participation_mode
-    const { data: participantsData, error: participantsError } = await supabase
+    const { data: participantsData } = await supabase
       .from('collab_participants')
       .select(`
         id,
@@ -383,32 +360,19 @@ export async function getCollabById(collabId: string) {
         )
       `)
       .eq('collab_id', collabId);
-      
-    if (participantsError) {
-      console.error("Error fetching participants:", participantsError);
-      // Continue anyway, just without participants data
-    }
     
     // Format participant data
-    const participants = (participantsData || []).map((p: any) => {
-      let name = 'Unknown User';
-      if (p.profiles) {
-        const firstName = p.profiles.first_name || '';
-        const lastName = p.profiles.last_name || '';
-        name = `${firstName} ${lastName}`.trim();
-        if (!name) name = 'User';  // Fallback if both names are empty
-      }
-      
+    const participants: DetailedParticipant[] = (participantsData || []).map((p) => {
       return {
         id: p.profile_id,
-        name: name,
+        name: getNameFromProfile(p.profiles),
         role: p.role,
-        participation_mode: p.participation_mode || 'community',
-        location: p.location
+        participation_mode: p.participation_mode as 'community' | 'local' | 'private' || 'community',
+        location: p.location || null
       };
     });
     
-    // Determine if collab is private, using the same type-safe approach
+    // Determine if collab is private
     let isPrivate = false;
     if (typeof data.is_private === 'boolean') {
       isPrivate = data.is_private;
@@ -419,7 +383,7 @@ export async function getCollabById(collabId: string) {
     }
 
     // Get the last active date
-    let lastActive = data.updated_at || data.created_at;
+    let lastActive = data.updated_at || data.created_at || '';
     if (lastActive) {
       const date = new Date(lastActive);
       lastActive = date.toLocaleDateString();
@@ -428,10 +392,10 @@ export async function getCollabById(collabId: string) {
     }
     
     // Get participation mode from metadata
-    const participationMode = data.metadata?.participation_mode || (isPrivate ? 'private' : 'community');
+    const participationMode = (data.metadata?.participation_mode as 'community' | 'local' | 'private') || (isPrivate ? 'private' : 'community');
     
     // Create the formatted collab object with all details
-    const formattedCollab = {
+    const formattedCollab: DetailedCollabData = {
       id: data.id,
       title: data.title,
       type: data.type || 'theme', // Default to theme if not specified
@@ -441,7 +405,7 @@ export async function getCollabById(collabId: string) {
       description: data.description || '',
       prompt_text: data.prompt_text || '',
       metadata: data.metadata || {},
-      participants: participants,
+      participants,
       participantCount: participants.length,
       current_phase: data.current_phase,
       total_phases: data.total_phases,
@@ -450,14 +414,10 @@ export async function getCollabById(collabId: string) {
       updated_at: data.updated_at
     };
     
-    console.log("Formatted collab data:", formattedCollab);
     return { success: true, collab: formattedCollab };
     
   } catch (error) {
-    console.error("Unexpected error in getCollabById:", error);
-    if (error instanceof Error) {
-      console.error(error.stack);
-    }
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return { success: false, error: errorMessage };
   }
 }

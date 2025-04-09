@@ -98,22 +98,34 @@ export default function CommunicateEditorPage() {
           
           setSubject(data.subject || '');
           setContent(data.content || '');
-          setSelectedRecipient(data.profiles || null);
+          
+          // Handle potential null/undefined profiles
+          if (data.profiles) {
+            const profileData: Profile = {
+              id: data.profiles.id || '',
+              first_name: data.profiles.first_name || '',
+              last_name: data.profiles.last_name || '',
+              avatar_url: data.profiles.avatar_url
+            };
+            setSelectedRecipient(profileData);
+            
+            // Check permission for the loaded recipient
+            const result = await canCommunicateWith(profileData.id);
+            setHasPermission(result.allowed);
+            setPermissionCheckComplete(true);
+          }
+          
           calculateWordCount(data.content || '');
           
           // Set current stage based on loaded data
           if (data.profiles) {
             setCurrentStage('compose');
-            
-            // Check permission for the loaded recipient
-            const result = await canCommunicateWith(data.profiles.id);
-            setHasPermission(result.allowed);
-            setPermissionCheckComplete(true);
           }
         }
       } catch (err) {
         console.error('Error fetching communication:', err);
-        setError('Failed to load communication');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load communication';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -177,7 +189,8 @@ export default function CommunicateEditorPage() {
       }
     } catch (err) {
       console.error('Unexpected error:', err);
-      setError('An unexpected error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
     }
   };
   
@@ -242,9 +255,10 @@ export default function CommunicateEditorPage() {
       
       // Redirect to dashboard after successful save
       router.push('/dashboard');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error saving draft:', err);
-      setError(err.message || 'Failed to save draft');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save draft';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -320,9 +334,10 @@ export default function CommunicateEditorPage() {
       
       // Redirect to dashboard after successful submission
       router.push('/dashboard');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error submitting communication:', err);
-      setError(err.message || 'Failed to submit communication');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit communication';
+      setError(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -409,7 +424,7 @@ export default function CommunicateEditorPage() {
           <div>
             <p className="text-sm font-medium text-amber-800">Permission Required</p>
             <p className="text-xs text-amber-700">
-              You need to request access to {selectedRecipient.first_name}'s profile before sending communications.
+              You need to request access to {selectedRecipient.first_name}&apos;s profile before sending communications.
             </p>
           </div>
         </div>

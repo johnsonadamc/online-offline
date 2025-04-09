@@ -67,8 +67,39 @@ interface CollabTemplate {
   instructions?: string;
   display_text?: string;
   requirements?: string;
-  internal_reference?: any;
-  connection_rules?: any;
+  internal_reference?: unknown;
+  connection_rules?: unknown;
+}
+
+interface ProfileData {
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  [key: string]: unknown;
+}
+
+interface TagData {
+  tag: string;
+  [key: string]: unknown;
+}
+
+interface ContentEntryData {
+  id?: string;
+  title?: string;
+  caption?: string;
+  media_url?: string;
+  tags?: TagData[];
+  [key: string]: unknown;
+}
+
+interface ContentData {
+  id?: string;
+  creator_id?: string;
+  type?: string;
+  status?: string;
+  profiles?: ProfileData | ProfileData[];
+  content_entries?: ContentEntryData[];
+  [key: string]: unknown;
 }
 
 interface CuratorSelections {
@@ -78,7 +109,8 @@ interface CuratorSelections {
   includeCommunications: boolean;
 }
 
-interface SaveSelectionsParams {
+// This interface remains for documentation purposes
+interface SaveSelectionsInput {
   curator_id: string;
   period_id: string;
   selected_contributors: string[];
@@ -104,6 +136,9 @@ interface TemplatesResult {
   error?: string;
   templates?: CollabTemplate[];
 }
+
+// Note: CustomEventDetail is intentionally removed as it's not used in this file
+// It would be used in components that need to handle collaboration selection updates
 
 /**
  * Get all curation data for the current period
@@ -177,23 +212,23 @@ export async function getCurationData(): Promise<CurationResult> {
         // Continue with empty array
       } else if (creatorsData) {
         // Format creator data
-        creators = creatorsData.map(content => {
+        creators = (creatorsData as ContentData[]).map(content => {
           const profile = content.profiles || {};
           // Check if profile is an array or object and handle accordingly
-          const profileData = Array.isArray(profile) ? profile[0] || {} : profile;
+          const profileData = Array.isArray(profile) ? profile[0] || {} : profile as ProfileData;
           
           return {
             id: content.creator_id || '',
             name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Unnamed Creator',
             firstName: profileData.first_name || '',
             lastName: profileData.last_name || '',
-            bio: profileData.bio || "",
+            bio: profileData.bio as string || "",
             creatorType: getCreatorType(content.type || ''),
             contentType: content.type || '',
             tags: Array.isArray(content.content_entries) 
               ? content.content_entries.flatMap(entry => 
                   Array.isArray(entry.tags) 
-                    ? entry.tags.map((t: any) => t.tag || '')
+                    ? entry.tags.map((t: TagData) => t.tag || '')
                     : []
                 ).filter((v: string, i: number, a: string[]) => a.indexOf(v) === i)
               : [],
@@ -421,7 +456,7 @@ export async function getCurationData(): Promise<CurationResult> {
         // Format communications data
         communications = commsData.map(comm => {
           const profileData = comm.profiles || {};
-          const profile = Array.isArray(profileData) ? profileData[0] || {} : profileData;
+          const profile = Array.isArray(profileData) ? profileData[0] || {} : profileData as ProfileData;
           
           return {
             id: comm.id || '',
@@ -588,7 +623,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
     }
 
     // Extract the templates from the nested structure and flatten if needed
-    let templates: CollabTemplate[] = [];
+    const templates: CollabTemplate[] = [];
     
     if (data) {
       // First extract the templates
@@ -628,7 +663,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
 /**
  * Get available community and local collaborations for the period
  */
-export async function getAvailableCollaborations(periodId: string): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {
+export async function getAvailableCollaborations(): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {
   const supabase = createClientComponentClient();
   
   try {
@@ -715,14 +750,7 @@ export async function saveCuratorSelections({
   selected_collaborations,
   selected_communications,
   selected_ads
-}: {
-  curator_id: string;
-  period_id: string;
-  selected_contributors: string[];
-  selected_collaborations: string[];
-  selected_communications: string[];
-  selected_ads: string[];
-}): Promise<{ success: boolean; error?: string }> {
+}: SaveSelectionsInput): Promise<{ success: boolean; error?: string }> {
   const supabase = createClientComponentClient();
   
   try {
@@ -1266,200 +1294,5 @@ export async function saveCuratorSelections({
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`Critical error in saveCuratorSelections:`, error);
     return { success: false, error: errorMessage };
-  }
-}
-
-/**
- * Get public collaboration data for a specific collaboration
- */
-export async function getCollaborationDetails(collabId: string): Promise<{ success: boolean; error?: string; collaboration?: any }> {
-  const supabase = createClientComponentClient();
-  
-  try {
-    // Modified query to get details without using period_id or invalid join
-    const { data, error } = await supabase
-      .from('collabs')
-      .select(`
-        id,
-        title,
-        description,
-        type,
-        is_private,
-        participation_mode,
-        location,
-        metadata,
-        template_id
-      `)
-      .eq('id', collabId)
-      .single();
-      
-    if (error) {
-      console.error("Error fetching collaboration details:", error);
-      return { success: false, error: error.message };
-    }
-    
-    if (!data) {
-      return { success: false, error: "Collaboration not found" };
-    }
-    
-    // Get participant count
-    const { count: participantCount, error: countError } = await supabase
-      .from('collab_participants')
-      .select('*', { count: 'exact', head: true })
-      .eq('collab_id', collabId)
-      .eq('status', 'active');
-      
-    if (countError) {
-      console.error("Error counting participants:", countError);
-      return { success: false, error: countError.message };
-    }
-    
-    // Get template info separately if a template_id exists
-    let templateData = null;
-    if (data.template_id) {
-      const { data: template, error: templateError } = await supabase
-        .from('collab_templates')
-        .select('instructions, display_text, requirements')
-        .eq('id', data.template_id)
-        .single();
-        
-      if (!templateError && template) {
-        templateData = template;
-      }
-    }
-    
-    const metadata = data.metadata || {};
-    
-    // Determine participation mode
-    let participationMode: 'private' | 'local' | 'community';
-    if (data.participation_mode) {
-      participationMode = data.participation_mode as 'private' | 'local' | 'community';
-    } else if (data.is_private) {
-      participationMode = 'private';
-    } else {
-      participationMode = 'community';
-    }
-    
-    // Format the collaboration
-    const collaboration = {
-      id: data.id,
-      title: data.title,
-      type: data.type,
-      participation_mode: participationMode,
-      location: data.location,
-      description: metadata.description || data.description || templateData?.display_text || '',
-      instructions: templateData?.instructions || '',
-      requirements: templateData?.requirements || '',
-      participant_count: participantCount || 0
-    };
-    
-    return { success: true, collaboration };
-    
-  } catch (error) {
-    console.error("Error fetching collaboration details:", error);
-    return { success: false, error: "Failed to fetch collaboration details" };
-  }
-}
-
-/**
- * Get cities with participant counts for local collaborations
- */
-export async function getCitiesWithParticipantCounts(): Promise<{
-  success: boolean;
-  error?: string;
-  cities?: Array<{ name: string; state?: string; participant_count: number }>;
-}> {
-  const supabase = createClientComponentClient();
-  
-  try {
-    // Fetch cities from collab_participants table
-    const { data: cityData, error: cityError } = await supabase
-      .from('collab_participants')
-      .select(`
-        city,
-        location
-      `)
-      .eq('participation_mode', 'local')
-      .eq('status', 'active');
-      
-    if (cityError) {
-      console.error("Error fetching cities:", cityError);
-      return { success: false, error: cityError.message };
-    }
-    
-    // Compile a list of cities with participant counts
-    const cityCountMap: Record<string, number> = {};
-    
-    // Process city and location fields
-    for (const record of cityData || []) {
-      // Use city field first, fall back to location
-      const cityName = record.city || record.location;
-      
-      if (cityName) {
-        if (cityCountMap[cityName]) {
-          cityCountMap[cityName]++;
-        } else {
-          cityCountMap[cityName] = 1;
-        }
-      }
-    }
-    
-    // Also fetch location data from collabs table
-    const { data: collabLocationData, error: collabLocationError } = await supabase
-      .from('collabs')
-      .select('location')
-      .eq('participation_mode', 'local')
-      .not('location', 'is', null);
-      
-    if (!collabLocationError && collabLocationData) {
-      for (const record of collabLocationData) {
-        if (record.location) {
-          // Add locations from the collabs table, but don't count participants
-          // This ensures we have the location in our list even if it has no participants yet
-          if (!cityCountMap[record.location]) {
-            cityCountMap[record.location] = 0;
-          }
-        }
-      }
-    }
-    
-    // Format the result
-    const cities = Object.entries(cityCountMap).map(([cityName, count]) => {
-      const parts = cityName.split(',').map(part => part.trim());
-      return {
-        name: parts[0],
-        state: parts[1] || undefined,
-        participant_count: count
-      };
-    });
-    
-    // Sort by participant count (highest first), then by name
-    cities.sort((a, b) => {
-      if (b.participant_count !== a.participant_count) {
-        return b.participant_count - a.participant_count;
-      }
-      return a.name.localeCompare(b.name);
-    });
-    
-    // If no cities found, provide default list
-    if (cities.length === 0) {
-      return {
-        success: true,
-        cities: [
-          { name: 'New York', state: 'NY', participant_count: 0 },
-          { name: 'Los Angeles', state: 'CA', participant_count: 0 },
-          { name: 'Chicago', state: 'IL', participant_count: 0 },
-          { name: 'San Francisco', state: 'CA', participant_count: 0 },
-          { name: 'Miami', state: 'FL', participant_count: 0 },
-          { name: 'Austin', state: 'TX', participant_count: 0 }
-        ]
-      };
-    }
-    
-    return { success: true, cities };
-    
-  } catch (error) {
-    console.error("Error getting cities with participant counts:", error);
-    return { success: false, error: "Failed to fetch city participant data" };
   }
 }

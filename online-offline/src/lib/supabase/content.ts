@@ -153,12 +153,10 @@ export async function saveContent(
     if (!period || periodError) throw new Error('No active period found');
 
     // Always use the status that was passed in - this will respect manual changes in both directions
-    let currentStatus = status;
-
-    let contentData;
+    const currentStatus = status;
 
     // Always create a new content record, now including page_title
-    const { data, error: contentError } = await supabase
+    const { data: contentData, error: contentError } = await supabase
       .from('content')
       .insert({
         creator_id: user.id,
@@ -177,7 +175,6 @@ export async function saveContent(
       console.error('Error creating content:', contentError);
       throw contentError;
     }
-    contentData = data;
 
     // If there was an old draft, mark it as archived
     if (existingDraftId) {

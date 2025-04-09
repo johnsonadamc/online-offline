@@ -178,9 +178,9 @@ export async function approveFollowRequest(requesterId: string): Promise<{
     }
 
     // First verify this request exists and is addressed to the current user
-    const { data: request, error: requestError } = await supabase
+    const { error: requestError } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('id')  // Only select what we need to verify existence
       .eq('subscriber_id', requesterId)
       .eq('creator_id', user.id)
       .eq('status', 'pending')
@@ -228,9 +228,9 @@ export async function rejectFollowRequest(requesterId: string): Promise<{
     }
 
     // First verify this request exists and is addressed to the current user
-    const { data: request, error: requestError } = await supabase
+    const { error: requestError } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('id')  // Only select what we need to verify existence
       .eq('subscriber_id', requesterId)
       .eq('creator_id', user.id)
       .eq('status', 'pending')

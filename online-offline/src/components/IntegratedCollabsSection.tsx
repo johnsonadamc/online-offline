@@ -1,5 +1,5 @@
 // IntegratedCollabsSection.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { getCitiesWithParticipantCounts } from '@/lib/supabase/collabLibrary';
 import { 
@@ -38,7 +38,6 @@ interface CollabsSectionProps {
   selectedCollabs: string[];
   toggleItem: (id: string) => void;
   remainingContent: number;
-  hideTitle?: boolean;
 }
 
 interface City {
@@ -46,12 +45,31 @@ interface City {
   state?: string;
   participant_count: number;
 }
+
+interface UpdateEventDetail {
+  updatedCollabs: string[];
+}
+
+// Interface for the objects returned by getUserCollabs
+interface ImportedCollab {
+  id: string;
+  title: string;
+  type?: string;
+  participation_mode?: string;
+  sourceType?: string;
+  location?: string | null;
+  participantCount?: number;
+  description?: string;
+  template_id?: string;
+  is_private?: boolean;
+  [key: string]: unknown;
+}
+
 const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   periodId,
   selectedCollabs,
   toggleItem,
   remainingContent,
-  hideTitle = false
 }) => {
   const supabase = createClientComponentClient();
   const [loading, setLoading] = useState(true);
@@ -66,6 +84,10 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   const [communityParticipantCounts, setCommunityParticipantCounts] = useState<Record<string, number>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Add a ref to track if we've already synced cities (to prevent infinite loop)
+  const citiesSynced = useRef(false);
+  const templatesSet = useRef(false);
+  
   // Helper functions for collaboration options with name matching fallback
   const userHasJoinedPrivate = (templateId: string): boolean => {
     // Try matching by template ID first
@@ -150,6 +172,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     
     return null;
   };
+  
   const toggleCityDropdown = (templateId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -185,79 +208,76 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     }));
   };
   
-// Modify the selectCity function in IntegratedCollabsSection.tsx
-const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
-  e.stopPropagation();
-  
-  // Generate virtual ID for local selection
-  const localId = `local_${templateId}_${city.replace(/\s+/g, '_')}`;
-  
-  // Close the dropdown immediately
-  setCityDropdownOpen(prev => ({
-    ...prev,
-    [templateId]: false
-  }));
-  
-  // Update the selected city
-  setSelectedCities(prev => ({
-    ...prev,
-    [templateId]: city
-  }));
-  
-  // Get all existing selections for this template
-  const existingSelections = selectedCollabs.filter(id => 
-    id.startsWith(`local_${templateId}_`)
-  );
-  
-  // Determine if this is a selection or deselection
-  const isCurrentlySelected = existingSelections.includes(localId);
-  
-  // Get all other collaborations (not of this template)
-  const otherCollabs = selectedCollabs.filter(id => !id.startsWith(`local_${templateId}_`));
-  
-  // Special case for the last item
-  const isLastItem = selectedCollabs.length === 1 && isCurrentlySelected;
-  
-  if (isLastItem) {
-    // If this is the last item and we're deselecting, directly use toggleItem
-    console.log("🔴 Detected last item deselection, using direct toggle");
-    toggleItem(localId);
-    return;
-  }
-  
-  // If we're selecting a new city
-  if (!isCurrentlySelected) {
-    // Add the new city (if we have space)
-    if (remainingContent > 0 || existingSelections.length > 0) {
-      const updatedCollabs = [...otherCollabs, localId];
+  // Modify the selectCity function in IntegratedCollabsSection.tsx
+  const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Generate virtual ID for local selection
+    const localId = `local_${templateId}_${city.replace(/\s+/g, '_')}`;
+    
+    // Close the dropdown immediately
+    setCityDropdownOpen(prev => ({
+      ...prev,
+      [templateId]: false
+    }));
+    
+    // Update the selected city
+    setSelectedCities(prev => ({
+      ...prev,
+      [templateId]: city
+    }));
+    
+    // Get all existing selections for this template
+    const existingSelections = selectedCollabs.filter(id => 
+      id.startsWith(`local_${templateId}_`)
+    );
+    
+    // Determine if this is a selection or deselection
+    const isCurrentlySelected = existingSelections.includes(localId);
+    
+    // Get all other collaborations (not of this template)
+    const otherCollabs = selectedCollabs.filter(id => !id.startsWith(`local_${templateId}_`));
+    
+    // Special case for the last item
+    const isLastItem = selectedCollabs.length === 1 && isCurrentlySelected;
+    
+    if (isLastItem) {
+      // If this is the last item and we're deselecting, directly use toggleItem
+      toggleItem(localId);
+      return;
+    }
+    
+    // If we're selecting a new city
+    if (!isCurrentlySelected) {
+      // Add the new city (if we have space)
+      if (remainingContent > 0 || existingSelections.length > 0) {
+        const updatedCollabs = [...otherCollabs, localId];
+        
+        // Update parent directly
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent<UpdateEventDetail>('updateSelectedCollabs', { 
+            detail: { updatedCollabs }
+          });
+          window.dispatchEvent(event);
+          localStorage.setItem('temp_selected_collabs', JSON.stringify(updatedCollabs));
+        }
+      }
+    } 
+    // If we're deselecting
+    else {
+      // Just remove all selections for this template
+      const updatedCollabs = otherCollabs;
       
       // Update parent directly
       if (typeof window !== 'undefined') {
-        const event = new CustomEvent('updateSelectedCollabs', { 
+        const event = new CustomEvent<UpdateEventDetail>('updateSelectedCollabs', { 
           detail: { updatedCollabs }
         });
         window.dispatchEvent(event);
         localStorage.setItem('temp_selected_collabs', JSON.stringify(updatedCollabs));
-        console.log("📢 Dispatched update event - SELECTING:", updatedCollabs);
       }
     }
-  } 
-  // If we're deselecting
-  else {
-    // Just remove all selections for this template
-    const updatedCollabs = otherCollabs;
-    
-    // Update parent directly
-    if (typeof window !== 'undefined') {
-      const event = new CustomEvent('updateSelectedCollabs', { 
-        detail: { updatedCollabs }
-      });
-      window.dispatchEvent(event);
-      localStorage.setItem('temp_selected_collabs', JSON.stringify(updatedCollabs));
-      console.log("📢 Dispatched update event - DESELECTING:", updatedCollabs);
-    }
-  }
-};
+  };
 
   // Toggle template expansion
   const toggleTemplateExpansion = (templateId: string) => {
@@ -266,11 +286,12 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
       [templateId]: !prev[templateId]
     }));
   };
+  
   // Enhanced function to include local participants in community count
-  const fetchCommunityParticipantCounts = async (templates: CollabTemplate[]) => {
+  const fetchCommunityParticipantCounts = useCallback(async (templatesArray: CollabTemplate[]) => {
     const counts: Record<string, number> = {};
     
-    for (const template of templates) {
+    for (const template of templatesArray) {
       try {
         let totalParticipants = 0;
         
@@ -330,15 +351,17 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
     }
     
     setCommunityParticipantCounts(counts);
-  };
+  }, [periodId, supabase]);
+  
   // Synchronize selectedCities with selectedCollabs when component loads
   useEffect(() => {
-    if (selectedCollabs.length > 0) {
+    // Only run this once to avoid infinite loops
+    if (!citiesSynced.current && selectedCollabs.length > 0 && templates.length > 0) {
       // Look through all local collaborations in selectedCollabs
       const localCollabs = selectedCollabs.filter(id => id.startsWith('local_'));
       
       // Extract template IDs and city names
-      const newCitySelections = { ...selectedCities };
+      const newCitySelections: Record<string, string> = {};
       
       localCollabs.forEach(localId => {
         const parts = localId.split('_');
@@ -351,11 +374,21 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
         }
       });
       
-      // Update selectedCities state
+      // Only update if we have new selections
       if (Object.keys(newCitySelections).length > 0) {
-        setSelectedCities(newCitySelections);
-        localStorage.setItem('selected_cities', JSON.stringify(newCitySelections));
+        setSelectedCities(prev => {
+          // Only update if different from current state
+          const updated = {...prev, ...newCitySelections};
+          
+          // Store in localStorage
+          localStorage.setItem('selected_cities', JSON.stringify(updated));
+          
+          return updated;
+        });
       }
+      
+      // Mark as synced to prevent further updates
+      citiesSynced.current = true;
     }
   }, [selectedCollabs, templates]); 
 
@@ -388,6 +421,34 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+  
+  // When templates change, set a default city for each if not already set
+  useEffect(() => {
+    if (templates.length > 0 && !templatesSet.current) {
+      // Set a default selected city for each template if not already set
+      const initialSelectedCities: Record<string, string> = { ...selectedCities };
+      let hasNewCities = false;
+      
+      templates.forEach(template => {
+        if (!initialSelectedCities[template.id]) {
+          // Use user's location if available, otherwise pick the first city from available cities
+          const defaultCity = userLocation || 
+            (availableCities.length > 0 
+              ? `${availableCities[0].name}${availableCities[0].state ? ', ' + availableCities[0].state : ''}`
+              : 'New York, NY');
+          initialSelectedCities[template.id] = defaultCity;
+          hasNewCities = true;
+        }
+      });
+      
+      if (hasNewCities) {
+        setSelectedCities(initialSelectedCities);
+      }
+      
+      templatesSet.current = true;
+    }
+  }, [templates, selectedCities, userLocation, availableCities]);
+  
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -681,18 +742,6 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
                 { name: 'Austin', state: 'TX', participant_count: 0 }
               ]);
             }
-            
-            // Set a default selected city for each template
-            const initialSelectedCities: Record<string, string> = {};
-            templates.forEach(template => {
-              // Use user's location if available, otherwise pick the first city with participants
-              const defaultCity = userLocation || 
-                (cityResult.success && cityResult.cities && cityResult.cities.length > 0
-                  ? `${cityResult.cities[0].name}${cityResult.cities[0].state ? ', ' + cityResult.cities[0].state : ''}`
-                  : 'New York, NY');
-              initialSelectedCities[template.id] = defaultCity;
-            });
-            setSelectedCities(initialSelectedCities);
           } catch (cityError) {
             console.error("Error fetching cities:", cityError);
             // Fallback cities
@@ -714,9 +763,16 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
           try {
             // Dynamically import the function
             const { getUserCollabs } = await import('@/lib/supabase/collabs');
-            const collabsResult = await getUserCollabs();
+            const rawCollabsResult = await getUserCollabs();
             
-            if (collabsResult) {
+            if (rawCollabsResult) {
+              // First convert to unknown, then to our expected type (necessary for TypeScript)
+              const collabsResult = {
+                private: (rawCollabsResult.private || []) as unknown as ImportedCollab[],
+                community: (rawCollabsResult.community || []) as unknown as ImportedCollab[],
+                local: (rawCollabsResult.local || []) as unknown as ImportedCollab[]
+              };
+              
               // Format in the structure we need
               const combinedCollabs = [
                 ...(collabsResult.private || []),
@@ -726,19 +782,24 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
               
               // Convert to our format
               if (combinedCollabs.length > 0) {
-                const formatted = combinedCollabs.map((c: any) => ({
-                  id: c.id,
-                  title: c.title,
-                  type: c.type || 'theme',
-                  participation_mode: c.participation_mode || 
-                    (collabsResult.private?.some((pc: any) => pc.id === c.id) ? 'private' :
-                     collabsResult.local?.some((lc: any) => lc.id === c.id) ? 'local' : 'community'),
-                  location: c.location,
-                  description: c.description || '',
-                  participant_count: c.participantCount || 0,
-                  is_joined: true,
-                  template_id: c.template_id
-                }));
+                const formatted = combinedCollabs.map((c) => {
+                  // Safe type casting
+                  const importedCollab = c as ImportedCollab;
+                  
+                  return {
+                    id: importedCollab.id,
+                    title: importedCollab.title,
+                    type: (importedCollab.type as 'chain' | 'theme' | 'narrative') || 'theme',
+                    participation_mode: (importedCollab.participation_mode as 'community' | 'local' | 'private') || 
+                      (collabsResult.private?.some((pc) => pc.id === importedCollab.id) ? 'private' :
+                       collabsResult.local?.some((lc) => lc.id === importedCollab.id) ? 'local' : 'community'),
+                    location: importedCollab.location,
+                    description: importedCollab.description || '',
+                    participant_count: importedCollab.participantCount || 0,
+                    is_joined: true,
+                    template_id: importedCollab.template_id
+                  } as CollabData;
+                });
                 
                 setJoinedCollabs(formatted);
               }
@@ -757,7 +818,8 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
     };
     
     fetchData();
-  }, [periodId, supabase, userLocation, templates.length]);
+  }, [periodId, supabase, userLocation, fetchCommunityParticipantCounts]);
+  
   if (loading) {
     return (
       <div className="p-8 text-center bg-gray-50 rounded-lg">
@@ -785,6 +847,7 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
     if (!aHasJoined && bHasJoined) return 1;
     return 0;
   });
+  
   return (
     <div className="pb-20">
       {/* Templates List */}
@@ -793,7 +856,6 @@ const selectCity = (templateId: string, city: string, e: React.MouseEvent) => {
           const hasJoined = userHasJoinedPrivate(template.id) || userHasJoinedCommunity(template.id) || userHasJoinedLocal(template.id);
           const isExpanded = expandedTemplates[template.id] || false;
           const selectedCity = selectedCities[template.id] || 'Select City';
-          const isDropdownOpen = cityDropdownOpen[template.id] || false;
           
           // Get IDs for each version
           const communityId = `community_${template.id}`;

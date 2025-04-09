@@ -20,16 +20,18 @@ import {
 } from 'lucide-react';
 import { getReceivedCommunications, selectCommunications } from '@/lib/supabase/communications';
 
+interface ProfileData {
+  first_name: string;
+  last_name: string;
+  avatar_url?: string;
+}
+
 interface ReceivedCommunication {
   id: string;
   subject: string;
   sender_id: string;
   is_selected: boolean;
-  profiles: {
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-  };
+  profiles: ProfileData;
 }
 
 interface Period {
@@ -42,7 +44,47 @@ interface Period {
   is_active: boolean;
 }
 
+// Type for communication data with arrays
+interface ApiResponseData {
+  [key: string]: unknown;
+}
+
 type SelectionMethod = 'all' | 'random' | 'select';
+
+// Helper function to safely extract profile data
+function extractProfileData(profiles: unknown): ProfileData {
+  // Default empty profile
+  const defaultProfile: ProfileData = {
+    first_name: '',
+    last_name: ''
+  };
+  
+  if (!profiles) return defaultProfile;
+  
+  // Handle array of profiles
+  if (Array.isArray(profiles)) {
+    if (profiles.length === 0) return defaultProfile;
+    
+    const firstProfile = profiles[0];
+    return {
+      first_name: typeof firstProfile.first_name === 'string' ? firstProfile.first_name : '',
+      last_name: typeof firstProfile.last_name === 'string' ? firstProfile.last_name : '',
+      avatar_url: typeof firstProfile.avatar_url === 'string' ? firstProfile.avatar_url : undefined
+    };
+  }
+  
+  // Handle object profile
+  if (typeof profiles === 'object' && profiles !== null) {
+    const profileObj = profiles as Record<string, unknown>;
+    return {
+      first_name: typeof profileObj.first_name === 'string' ? profileObj.first_name : '',
+      last_name: typeof profileObj.last_name === 'string' ? profileObj.last_name : '',
+      avatar_url: typeof profileObj.avatar_url === 'string' ? profileObj.avatar_url : undefined
+    };
+  }
+  
+  return defaultProfile;
+}
 
 export default function CuratorCommunicationsPage() {
   const router = useRouter();
@@ -88,18 +130,25 @@ export default function CuratorCommunicationsPage() {
           throw new Error(result.error ? String(result.error) : 'Failed to load communications');
         }
         
-        // Fix for type issue - ensure the profiles object matches the expected structure
-        const typedReceivedComms: ReceivedCommunication[] = (result.received || []).map((comm: any) => ({
-          id: comm.id,
-          subject: comm.subject,
-          sender_id: comm.sender_id,
-          is_selected: comm.is_selected,
-          profiles: {
-            first_name: comm.profiles?.first_name || '',
-            last_name: comm.profiles?.last_name || '',
-            avatar_url: comm.profiles?.avatar_url
-          }
-        }));
+        // Process received communications with proper handling for profiles
+        const typedReceivedComms: ReceivedCommunication[] = [];
+        
+        // Safely process each item
+        if (result.received && Array.isArray(result.received)) {
+          result.received.forEach((item: ApiResponseData) => {
+            if (item && typeof item === 'object') {
+              const profiles = extractProfileData(item.profiles);
+              
+              typedReceivedComms.push({
+                id: typeof item.id === 'string' ? item.id : String(item.id || ''),
+                subject: typeof item.subject === 'string' ? item.subject : '',
+                sender_id: typeof item.sender_id === 'string' ? item.sender_id : '',
+                is_selected: Boolean(item.is_selected),
+                profiles
+              });
+            }
+          });
+        }
         
         setReceivedComms(typedReceivedComms);
         
@@ -113,9 +162,10 @@ export default function CuratorCommunicationsPage() {
         } else {
           setSelectionMethod('all');
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Error loading data:', err);
-        setError(err.message || 'Failed to load data');
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load data';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -189,9 +239,6 @@ export default function CuratorCommunicationsPage() {
       }
       
       // Save the selection to the database
-      // Store the page count in metadata
-      const metadata = { pageCount: pagesRequired };
-      
       const result = await selectCommunications(
         commIds, 
         selectionMethod, 
@@ -211,9 +258,10 @@ export default function CuratorCommunicationsPage() {
       setTimeout(() => {
         router.push('/curate');
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving selection:', err);
-      setError(err.message || 'Failed to save selection');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save selection';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -241,7 +289,7 @@ export default function CuratorCommunicationsPage() {
           </div>
           
           <p className="text-gray-600">
-            Select which private communications you'd like to include in your printed magazine.
+            Select which private communications you&apos;d like to include in your printed magazine.
           </p>
         </header>
         
@@ -270,7 +318,7 @@ export default function CuratorCommunicationsPage() {
             
             {receivedComms.length === 0 ? (
               <div className="bg-gray-50 rounded-lg p-8 text-center">
-                <p className="text-gray-500">You haven't received any communications for this period yet.</p>
+                <p className="text-gray-500">You haven&apos;t received any communications for this period yet.</p>
               </div>
             ) : (
               <>
@@ -280,7 +328,7 @@ export default function CuratorCommunicationsPage() {
                     <p className="text-blue-700 text-sm">
                       You can include up to {MAX_COMMUNICATIONS_PER_PAGE} communications per page in your printed magazine.
                       {receivedComms.length > MAX_COMMUNICATIONS_PER_PAGE && (
-                        <span className="font-medium"> Since you've received more than {MAX_COMMUNICATIONS_PER_PAGE}, you'll need to choose how to select them.</span>
+                        <span className="font-medium"> Since you&apos;ve received more than {MAX_COMMUNICATIONS_PER_PAGE}, you&apos;ll need to choose how to select them.</span>
                       )}
                     </p>
                   </div>

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, Upload, X, Save, Send, 
   CheckCircle, AlertCircle, Info, FileText, 
-  Eye, Maximize2, Users
+  Eye, Maximize2
 } from 'lucide-react';
 import { getCollabById } from '@/lib/supabase/collabs';
 
@@ -20,7 +20,7 @@ interface CollabDetails {
   prompt_text: string;
   instructions?: string;
   is_private: boolean;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   participant_count?: number;
   participation_mode?: 'community' | 'local' | 'private';
   location?: string | null;
@@ -36,6 +36,11 @@ interface CollabSubmission {
   status: 'draft' | 'submitted' | 'published';
   created_at?: string;
   updated_at?: string;
+}
+
+interface TimeLeft {
+  days: number;
+  hours: number;
 }
 
 export default function CollabSubmissionPage() {
@@ -54,8 +59,7 @@ export default function CollabSubmissionPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
   // Time left
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0 });
-  const [currentPeriod, setCurrentPeriod] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0 });
   
   // Collaboration data
   const [collabDetails, setCollabDetails] = useState<CollabDetails>({
@@ -127,8 +131,6 @@ export default function CollabSubmissionPage() {
           .eq('is_active', true)
           .single();
           
-        setCurrentPeriod(periodData);
-        
         // Calculate time left
         if (periodData) {
           const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
@@ -187,7 +189,7 @@ export default function CollabSubmissionPage() {
             collab_id: existingSubmission.collab_id,
             contributor_id: existingSubmission.contributor_id,
             title: existingSubmission.title || '',
-            caption: existingSubmission.content || '', // Map the 'content' field to 'caption' in our state
+            caption: existingSubmission.caption || '', // Using caption field from database
             media_url: existingSubmission.media_url || '',
             status: existingSubmission.status || 'draft',
             created_at: existingSubmission.created_at,
@@ -252,8 +254,7 @@ export default function CollabSubmissionPage() {
         collab_id: submission.collab_id,
         contributor_id: submission.contributor_id,
         title: submission.title,
-        // Store caption in the 'content' variable for internal use, but it will be saved to 'caption' field
-        content: submission.caption,
+        caption: submission.caption, // Using the correct field name
         media_url: submission.media_url || '', 
         status: newStatus,
         updated_at: new Date().toISOString()
@@ -267,7 +268,7 @@ export default function CollabSubmissionPage() {
           const filePath = `${submission.collab_id}/${submission.contributor_id}/${fileName}`;
           
           // Attempt to upload the file
-          const { data: uploadData, error: uploadError } = await supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('collab-media')
             .upload(filePath, mediaFile, {
               cacheControl: '3600',
@@ -306,8 +307,8 @@ export default function CollabSubmissionPage() {
             contributor_id: submissionData.contributor_id,
             collab_id: submissionData.collab_id,
             updated_at: submissionData.updated_at,
-            // Use "caption" field instead of "content" based on your schema
-            caption: submissionData.content
+            // Use "caption" field based on your schema
+            caption: submissionData.caption
           })
           .eq('id', submission.id);
           
@@ -324,8 +325,8 @@ export default function CollabSubmissionPage() {
             collab_id: submissionData.collab_id,
             created_at: new Date().toISOString(),
             updated_at: submissionData.updated_at,
-            // Use "caption" field instead of "content" based on your schema
-            caption: submissionData.content
+            // Use "caption" field based on your schema
+            caption: submissionData.caption
           })
           .select();
           
@@ -432,7 +433,7 @@ export default function CollabSubmissionPage() {
           <CardContent className="pt-6">
             <h2 className="text-xl font-bold text-center mb-4">Collaboration Not Found</h2>
             <p className="text-gray-600 mb-6">
-              We couldn't find the collaboration you're looking for. It may have been removed or you may not have access.
+              We could not find the collaboration you are looking for. It may have been removed or you may not have access.
             </p>
             <Link href="/dashboard">
               <Button className="w-full">Return to Dashboard</Button>
@@ -538,35 +539,16 @@ export default function CollabSubmissionPage() {
           {/* Image display */}
           {(previewUrl || submission.media_url) ? (
             <div className="relative w-full h-full flex items-center justify-center">
-              <img 
-                src={previewUrl || submission.media_url}
-                alt={submission.title || "Submission preview"} 
-                className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-                onLoad={() => console.log("Image loaded successfully")}
-                onError={(e) => {
-                  console.error("Image failed to load");
-                  // Use a placeholder instead of setting an error
-                  const imgElement = e.currentTarget as HTMLImageElement;
-                  if (imgElement) {
-                    imgElement.style.display = 'none';
-                  }
-                  const placeholderElement = document.getElementById('image-placeholder');
-                  if (placeholderElement) {
-                    placeholderElement.style.display = 'block';
-                  }
+              <div
+                className="max-w-full max-h-full rounded-lg shadow-md bg-cover bg-center bg-no-repeat"
+                style={{ 
+                  backgroundImage: `url(${previewUrl || submission.media_url})`,
+                  width: '100%',
+                  height: '100%',
+                  backgroundSize: 'contain'
                 }}
-                id="submission-image"
+                aria-label={submission.title || "Submission preview"}
               />
-              <div 
-                id="image-placeholder" 
-                className="h-32 flex items-center justify-center text-gray-500" 
-                style={{display: 'none'}}
-              >
-                <div className="text-center">
-                  <p>Media content available, but preview cannot be displayed.</p>
-                  <p className="text-xs mt-1">Your submission data is saved correctly.</p>
-                </div>
-              </div>
               
               {/* Fullscreen toggle button */}
               <button
