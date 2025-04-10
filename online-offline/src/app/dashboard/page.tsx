@@ -56,25 +56,23 @@ interface ActiveCollab {
   status?: string;
 }
 
-interface CollabDataFromAPI {
+interface CollabData {
   id: string;
   title: string;
   type?: string;
-  is_private: boolean;
+  is_private?: boolean;
   participation_mode?: string;
   location?: string | null;
-  participants?: { name: string; role: string }[]; // More specific type instead of any
-  participantCount: number;
-  current_phase?: number | null;
-  total_phases?: number | null;
-  last_active?: string;
+  participants?: { name: string; role: string }[];
+  participantCount?: number;
   status?: string;
   metadata?: {
     status?: string;
-    [key: string]: unknown; // More specific type instead of any
+    [key: string]: unknown;
   };
-  [key: string]: unknown; // More specific type instead of any
+  [key: string]: unknown; // Add index signature for flexibility
 }
+
 
 interface Communication {
   id: string;
@@ -113,6 +111,8 @@ interface ConfirmActionState {
   action: string;
   id: string;
 }
+
+
 export default function Dashboard() {
     const router = useRouter();
     const supabase = createClientComponentClient();
@@ -339,28 +339,32 @@ export default function Dashboard() {
             ...(collabsResult.local || [])
           ];
           
-          // Format for display
-          const formattedCollabs = combined.map((collab: CollabDataFromAPI) => {
-            // Extract status with type-safe checks
-            let status = 'draft';
-            
-            // Use optional chaining to safely access nested properties
-            if (collab?.status) {
-              status = collab.status;
-            } else if (collab?.metadata?.status) {
-              status = collab.metadata.status as string;
-            }
-            
-            return {
-              id: collab.id,
-              title: collab.title,
-              mode: collab.participation_mode || (collab.is_private ? 'private' : 'community'),
-              location: collab.location,
-              participants: collab.participantCount || 0,
-              type: getCollabType(collab.type),
-              status: status
-            };
-          });
+          
+// Format for display
+const formattedCollabs = combined.map((collab) => {
+  // Explicitly assert the type
+  const collabData = collab as unknown as CollabData;
+  
+  // Extract status with type-safe checks
+  let status = 'draft';
+  
+  // Use optional chaining to safely access nested properties
+  if (collabData.status) {
+    status = collabData.status;
+  } else if (collabData.metadata?.status) {
+    status = collabData.metadata.status;
+  }
+  
+  return {
+    id: collabData.id,
+    title: collabData.title,
+    mode: collabData.participation_mode || (collabData.is_private ? 'private' : 'community'),
+    location: collabData.location,
+    participants: collabData.participantCount || 0,
+    type: getCollabType(collabData.type),
+    status: status
+  };
+});
           
           setActiveCollabs(formattedCollabs);
         }
