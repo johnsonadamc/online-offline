@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -43,7 +43,24 @@ interface TimeLeft {
   hours: number;
 }
 
+// Wrapper component to provide Suspense boundary
 export default function CollabSubmissionPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading collaboration details...</p>
+        </div>
+      </div>
+    }>
+      <CollabSubmissionContent />
+    </Suspense>
+  );
+}
+
+// Main component with existing functionality
+function CollabSubmissionContent() {
   const router = useRouter();
   const params = useParams();
   const supabase = createClientComponentClient();
@@ -163,8 +180,8 @@ export default function CollabSubmissionPage() {
           is_private: Boolean(collabResult.collab.is_private),
           metadata: collabResult.collab.metadata,
           participant_count: participantCount || 0,
-          participation_mode: collabResult.collab.metadata?.participation_mode || 'community',
-          location: collabResult.collab.metadata?.location
+          participation_mode: (collabResult.collab.metadata?.participation_mode as 'community' | 'local' | 'private') || 'community',
+          location: collabResult.collab.metadata?.location as string | null
         });
         
         // Check for existing submission for this user and collab

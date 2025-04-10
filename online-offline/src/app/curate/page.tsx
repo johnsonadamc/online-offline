@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -219,7 +219,7 @@ export default function CurationInterface() {
                    selectedCommunications.length + uniqueTemplateIds.size;
   const remainingContent = maxContentPieces - usedSlots;
   
-  const loadAccessibleProfiles = async () => {
+  const loadAccessibleProfiles = useCallback(async () => {
     try {
       // Get profiles the user has access to
       const { data: { user } } = await supabase.auth.getUser();
@@ -241,7 +241,7 @@ export default function CurationInterface() {
       // Error handling is done silently
       console.error("Error loading accessible profiles:", error);
     }
-  };
+  }, [supabase]);
   // Toggle card expansion
   const toggleCardExpansion = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -366,7 +366,6 @@ export default function CurationInterface() {
   };
   
   // Load data 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     async function loadData() {
       try {
@@ -507,7 +506,7 @@ export default function CurationInterface() {
     }
     
     loadData();
-  }, [supabase]);
+ }, [supabase, loadAccessibleProfiles]);
   
   // Load saved selections from localStorage when component mounts
   useEffect(() => {
@@ -993,7 +992,6 @@ export default function CurationInterface() {
             selectedCollabs={selectedCollabs}
             toggleItem={(id) => toggleItem(id, "collab")}
             remainingContent={remainingContent}
-            hideTitle={true}
           />
         </TabsContent>
         
