@@ -68,7 +68,7 @@ interface ProfileState {
 }
 
 export default function ProfilePage() {
-  const router = useRouter();
+  const _router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileState>({
     firstName: '',
