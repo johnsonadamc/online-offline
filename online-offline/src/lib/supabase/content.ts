@@ -389,3 +389,86 @@ export async function getPastContributions() {
     return { success: false, error: String(error) };
   }
 }
+export async function deleteContent(contentId: string) {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // Get current user for authorization check
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+    
+    // First, check if the content exists and belongs to the user
+    const { data: contentData, error: contentCheckError } = await supabase
+      .from('content')
+      .select('id, creator_id, status')
+      .eq('id', contentId)
+      .single();
+      
+    if (contentCheckError) {
+      console.error("Error checking content:", contentCheckError);
+      return { success: false, error: 'Content not found' };
+    }
+    
+    // Verify ownership
+    if (contentData.creator_id !== user.id) {
+      return { success: false, error: 'You do not have permission to delete this content' };
+    }
+    
+    // Delete content tags by first getting all entry IDs
+    const { data: entriesData, error: entriesError } = await supabase
+      .from('content_entries')
+      .select('id')
+      .eq('content_id', contentId);
+      
+    if (entriesError) {
+      console.error("Error fetching content entries:", entriesError);
+      // Continue anyway, there might not be any entries
+    }
+    
+    // If we have entries, delete their tags
+    if (entriesData && entriesData.length > 0) {
+      const entryIds = entriesData.map(entry => entry.id);
+      
+      // Delete associated tags
+      const { error: tagsError } = await supabase
+        .from('content_tags')
+        .delete()
+        .in('content_entry_id', entryIds);
+        
+      if (tagsError) {
+        console.error("Error deleting content tags:", tagsError);
+        // Continue anyway, we want to try to delete everything possible
+      }
+    }
+    
+    // Delete the content entries
+    const { error: entriesDeleteError } = await supabase
+      .from('content_entries')
+      .delete()
+      .eq('content_id', contentId);
+      
+    if (entriesDeleteError) {
+      console.error("Error deleting content entries:", entriesDeleteError);
+      return { success: false, error: 'Failed to delete content entries' };
+    }
+    
+    // Finally delete the content record
+    const { error: contentDeleteError } = await supabase
+      .from('content')
+      .delete()
+      .eq('id', contentId);
+      
+    if (contentDeleteError) {
+      console.error("Error deleting content:", contentDeleteError);
+      return { success: false, error: 'Failed to delete content' };
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error("Error in deleteContent:", error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}

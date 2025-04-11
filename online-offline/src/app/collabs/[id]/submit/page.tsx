@@ -229,6 +229,15 @@ function CollabSubmissionContent() {
     fetchData();
   }, [params.id, router, supabase]);
   
+  useEffect(() => {
+    // Cleanup function to revoke object URLs when component unmounts
+    return () => {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -550,76 +559,72 @@ function CollabSubmissionContent() {
         </button>
       )}
       
-      {/* Main Image Area */}
-      <div className={`flex-1 flex flex-col relative bg-gray-100 overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
-        <div className="h-full flex-1 flex items-center justify-center p-4">
-          {/* Image display */}
-          {(previewUrl || submission.media_url) ? (
-            <div className="relative w-full h-full flex items-center justify-center">
-              <div
-                className="max-w-full max-h-full rounded-lg shadow-md bg-cover bg-center bg-no-repeat"
-                style={{ 
-                  backgroundImage: `url(${previewUrl || submission.media_url})`,
-                  width: '100%',
-                  height: '100%',
-                  backgroundSize: 'contain'
-                }}
-                aria-label={submission.title || "Submission preview"}
-              />
-              
-              {/* Fullscreen toggle button */}
-              <button
-                type="button"
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="absolute bottom-2 right-2 p-1.5 bg-black/20 backdrop-blur-sm shadow rounded-full hover:bg-black/30 transition-colors"
-              >
-                <Maximize2 className="h-5 w-5 text-white" />
-              </button>
-              
-              {/* Remove button - only when not submitted */}
-              {submission.status === 'draft' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewUrl(null);
-                    setMediaFile(null);
-                    setSubmission(prev => ({ ...prev, media_url: '' }));
-                  }}
-                  className="absolute top-2 right-2 p-1.5 bg-white/90 shadow rounded-full hover:bg-gray-100 transition-colors"
-                >
-                  <X className="h-4 w-4 text-gray-600" />
-                </button>
-              )}
-            </div>
-          ) : (
-            <div 
-              className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center cursor-pointer"
-              onClick={submission.status !== 'submitted' ? triggerFileInput : undefined}
-            >
-              <input
-                ref={fileInputRef}
-                id="media"
-                type="file"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={submission.status === 'submitted'}
-              />
-              <Upload className="h-12 w-12 text-gray-400 mb-3" />
-              <div className="text-sm text-gray-600 mb-3 font-medium">
-                {submission.status === 'submitted' 
-                  ? 'No image uploaded with this submission'
-                  : 'Click to upload an image'
-                }
-              </div>
-              {submission.status !== 'submitted' && (
-                <p className="text-xs text-gray-500">
-                  Supported formats: JPG, PNG, GIF, WebP up to 10MB
-                </p>
-              )}
-            </div>
-          )}
-        </div>
+{/* Main Image Area */}
+<div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : ''}">
+  <div className="h-full flex-1 flex items-center justify-center p-4">
+    {/* Image display */}
+    {(previewUrl || submission.media_url) ? (
+      <div className="relative w-full h-full flex items-center justify-center">
+        <img
+          src={previewUrl || submission.media_url || ''}
+          alt={submission.title || "Submission preview"}
+          className="max-w-full max-h-full rounded-lg shadow-md object-contain"
+        />
+        
+        {/* Fullscreen toggle button */}
+        <button
+          type="button"
+          onClick={() => setIsFullscreen(!isFullscreen)}
+          className="absolute bottom-2 right-2 p-1.5 bg-black/20 backdrop-blur-sm shadow rounded-full hover:bg-black/30 transition-colors"
+        >
+          <Maximize2 className="h-5 w-5 text-white" />
+        </button>
+        
+        {/* Remove button - only when not submitted */}
+        {submission.status === 'draft' && (
+          <button
+            type="button"
+            onClick={() => {
+              setPreviewUrl(null);
+              setMediaFile(null);
+              setSubmission(prev => ({ ...prev, media_url: '' }));
+            }}
+            className="absolute top-2 right-2 p-1.5 bg-white/90 shadow rounded-full hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-4 w-4 text-gray-600" />
+          </button>
+        )}
       </div>
+    ) : (
+      <div 
+        className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center cursor-pointer"
+        onClick={submission.status !== 'submitted' ? triggerFileInput : undefined}
+      >
+        <input
+          ref={fileInputRef}
+          id="media"
+          type="file"
+          className="hidden"
+          onChange={handleFileChange}
+          disabled={submission.status === 'submitted'}
+          accept="image/*"
+        />
+        <Upload className="h-12 w-12 text-gray-400 mb-3" />
+        <div className="text-sm text-gray-600 mb-3 font-medium">
+          {submission.status === 'submitted' 
+            ? 'No image uploaded with this submission'
+            : 'Click to upload an image'
+          }
+        </div>
+        {submission.status !== 'submitted' && (
+          <p className="text-xs text-gray-500">
+            Supported formats: JPG, PNG, GIF, WebP up to 10MB
+          </p>
+        )}
+      </div>
+    )}
+  </div>
+</div>
       
       {/* Form Inputs */}
       <div className="bg-white border-t border-gray-200 animate-in slide-in-from-bottom duration-200">
