@@ -2,7 +2,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
   Search, Lock, Shield, User, 
@@ -68,7 +67,6 @@ interface ProfileState {
 }
 
 export default function ProfilePage() {
-  const _router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileState>({
     firstName: '',
