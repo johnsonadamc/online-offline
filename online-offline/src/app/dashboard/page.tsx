@@ -8,7 +8,8 @@ import Link from 'next/link';
 // Import all needed functions from your existing codebase
 import { 
   fetchCurrentPeriodDraft, 
-  getCurrentPeriod 
+  getCurrentPeriod,
+  deleteContent // Added import for content deletion
 } from '@/lib/supabase/content';
 import { 
   getUserCollabs, 
@@ -17,15 +18,15 @@ import {
 import { 
   getDraftCommunications, 
   getSubmittedCommunications, 
-  withdrawCommunication 
+  withdrawCommunication,
+  deleteDraftCommunication // Added import for communication deletion
 } from '@/lib/supabase/communications';
 
 import { 
   Camera, BookOpen, UsersRound, MessageCircle, Clock, 
   Image, ChevronRight, Palette, Pen, Music, 
   User, CalendarDays, X, PlusCircle, RotateCcw, 
-  MapPin, Globe, Lock,
-  Edit
+  MapPin, Globe, Lock, Check, Edit
 } from 'lucide-react';
 
 // Define interfaces for our data types
@@ -65,7 +66,6 @@ interface CollabData {
   };
   [key: string]: unknown; // Add index signature for flexibility
 }
-
 
 interface Communication {
   id: string;
@@ -121,6 +121,10 @@ export default function Dashboard() {
   const [deleteContentId, setDeleteContentId] = useState<string>('');
   const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
   
+  // Success/error notification state
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  
   // Data states
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
@@ -129,6 +133,17 @@ export default function Dashboard() {
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  
+  // Helper functions for notifications
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+  
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(''), 3000);
+  };
   // Handle confirmation actions
   const showConfirmDialog = (action: string, id: string) => {
     setConfirmAction({ action, id });
@@ -143,8 +158,10 @@ export default function Dashboard() {
         if (result.success) {
           // Update the UI by removing the collab
           setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
+          showSuccess('Successfully left collaboration');
         } else {
           console.error("Error leaving collab:", result.error);
+          showError(result.error || 'Failed to leave collaboration');
         }
       } else if (confirmAction.action === 'withdraw') {
         // Handle withdraw communication logic
@@ -157,24 +174,33 @@ export default function Dashboard() {
               : c
             );
           });
+          showSuccess('Communication withdrawn successfully');
+        } else {
+          showError(result.error || 'Failed to withdraw communication');
         }
       }
       
       setShowConfirm(false);
     } catch (error) {
       console.error("Error processing action:", error);
+      showError('An unexpected error occurred');
       setShowConfirm(false);
     }
   };
   
-  // Add function to handle communication deletion
+  // Function to handle communication deletion
   const handleDeleteCommunication = async () => {
     try {
-      // Here you would add your actual deletion logic
-      // For example: await deleteCommunication(deleteCommId);
+      // Call the actual deletion function
+      const result = await deleteDraftCommunication(deleteCommId);
       
-      // For now, we'll just update the UI by removing it from state
-      setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
+      if (result.success) {
+        // Update the UI by removing it from state
+        setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
+        showSuccess('Communication deleted successfully');
+      } else {
+        showError(result.error || 'Failed to delete communication');
+      }
       
       // Reset the delete confirmation state
       setShowDeleteConfirm(false);
@@ -182,20 +208,24 @@ export default function Dashboard() {
       
     } catch (error) {
       console.error("Error deleting communication:", error);
+      showError('Error deleting communication');
       setShowDeleteConfirm(false);
     }
   };
   
-  // Add function to handle content deletion
+  // Function to handle content deletion
   const handleDeleteContent = async () => {
     try {
-      // Here you would add your actual deletion logic
-      // For example: await deleteContent(deleteContentId);
-      // Using the variable to fix the linting error
-      console.log(`Deleting content with ID: ${deleteContentId}`);
+      // Call the actual deletion function
+      const result = await deleteContent(deleteContentId);
       
-      // For now, we'll just update the UI
-      setContentSubmission(null);
+      if (result.success) {
+        // Update the UI state
+        setContentSubmission(null);
+        showSuccess('Content deleted successfully');
+      } else {
+        showError(result.error || 'Failed to delete content');
+      }
       
       // Reset the delete confirmation state
       setShowDeleteContentConfirm(false);
@@ -203,6 +233,7 @@ export default function Dashboard() {
       
     } catch (error) {
       console.error("Error deleting content:", error);
+      showError('Error deleting content');
       setShowDeleteContentConfirm(false);
     }
   };
@@ -271,8 +302,6 @@ export default function Dashboard() {
     // Now TypeScript knows profiles is a CommunicationProfile object, not an array
     return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
   };
-  
-
   // Fetch data on component mount
   useEffect(() => {
     const loadData = async () => {
@@ -408,6 +437,7 @@ export default function Dashboard() {
         setIsLoading(false);
       } catch (error) {
         console.error("Error loading dashboard data:", error);
+        showError('Failed to load dashboard data');
         setIsLoading(false);
       }
     };
@@ -523,6 +553,7 @@ export default function Dashboard() {
       </div>
     );
   };
+
   // Loading state
   if (isLoading) {
     return (
@@ -536,6 +567,21 @@ export default function Dashboard() {
   }
   return (
     <div className="min-h-screen bg-white">
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="fixed top-5 right-5 bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-sm flex items-center z-50">
+          <Check size={16} className="mr-2" />
+          {successMessage}
+        </div>
+      )}
+      
+      {errorMessage && (
+        <div className="fixed top-5 right-5 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-sm flex items-center z-50">
+          <X size={16} className="mr-2" />
+          {errorMessage}
+        </div>
+      )}
+    
       {/* Header with text-based logo */}
       <header className="px-5 py-5 flex items-center justify-between bg-white border-b border-gray-100">
         <div className="h-6 flex items-center">
@@ -953,4 +999,3 @@ const CountdownTimer = ({ endDate }: { endDate: string }) => {
       <span>{timeLeft.days}d {timeLeft.hours}h remaining</span>
     );
   };
-

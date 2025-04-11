@@ -504,3 +504,70 @@ export const getCommunicationCount = async (curatorId: string) => {
     return { success: false, error };
   }
 };
+// Add this function to your lib/supabase/communications.ts file
+
+/**
+ * Delete a draft communication
+ * Only draft communications can be deleted
+ */
+export async function deleteDraftCommunication(communicationId: string) {
+  const supabase = createClientComponentClient();
+  
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+    
+    // First, check if the communication exists, belongs to the user, and is a draft
+    const { data: commData, error: commCheckError } = await supabase
+      .from('communications')
+      .select('id, sender_id, status')
+      .eq('id', communicationId)
+      .single();
+      
+    if (commCheckError) {
+      console.error("Error checking communication:", commCheckError);
+      return { success: false, error: 'Communication not found' };
+    }
+    
+    // Verify ownership
+    if (commData.sender_id !== user.id) {
+      return { success: false, error: 'You do not have permission to delete this communication' };
+    }
+    
+    // Verify status is draft
+    if (commData.status !== 'draft') {
+      return { success: false, error: 'Only draft communications can be deleted' };
+    }
+    
+    // Delete associated notifications if any exist
+    const { error: notifError } = await supabase
+      .from('communication_notifications')
+      .delete()
+      .eq('communication_id', communicationId);
+      
+    if (notifError) {
+      console.error("Error deleting notifications:", notifError);
+      // Continue anyway, as there might not be any notifications
+    }
+    
+    // Delete the communication
+    const { error: deleteError } = await supabase
+      .from('communications')
+      .delete()
+      .eq('id', communicationId);
+      
+    if (deleteError) {
+      console.error("Error deleting communication:", deleteError);
+      return { success: false, error: 'Failed to delete communication' };
+    }
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error("Error in deleteDraftCommunication:", error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
