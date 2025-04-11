@@ -1,13 +1,14 @@
 "use client";
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Search, Lock, Shield } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { 
+  Search, Lock, Shield, User, 
+  ChevronLeft, Bell, CreditCard, Building, 
+  UserCheck, UserX, Check, X, Camera
+} from 'lucide-react';
 import { sendFollowRequest, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
 
 interface Follower {
@@ -67,6 +68,7 @@ interface ProfileState {
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileState>({
     firstName: '',
@@ -85,11 +87,20 @@ export default function ProfilePage() {
     }
   });
 
+  const [activeTab, setActiveTab] = useState<'profile' | 'permissions'>('profile');
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [following, setFollowing] = useState<Following[]>([]);
   const [followRequests, setFollowRequests] = useState<FollowRequest[]>([]);
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  
+  // Avatar state
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClientComponentClient();
 
@@ -102,12 +113,24 @@ export default function ProfilePage() {
     isPrivate: boolean;
   }>>([]);
 
+  // Show success message temporarily
+  const showSuccess = (message: string) => {
+    setSuccessMessage(message);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  // Show error message temporarily
+  const showError = (message: string) => {
+    setErrorMessage(message);
+    setTimeout(() => setErrorMessage(''), 3000);
+  };
   const calculateDuration = useCallback((startDate: string): string => {
     const start = new Date(startDate);
     const now = new Date();
     const months = (now.getFullYear() - start.getFullYear()) * 12 + now.getMonth() - start.getMonth();
     return months <= 0 ? 'Less than a month' : `${months} month${months !== 1 ? 's' : ''}`;
   }, []);
+
   const getProfile = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -144,6 +167,12 @@ export default function ProfilePage() {
               cvv: ''
             }
           });
+          
+          // Set avatar URL if available
+          if (data.avatar_url) {
+            setAvatarUrl(data.avatar_url);
+            setAvatarPreview(data.avatar_url);
+          }
         }
       }
     } catch (error) {
@@ -153,26 +182,90 @@ export default function ProfilePage() {
     }
   }, [supabase]);
   
-  const updateBankInfo = (field: string, value: string) => {
-    setProfile(prev => ({
-      ...prev,
-      bankInfo: {
-        ...prev.bankInfo,
-        [field]: value
+  // Load avatar when component mounts
+  useEffect(() => {
+    const fetchAvatar = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error("Error fetching avatar:", error);
+        return;
       }
-    }));
-  };
+      
+      if (data?.avatar_url) {
+        setAvatarUrl(data.avatar_url);
+        setAvatarPreview(data.avatar_url);
+      }
+    };
+    
+    fetchAvatar();
+  }, [supabase]);
   
-  const updateCuratorPayment = (field: string, value: string) => {
-    setProfile(prev => ({
-      ...prev,
-      curatorPaymentInfo: {
-        ...prev.curatorPaymentInfo,
-        [field]: value
+  
+  const uploadAvatar = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploading(true);
+      
+      if (!event.target.files || event.target.files.length === 0) {
+        return;
       }
-    }));
+      
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${fileName}`;
+      
+      // Create object URL for preview
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarPreview(objectUrl);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+      
+      // Upload the file to Supabase storage
+      const { error: uploadError } = await supabase
+        .storage
+        .from('avatars')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL
+      const { data: publicUrlData } = supabase
+        .storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+        
+      const avatarUrl = publicUrlData.publicUrl;
+      
+      // Update the user's profile with the avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          avatar_url: avatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+        
+      if (updateError) throw updateError;
+      
+      setAvatarUrl(avatarUrl);
+      showSuccess('Avatar updated successfully');
+      
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      showError('Error uploading avatar');
+    } finally {
+      setUploading(false);
+    }
   };
-
   const searchProfiles = async (query: string) => {
     try {
       if (query.length < 1) {
@@ -182,10 +275,8 @@ export default function ProfilePage() {
     
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-    
-      console.log("Searching with query:", query);
       
-      // Now try the normal search
+      // Only search for private profiles
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, is_public, avatar_url')
@@ -198,8 +289,6 @@ export default function ProfilePage() {
         console.error("Search error:", error);
         throw error;
       }
-      
-      console.log("Private profile search results:", data);
       
       if (data) {
         setSearchResults(data.map(profile => ({
@@ -216,6 +305,7 @@ export default function ProfilePage() {
       console.error('Error searching profiles:', error);
     }
   };
+
   const loadConnectionsData = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -352,7 +442,6 @@ export default function ProfilePage() {
       console.error("Error loading connections data:", error);
     }
   }, [supabase, calculateDuration]);
-
   const loadFollowRequests = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -410,6 +499,7 @@ export default function ProfilePage() {
     loadConnectionsData();
     loadFollowRequests();
   }, [getProfile, loadConnectionsData, loadFollowRequests]);
+
   const updateProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -423,21 +513,19 @@ export default function ProfilePage() {
           id: user.id,
           first_name: profile.firstName,
           last_name: profile.lastName,
-          bank_info: profile.bankInfo,
-          curator_payment_info: profile.curatorPaymentInfo,
+          avatar_url: avatarUrl, // Include avatar URL
           is_public: profile.isPublic,
           updated_at: new Date().toISOString()
         });
 
       if (profileError) throw profileError;
 
-      alert('Profile updated!');
+      showSuccess('Profile updated successfully');
     } catch (error) {
       console.error("Error updating profile:", error);
-      alert('Error updating profile!');
+      showError('Error updating profile');
     }
   };
-  
   const handleFollowRequest = async (profileId: string) => {
     try {
       const result = await sendFollowRequest(profileId);
@@ -453,18 +541,18 @@ export default function ProfilePage() {
           ? 'Access request sent!' 
           : 'Access granted to public profile.';
         
-        alert(message);
+        showSuccess(message);
         
         // If the request was automatically approved (public profile), refresh the connections data
         if (result.status === 'approved') {
           loadConnectionsData();
         }
       } else {
-        alert(`Error: ${result.error || 'Failed to send request'}`);
+        showError(`Error: ${result.error || 'Failed to send request'}`);
       }
     } catch (error) {
       console.error("Error sending access request:", error);
-      alert('An unexpected error occurred.');
+      showError('An unexpected error occurred');
     }
   };
   
@@ -476,13 +564,13 @@ export default function ProfilePage() {
         // Update follow requests list and followers list
         await loadFollowRequests();
         await loadConnectionsData();
-        alert('Access request approved');
+        showSuccess('Access request approved');
       } else {
-        alert(`Error: ${result.error || 'Failed to approve request'}`);
+        showError(`Error: ${result.error || 'Failed to approve request'}`);
       }
     } catch (error) {
       console.error("Error approving access request:", error);
-      alert('Error approving request');
+      showError('Error approving request');
     }
   };
 
@@ -493,13 +581,13 @@ export default function ProfilePage() {
       if (result.success) {
         // Update follow requests list
         await loadFollowRequests();
-        alert('Access request denied');
+        showSuccess('Access request denied');
       } else {
-        alert(`Error: ${result.error || 'Failed to deny request'}`);
+        showError(`Error: ${result.error || 'Failed to deny request'}`);
       }
     } catch (error) {
       console.error("Error denying access request:", error);
-      alert('Error denying request');
+      showError('Error denying request');
     }
   };
 
@@ -519,7 +607,7 @@ export default function ProfilePage() {
         
       if (findError) {
         console.error("Error finding connection:", findError);
-        alert('Error removing access: Connection not found');
+        showError('Error removing access: Connection not found');
         return;
       }
       
@@ -531,16 +619,16 @@ export default function ProfilePage() {
 
       if (updateError) {
         console.error("Error removing access:", updateError);
-        alert('Error removing access');
+        showError('Error removing access');
         return;
       }
       
       // Refresh connections data
       await loadConnectionsData();
-      alert('Successfully removed access');
+      showSuccess('Successfully removed access');
     } catch (error) {
       console.error("Error removing access:", error);
-      alert('Error removing access');
+      showError('Error removing access');
     }
   };
   const handleBlockUser = async (userId: string) => {
@@ -603,10 +691,10 @@ export default function ProfilePage() {
       // Refresh data
       await loadConnectionsData();
       await loadFollowRequests();
-      alert('User has been blocked');
+      showSuccess('User has been blocked');
     } catch (error) {
       console.error("Error blocking user:", error);
-      alert('Error blocking user');
+      showError('Error blocking user');
     }
   };
 
@@ -627,7 +715,7 @@ export default function ProfilePage() {
         
       if (findError) {
         console.error("Error finding blocked connection:", findError);
-        alert('Error unblocking: Block record not found');
+        showError('Error unblocking: Block record not found');
         return;
       }
       
@@ -639,453 +727,572 @@ export default function ProfilePage() {
 
       if (deleteError) {
         console.error("Error unblocking:", deleteError);
-        alert('Error unblocking user');
+        showError('Error unblocking user');
         return;
       }
       
       // Refresh blocked users list
       await loadConnectionsData();
-      alert('User has been unblocked');
+      showSuccess('User has been unblocked');
     } catch (error) {
       console.error("Error unblocking user:", error);
-      alert('Error unblocking user');
+      showError('Error unblocking user');
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading profile...</p>
+        </div>
+      </div>
+    );
   }
   return (
-    <div className="max-w-4xl mx-auto p-4">
-      <div className="flex justify-between items-center mb-4">
-        <Link 
-          href="/dashboard" 
-          className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-        >
-          Back to Dashboard
-        </Link>
-      </div>
+    <div className="min-h-screen bg-white">
+      {/* Header with logo and avatar */}
+<header className="px-5 py-4 flex items-center justify-between bg-white border-b border-gray-100">
+  <div className="flex items-center gap-3">
+    <Link 
+      href="/dashboard" 
+      className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors"
+      aria-label="Back to dashboard"
+    >
+      <ChevronLeft size={20} />
+    </Link>
+    <div className="h-6 flex items-center">
+      {/* Text-based logo - using the orange/yellow colors */}
+      <span className="text-lg font-normal">
+        <span className="text-[#F05A28]">online</span>
+        <span className="text-[#F5A93F]">{'//offline'}</span>
+      </span>
+    </div>
+  </div>
+  <div className="flex items-center">
+    {/* User avatar in header - name removed */}
+    <div className="w-8 h-8 overflow-hidden rounded-full border border-gray-200 bg-gray-50 flex items-center justify-center relative">
+  {avatarUrl ? (
+    <Image 
+      src={avatarUrl}
+      alt="Avatar"
+      fill
+      sizes="32px"
+      className="object-cover"
+    />
+  ) : (
+    <User size={16} className="text-gray-400" />
+  )}
+</div>
 
-      <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="mb-4">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="connections">
+  </div>
+</header>
+
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <div className="fixed top-5 right-5 bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-sm flex items-center z-50">
+          <Check size={16} className="mr-2" />
+          {successMessage}
+        </div>
+      )}
+      
+      {errorMessage && (
+        <div className="fixed top-5 right-5 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-sm flex items-center z-50">
+          <X size={16} className="mr-2" />
+          {errorMessage}
+        </div>
+      )}
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-100">
+        <div className="flex px-6">
+          <button
+            className={`py-4 text-sm font-normal border-b-2 transition-colors ${
+              activeTab === 'profile'
+                ? 'border-blue-500 text-blue-500'
+                : 'border-transparent text-gray-500 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('profile')}
+          >
+            Profile
+          </button>
+          <button
+            className={`py-4 ml-8 text-sm font-normal border-b-2 transition-colors flex items-center ${
+              activeTab === 'permissions'
+                ? 'border-blue-500 text-blue-500'
+                : 'border-transparent text-gray-500 hover:text-gray-900'
+            }`}
+            onClick={() => setActiveTab('permissions')}
+          >
             Permissions
             {followRequests.length > 0 && (
-              <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+              <span className="ml-2 bg-red-500 text-white text-xs font-medium rounded-full h-5 min-w-5 px-1 inline-flex items-center justify-center">
                 {followRequests.length}
               </span>
             )}
-          </TabsTrigger>
-        </TabsList>
+          </button>
+        </div>
+      </div>
 
-        <TabsContent value="profile">
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Profile Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input 
-                    id="firstName"
-                    value={profile.firstName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      setProfile({ ...profile, firstName: e.target.value })}
-                  />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input 
-                    id="lastName"
-                    value={profile.lastName}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      setProfile({ ...profile, lastName: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              {/* Profile Visibility Toggle */}
-              <div className="space-y-2">
-                <Label>Profile Visibility</Label>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <div className="text-sm">
-                      {profile.isPublic ? 'Public Profile' : 'Private Profile'}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {profile.isPublic 
-                        ? 'Your content is visible to everyone' 
-                        : 'Your content is only visible to approved users'}
-                    </div>
-                  </div>
-                  <div 
-                    onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))}
-                    className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer ${
-                      profile.isPublic ? 'bg-blue-500' : 'bg-gray-300'
-                    }`}
-                  >
-                    <div 
-                      className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${
-                        profile.isPublic ? 'translate-x-5' : 'translate-x-0'
-                      }`}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Profile Type</Label>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={profile.profileTypes.includes('contributor')}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        const newTypes = e.target.checked
-                          ? [...profile.profileTypes, 'contributor']
-                          : profile.profileTypes.filter(t => t !== 'contributor');
-                        setProfile({ ...profile, profileTypes: newTypes });
-                      }}
-                    />
-                    Contributor
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={profile.profileTypes.includes('curator')}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        const newTypes = e.target.checked
-                          ? [...profile.profileTypes, 'curator']
-                          : profile.profileTypes.filter(t => t !== 'curator');
-                        setProfile({ ...profile, profileTypes: newTypes });
-                      }}
-                    />
-                    Curator
-                  </label>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Contributor Payment Section */}
-          {profile.profileTypes.includes('contributor') && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Payment Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="accountNumber">Account Number</Label>
-                    <Input 
-                      id="accountNumber"
-                      type="text"
-                      value={profile.bankInfo.accountNumber}
-                      onChange={(e) => updateBankInfo('accountNumber', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="routingNumber">Routing Number</Label>
-                    <Input 
-                      id="routingNumber"
-                      type="text"
-                      value={profile.bankInfo.routingNumber}
-                      onChange={(e) => updateBankInfo('routingNumber', e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="accountType">Account Type</Label>
-                    <select
-                      id="accountType"
-                      value={profile.bankInfo.accountType}
-                      onChange={(e) => updateBankInfo('accountType', e.target.value)}
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="checking">Checking</option>
-                      <option value="savings">Savings</option>
-                    </select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          {/* Curator Payment Section */}
-          {profile.profileTypes.includes('curator') && (
-            <Card className="mb-6">
-              <CardHeader>
-                <CardTitle>Subscription Payment</CardTitle>
-                <p className="text-sm text-gray-500">$25.00 per period subscription fee</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="cardNumber">Card Number</Label>
-                    <Input 
-                      id="cardNumber"
-                      type="text"
-                      placeholder="1234 5678 9012 3456"
-                      value={profile.curatorPaymentInfo.cardNumber}
-                      onChange={(e) => updateCuratorPayment('cardNumber', e.target.value)}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiryDate">Expiry Date</Label>
-                      <Input 
-                        id="expiryDate"
-                        type="text"
-                        placeholder="MM/YY"
-                        value={profile.curatorPaymentInfo.expiryDate}
-                        onChange={(e) => updateCuratorPayment('expiryDate', e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input 
-                        id="cvv"
-                        type="text"
-                        placeholder="123"
-                        value={profile.curatorPaymentInfo.cvv}
-                        onChange={(e) => updateCuratorPayment('cvv', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Save All Changes button */}
-          <div className="mt-6">
-            <Button onClick={updateProfile} className="w-full">
-              Save All Changes
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="connections">
-          {/* Search section at the top for easy discovery */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Find People</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="relative">
-                <Input
-                  placeholder="Search for people by name..."
-                  value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    searchProfiles(e.target.value);
-                  }}
-                  className="pl-10"
-                />
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+      {/* Content Area */}
+      <div className="px-6 py-6">
+        {activeTab === 'profile' ? (
+          <div className="space-y-8">
+            {/* Profile Information */}
+            <div className="bg-white border border-gray-100 rounded-sm">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h2 className="text-sm font-medium text-gray-900">Profile Information</h2>
               </div>
               
-              {searchResults.length > 0 && (
-                <div className="mt-4 space-y-2 border rounded-md p-2">
-                  {searchResults.map(profile => (
-                    <div key={profile.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
-                          {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-medium">{profile.firstName} {profile.lastName}</p>
-                          {profile.isPrivate && (
-                            <div className="text-xs text-gray-500 flex items-center mt-0.5">
-                              <Lock size={12} className="mr-1" /> Private profile
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {pendingRequestMap[profile.id] ? (
-                        <span className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded">
-                          Request Pending
-                        </span>
-                      ) : (
-                        profile.isPrivate ? (
-                          <Button
-                            onClick={() => handleFollowRequest(profile.id)}
-                            className="text-xs py-1 px-3 h-8"
-                          >
-                            Request Access
-                          </Button>
-                        ) : null  // Don&apos;t show any button for public profiles
-                      )}
-                    </div>
-                  ))}
+              {/* Profile Avatar Section */}
+              <div className="flex flex-col items-center py-6">
+              <div className="mb-4 relative">
+  <div className="w-24 h-24 rounded-sm overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center relative">
+    {avatarPreview ? (
+      <Image 
+        src={avatarPreview}
+        alt="Avatar"
+        fill
+        sizes="96px"
+        className="object-cover"
+      />
+    ) : avatarUrl ? (
+      <Image 
+        src={avatarUrl}
+        alt="Avatar"
+        fill
+        sizes="96px"
+        className="object-cover"
+      />
+    ) : (
+      <User size={40} className="text-gray-400" />
+    )}
+  </div>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute bottom-0 right-0 bg-blue-500 text-white p-1 rounded-full"
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Camera size={16} />
+                    )}
+                  </button>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-          {/* Pending Requests section - only shown if there are pending requests */}
-          {followRequests.length > 0 && (
-            <Card className="mb-6">
-              <CardHeader className="py-4">
-                <CardTitle className="flex items-center gap-2">
-                  <span>Access Requests</span>
-                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
-                    {followRequests.length}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+                <p className="text-sm text-gray-600">{profile.firstName} {profile.lastName}</p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={uploadAvatar}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
+              
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="firstName" className="block text-xs text-gray-500">First Name</label>
+                    <input 
+                      id="firstName"
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      value={profile.firstName}
+                      onChange={(e) => setProfile({ ...profile, firstName: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="lastName" className="block text-xs text-gray-500">Last Name</label>
+                    <input 
+                      id="lastName"
+                      className="w-full border border-gray-200 rounded-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      value={profile.lastName}
+                      onChange={(e) => setProfile({ ...profile, lastName: e.target.value })}
+                    />
+                  </div>
+                </div>
+                {/* Profile Visibility Toggle */}
+                <div className="pt-2">
+                  <label className="block text-xs text-gray-500 mb-2">Profile Visibility</label>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-normal">
+                        {profile.isPublic ? 'Public Profile' : 'Private Profile'}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {profile.isPublic 
+                          ? 'Your content is visible to everyone' 
+                          : 'Your content is only visible to approved users'}
+                      </div>
+                    </div>
+                    <div 
+                      onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))}
+                      className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer ${
+                        profile.isPublic ? 'bg-blue-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <div 
+                        className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ease-in-out ${
+                          profile.isPublic ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Type */}
+                <div className="pt-2">
+                  <label className="block text-xs text-gray-500 mb-2">Profile Type</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="rounded-sm text-blue-500 focus:ring-blue-500"
+                        checked={profile.profileTypes.includes('contributor')}
+                        onChange={(e) => {
+                          const newTypes = e.target.checked
+                            ? [...profile.profileTypes, 'contributor']
+                            : profile.profileTypes.filter(t => t !== 'contributor');
+                          setProfile({ ...profile, profileTypes: newTypes });
+                        }}
+                      />
+                      <span className="text-sm">Contributor</span>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="rounded-sm text-blue-500 focus:ring-blue-500"
+                        checked={profile.profileTypes.includes('curator')}
+                        onChange={(e) => {
+                          const newTypes = e.target.checked
+                            ? [...profile.profileTypes, 'curator']
+                            : profile.profileTypes.filter(t => t !== 'curator');
+                          setProfile({ ...profile, profileTypes: newTypes });
+                        }}
+                      />
+                      <span className="text-sm">Curator</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Contributor Payment Section */}
+            {profile.profileTypes.includes('contributor') && (
+              <div className="bg-white border border-gray-100 rounded-sm">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <Building size={16} className="text-blue-500" />
+                  <h2 className="text-sm font-medium text-gray-900">Payment Details</h2>
+                </div>
+                <div className="p-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-sm p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-700 mb-1">Contributor Payments Coming Soon</h3>
+                        <p className="text-xs text-blue-600">
+  We&apos;re working on integrating a secure payment system for our contributors. 
+  You&apos;ll be able to receive payments directly for your published content through 
+  our trusted payment processing partner.
+</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-center py-6">
+                    <div className="text-center">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-gray-100 mb-3">
+                        <Building size={24} className="text-gray-400" />
+                      </div>
+                      <h3 className="text-sm font-medium mb-1">Secure Payment Processing</h3>
+                      <p className="text-xs text-gray-500 max-w-xs">
+                        We&apos;re partnering with leading payment providers to ensure
+                        secure and timely payments for all contributors.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {/* Curator Payment Section */}
+            {profile.profileTypes.includes('curator') && (
+              <div className="bg-white border border-gray-100 rounded-sm">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <CreditCard size={16} className="text-blue-500" />
+                  <h2 className="text-sm font-medium text-gray-900">Subscription Payment</h2>
+                </div>
+                <div className="p-4">
+                  <div className="bg-blue-50 border border-blue-100 rounded-sm p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 text-blue-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-700 mb-1">Secure Payment Processing Coming Soon</h3>
+                        <p className="text-xs text-blue-600">
+  We&apos;re integrating with Stripe for secure and seamless payment processing. 
+  Your subscription details will be managed securely, and you&apos;ll have access 
+  to payment history and receipts.
+</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="rounded-sm border border-gray-200 divide-y divide-gray-200">
+                    <div className="px-4 py-3 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-sm font-medium">Quarterly Subscription</h3>
+                        <p className="text-xs text-gray-500">$25.00 per quarter</p>
+                      </div>
+                      <span className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded-sm">Current Plan</span>
+                    </div>
+                    
+                    <div className="px-4 py-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-gray-500">Next billing date</span>
+                        <span className="text-xs font-medium">June 15, 2025</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Payment method</span>
+                        <span className="text-xs font-medium">Pending setup</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Save Button */}
+            <button 
+              onClick={updateProfile}
+              className="w-full bg-blue-500 text-white py-2 rounded-sm hover:bg-blue-600 transition-colors"
+            >
+              Save Changes
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* Search and Find People */}
+            <div className="bg-white border border-gray-100 rounded-sm">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <Search size={16} className="text-blue-500" />
+                <h2 className="text-sm font-medium text-gray-900">Find Private Profiles</h2>
+              </div>
+              <div className="p-4">
+                <div className="relative">
+                  <input
+                    placeholder="Search for private profiles..."
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      searchProfiles(e.target.value);
+                    }}
+                    className="w-full pl-10 border border-gray-200 rounded-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500" size={16} />
+                </div>
+                
+                {searchResults.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {searchResults.map(profile => (
+                      <div key={profile.id} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-sm border border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-50 rounded-sm flex items-center justify-center text-blue-500">
+                            {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-sm font-normal">{profile.firstName} {profile.lastName}</p>
+                            {profile.isPrivate && (
+                              <div className="text-xs text-gray-500 flex items-center mt-0.5">
+                                <Lock size={12} className="mr-1" /> Private profile
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {pendingRequestMap[profile.id] ? (
+                          <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-sm border border-blue-100">
+                            Request Pending
+                          </span>
+                        ) : (
+                          profile.isPrivate ? (
+                            <button
+                              onClick={() => handleFollowRequest(profile.id)}
+                              className="px-3 py-1 text-xs bg-blue-500 text-white rounded-sm hover:bg-blue-600"
+                            >
+                              Request Access
+                            </button>
+                          ) : null
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Pending Access Requests */}
+            {followRequests.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-sm">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <Bell size={16} className="text-red-500" />
+                  <h2 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                    Access Requests
+                    <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                      {followRequests.length}
+                    </span>
+                  </h2>
+                </div>
+                <div className="p-4 space-y-3">
                   {followRequests.map(request => (
-                    <div key={request.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={request.id} className="flex items-center justify-between p-3 rounded-sm bg-gray-50 border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+                        <div className="w-10 h-10 bg-blue-50 rounded-sm flex items-center justify-center text-blue-500">
                           {request.firstName.charAt(0)}{request.lastName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{request.firstName} {request.lastName}</p>
+                          <p className="text-sm font-normal">{request.firstName} {request.lastName}</p>
                           <p className="text-xs text-gray-500">Requested on {request.requestDate}</p>
                         </div>
                       </div>
-                      <div className="space-x-2">
-                        <Button 
+                      <div className="flex gap-2">
+                        <button 
                           onClick={() => handleApproveRequest(request.id)}
-                          className="bg-green-500 hover:bg-green-600 text-white h-8 px-3 py-1 text-xs"
+                          className="px-3 py-1 text-xs bg-green-500 text-white rounded-sm hover:bg-green-600"
                         >
                           Approve
-                        </Button>
-                        <Button 
+                        </button>
+                        <button 
                           onClick={() => handleDenyRequest(request.id)}
-                          className="bg-gray-200 hover:bg-gray-300 text-gray-700 h-8 px-3 py-1 text-xs"
+                          className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-sm hover:bg-gray-300"
                         >
                           Deny
-                        </Button>
+                        </button>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-          {/* Private Profiles You Have Access To */}
-          <Card className="mb-6">
-            <CardHeader className="py-4">
-              <CardTitle className="flex items-center gap-2">
+              </div>
+            )}
+            {/* Private Profiles You Have Access To */}
+            <div className="bg-white border border-gray-100 rounded-sm">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
                 <Shield size={16} className="text-blue-500" />
-                <span>Private Profiles You Have Access To</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+                <h2 className="text-sm font-medium text-gray-900">Private Profiles You Have Access To</h2>
+              </div>
+              <div className="p-4 space-y-3">
                 {following.filter(profile => profile.isPrivate).length === 0 ? (
-                  <p className="text-gray-500 py-2">You don&apos;t have access to any private profiles yet</p>
+                  <p className="text-sm text-gray-500 py-2">You don&apos;t have access to any private profiles yet</p>
                 ) : (
                   following.filter(profile => profile.isPrivate).map(profile => (
-                    <div key={profile.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={profile.id} className="flex items-center justify-between p-3 rounded-sm bg-gray-50 border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+                        <div className="w-10 h-10 bg-blue-50 rounded-sm flex items-center justify-center text-blue-500">
                           {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{profile.firstName} {profile.lastName}</p>
-                          <p className="text-xs text-gray-500">
-                            <span className="flex items-center">
-                              <Lock size={10} className="mr-1" /> 
-                              Private profile • Access granted {profile.followingSince}
-                            </span>
-                          </p>
+                          <p className="text-sm font-normal">{profile.firstName} {profile.lastName}</p>
+                          <div className="text-xs text-gray-500 flex items-center mt-0.5">
+                            <Lock size={10} className="mr-1" /> 
+                            <span>Private profile • Access granted {profile.followingSince}</span>
+                          </div>
                         </div>
                       </div>
-                      <Button 
+                      <button 
                         onClick={() => handleUnfollow(profile.id)}
-                        className="border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 text-xs h-8 px-3 py-1"
+                        className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-sm hover:bg-gray-300"
                       >
                         Remove Access
-                      </Button>
+                      </button>
                     </div>
                   ))
                 )}
               </div>
-            </CardContent>
-          </Card>
-          {/* People Who Have Access to You */}
-          <Card>
-            <CardHeader className="py-4">
-              <CardTitle>People Who Have Access to Your Content</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            </div>
+            
+            {/* People Who Have Access to You */}
+            <div className="bg-white border border-gray-100 rounded-sm">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <UserCheck size={16} className="text-blue-500" />
+                <h2 className="text-sm font-medium text-gray-900">People Who Have Access to Your Content</h2>
+              </div>
+              <div className="p-4 space-y-3">
                 {followers.length === 0 ? (
-                  <p className="text-gray-500 py-2">No one has access to your content yet</p>
+                  <p className="text-sm text-gray-500 py-2">No one has access to your content yet</p>
                 ) : (
                   followers.map(follower => (
-                    <div key={follower.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={follower.id} className="flex items-center justify-between p-3 rounded-sm bg-gray-50 border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+                        <div className="w-10 h-10 bg-blue-50 rounded-sm flex items-center justify-center text-blue-500">
                           {follower.firstName.charAt(0)}{follower.lastName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{follower.firstName} {follower.lastName}</p>
+                          <p className="text-sm font-normal">{follower.firstName} {follower.lastName}</p>
                           <p className="text-xs text-gray-500">Has access for {follower.duration}</p>
                         </div>
                       </div>
-                      <Button 
+                      <button 
                         onClick={() => handleBlockUser(follower.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white text-xs h-8 px-3 py-1"
+                        className="px-3 py-1 text-xs bg-red-500 text-white rounded-sm hover:bg-red-600"
                       >
                         Block
-                      </Button>
+                      </button>
                     </div>
                   ))
                 )}
               </div>
-            </CardContent>
-          </Card>
-          {/* Blocked Users section - only shown if there are blocked users */}
-          {blockedUsers.length > 0 && (
-            <Card className="mt-6">
-              <CardHeader className="py-4">
-                <CardTitle>Blocked Users</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
+            </div>
+            {/* Blocked Users section */}
+            {blockedUsers.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-sm">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                  <UserX size={16} className="text-red-500" />
+                  <h2 className="text-sm font-medium text-gray-900">Blocked Users</h2>
+                </div>
+                <div className="p-4 space-y-3">
                   {blockedUsers.map(user => (
-                    <div key={user.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={user.id} className="flex items-center justify-between p-3 rounded-sm bg-gray-50 border border-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center text-red-700">
+                        <div className="w-10 h-10 bg-red-50 rounded-sm flex items-center justify-center text-red-500">
                           {user.firstName.charAt(0)}{user.lastName.charAt(0)}
                         </div>
                         <div>
-                          <p className="font-medium">{user.firstName} {user.lastName}</p>
+                          <p className="text-sm font-normal">{user.firstName} {user.lastName}</p>
                           <p className="text-xs text-gray-500">Blocked on {user.blockedDate}</p>
                         </div>
                       </div>
-                      <Button 
+                      <button 
                         onClick={() => handleUnblockUser(user.id)}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs h-8 px-3 py-1"
+                        className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded-sm hover:bg-gray-300"
                       >
                         Unblock
-                      </Button>
+                      </button>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-          
-          {/* Information about permissions */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-medium text-blue-700 mb-2">About Permissions</h3>
-            <p className="text-sm text-blue-600 mb-2">
-              Permissions in online//offline control who can view your content and communicate with you:
-            </p>
-            <ul className="text-sm text-blue-600 space-y-1 list-disc pl-5">
-              <li>Public profiles are visible to everyone</li>
-              <li>Private profiles require access requests</li>
-              <li>You can only send communications to users who have granted you access</li>
-              <li>Blocking a user prevents them from requesting access</li>
-            </ul>
+              </div>
+            )}
+            
+            {/* Information about permissions */}
+            <div className="bg-blue-50 border border-blue-100 rounded-sm px-4 py-4">
+              <h3 className="text-sm font-medium text-blue-700 mb-2 flex items-center gap-1">
+                <Lock size={14} /> 
+                About Permissions
+              </h3>
+              <p className="text-xs text-blue-600 mb-2">
+                Permissions in online//offline control who can view your content and communicate with you:
+              </p>
+              <ul className="text-xs text-blue-600 space-y-1 list-disc pl-5">
+                <li>Public profiles are visible to everyone</li>
+                <li>Private profiles require access requests</li>
+                <li>You can only send communications to users who have granted you access</li>
+                <li>Blocking a user prevents them from requesting access</li>
+              </ul>
+            </div>
           </div>
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
     </div>
   );
 }
