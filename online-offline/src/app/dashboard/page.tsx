@@ -8,13 +8,11 @@ import Link from 'next/link';
 // Import all needed functions from your existing codebase
 import { 
   fetchCurrentPeriodDraft, 
-  // getPastContributions - Removing unused import
   getCurrentPeriod 
 } from '@/lib/supabase/content';
 import { 
   getUserCollabs, 
   leaveCollab, 
-  // getCollabById - Removing unused import
 } from '@/lib/supabase/collabs';
 import { 
   getDraftCommunications, 
@@ -23,16 +21,11 @@ import {
 } from '@/lib/supabase/communications';
 
 import { 
-  Camera, Edit, BookOpen, UsersRound, MessageCircle, Clock, 
-  Image, ChevronRight, 
-  // Layers, Search - Removing unused imports 
-  Palette, Pen, Music, Settings, 
-  // ArrowRight - Removing unused import
-  // Grid - Removing unused import
-  User, CalendarDays, X, PlusCircle,
-  RotateCcw, 
-  // FileText - Removing unused import
-  MapPin, Globe, Lock
+  Camera, BookOpen, UsersRound, MessageCircle, Clock, 
+  Image, ChevronRight, Palette, Pen, Music, 
+  User, CalendarDays, X, PlusCircle, RotateCcw, 
+  MapPin, Globe, Lock,
+  Edit
 } from 'lucide-react';
 
 // Define interfaces for our data types
@@ -111,184 +104,176 @@ interface ConfirmActionState {
   action: string;
   id: string;
 }
-
-
 export default function Dashboard() {
-    const router = useRouter();
-    const supabase = createClientComponentClient();
-    
-    // Tab state
-    const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
-    const [showConfirm, setShowConfirm] = useState<boolean>(false);
-    const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
-    
-    // State to track which communication we might want to delete
-    const [deleteCommId, setDeleteCommId] = useState<string>('');
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-    
-    // State to track which content we might want to delete
-    const [deleteContentId, setDeleteContentId] = useState<string>('');
-    const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
-    
-    // Data states
-    const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
-    const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
-    const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
-    const [communications, setCommunications] = useState<Communication[]>([]);
-    const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(true);
+  const router = useRouter();
+  const supabase = createClientComponentClient();
   
-    // Handle confirmation actions
-    const showConfirmDialog = (action: string, id: string) => {
-      setConfirmAction({ action, id });
-      setShowConfirm(true);
-    };
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
+  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
   
-    const handleConfirmAction = async () => {
-      try {
-        if (confirmAction.action === 'leave') {
-          // Call the leaveCollab function to handle leaving the collaboration
-          const result = await leaveCollab(confirmAction.id);
-          if (result.success) {
-            // Update the UI by removing the collab
-            setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
-          } else {
-            console.error("Error leaving collab:", result.error);
-          }
-        } else if (confirmAction.action === 'withdraw') {
-          // Handle withdraw communication logic
-          const result = await withdrawCommunication(confirmAction.id);
-          if (result.success) {
-            // Update communications state
-            setCommunications(prev => {
-              return prev.map(c => c.id === confirmAction.id 
-                ? { ...c, status: 'draft' } 
-                : c
-              );
-            });
-          }
+  // State to track which communication we might want to delete
+  const [deleteCommId, setDeleteCommId] = useState<string>('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  
+  // State to track which content we might want to delete
+  const [deleteContentId, setDeleteContentId] = useState<string>('');
+  const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
+  
+  // Data states
+  const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
+  const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
+  const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  // Handle confirmation actions
+  const showConfirmDialog = (action: string, id: string) => {
+    setConfirmAction({ action, id });
+    setShowConfirm(true);
+  };
+
+  const handleConfirmAction = async () => {
+    try {
+      if (confirmAction.action === 'leave') {
+        // Call the leaveCollab function to handle leaving the collaboration
+        const result = await leaveCollab(confirmAction.id);
+        if (result.success) {
+          // Update the UI by removing the collab
+          setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
+        } else {
+          console.error("Error leaving collab:", result.error);
         }
-        
-        setShowConfirm(false);
-      } catch (error) {
-        console.error("Error processing action:", error);
-        setShowConfirm(false);
-      }
-    };
-    
-    // Add function to handle communication deletion
-    const handleDeleteCommunication = async () => {
-      try {
-        // Here you would add your actual deletion logic
-        // For example: await deleteCommunication(deleteCommId);
-        
-        // For now, we'll just update the UI by removing it from state
-        setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
-        
-        // Reset the delete confirmation state
-        setShowDeleteConfirm(false);
-        setDeleteCommId('');
-        
-      } catch (error) {
-        console.error("Error deleting communication:", error);
-        setShowDeleteConfirm(false);
-      }
-    };
-    
-    // Add function to handle content deletion
-    const handleDeleteContent = async () => {
-      try {
-        // Here you would add your actual deletion logic
-        // For example: await deleteContent(deleteContentId);
-        // Using the variable to fix the linting error
-        console.log(`Deleting content with ID: ${deleteContentId}`);
-        
-        // For now, we'll just update the UI
-        setContentSubmission(null);
-        
-        // Reset the delete confirmation state
-        setShowDeleteContentConfirm(false);
-        setDeleteContentId('');
-        
-      } catch (error) {
-        console.error("Error deleting content:", error);
-        setShowDeleteContentConfirm(false);
-      }
-    };
-    
-    // Status badges - now only render for 'submitted' or 'published'
-    const renderStatusBadge = (status: string) => {
-      // If status is 'draft', don't render any badge
-      if (status === 'draft') return null;
-      
-      const statusStyles: Record<string, string> = {
-        submitted: 'bg-blue-100 text-blue-600 border border-blue-200',
-        published: 'bg-green-100 text-green-600 border border-green-200'
-      };
-      
-      return (
-        <span className={`text-xs px-2 py-0.5 rounded-sm ${statusStyles[status] || 'bg-gray-100'}`}>
-          {status}
-        </span>
-      );
-    };
-    
-    // Content type icons
-    const renderContentTypeIcon = (type: string): ReactElement => {
-      const icons: Record<string, ReactElement> = {
-        photo: <Camera size={16} />,
-        art: <Palette size={16} />,
-        poetry: <Pen size={16} />,
-        essay: <BookOpen size={16} />,
-        music: <Music size={16} />
-      };
-      
-      const iconBgColors: Record<string, string> = {
-        photo: 'bg-blue-50 text-blue-500',
-        art: 'bg-indigo-50 text-indigo-500',
-        poetry: 'bg-purple-50 text-purple-500',
-        essay: 'bg-blue-50 text-blue-500',
-        music: 'bg-blue-50 text-blue-500'
-      };
-      
-      return (
-        <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
-          {icons[type] || (
-            // eslint-disable-next-line jsx-a11y/alt-text
-            <Image size={16} />
-          )}
-        </div>
-      );
-    };
-  
-    // Helper to get the collaboration type
-    const getCollabType = (type: string | undefined): string => {
-      if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
-      return type;
-    };
-    
-    // Helper to extract recipient name
-    const getRecipientName = (profiles: CommunicationProfile | CommunicationProfile[] | undefined): string => {
-      if (!profiles) return 'Unknown Recipient';
-      
-      if (Array.isArray(profiles)) {
-        if (profiles.length > 0) {
-          const profile = profiles[0];
-          return `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown';
+      } else if (confirmAction.action === 'withdraw') {
+        // Handle withdraw communication logic
+        const result = await withdrawCommunication(confirmAction.id);
+        if (result.success) {
+          // Update communications state
+          setCommunications(prev => {
+            return prev.map(c => c.id === confirmAction.id 
+              ? { ...c, status: 'draft' } 
+              : c
+            );
+          });
         }
-        return 'Unknown Recipient';
       }
       
-      // Now TypeScript knows profiles is a CommunicationProfile object, not an array
-      return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
+      setShowConfirm(false);
+    } catch (error) {
+      console.error("Error processing action:", error);
+      setShowConfirm(false);
+    }
+  };
+  
+  // Add function to handle communication deletion
+  const handleDeleteCommunication = async () => {
+    try {
+      // Here you would add your actual deletion logic
+      // For example: await deleteCommunication(deleteCommId);
+      
+      // For now, we'll just update the UI by removing it from state
+      setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
+      
+      // Reset the delete confirmation state
+      setShowDeleteConfirm(false);
+      setDeleteCommId('');
+      
+    } catch (error) {
+      console.error("Error deleting communication:", error);
+      setShowDeleteConfirm(false);
+    }
+  };
+  
+  // Add function to handle content deletion
+  const handleDeleteContent = async () => {
+    try {
+      // Here you would add your actual deletion logic
+      // For example: await deleteContent(deleteContentId);
+      // Using the variable to fix the linting error
+      console.log(`Deleting content with ID: ${deleteContentId}`);
+      
+      // For now, we'll just update the UI
+      setContentSubmission(null);
+      
+      // Reset the delete confirmation state
+      setShowDeleteContentConfirm(false);
+      setDeleteContentId('');
+      
+    } catch (error) {
+      console.error("Error deleting content:", error);
+      setShowDeleteContentConfirm(false);
+    }
+  };
+  // Status badges - now only render for 'submitted' or 'published'
+  const renderStatusBadge = (status: string) => {
+    // If status is 'draft', don't render any badge
+    if (status === 'draft') return null;
+    
+    const statusStyles: Record<string, string> = {
+      submitted: 'bg-blue-100 text-blue-600 border border-blue-200',
+      published: 'bg-green-100 text-green-600 border border-green-200'
     };
     
-    // Handle sign out
-    const handleSignOut = async () => {
-      await supabase.auth.signOut();
-      router.push('/');
+    return (
+      <span className={`text-xs px-2 py-0.5 rounded-sm ${statusStyles[status] || 'bg-gray-100'}`}>
+        {status}
+      </span>
+    );
+  };
+  
+  // Content type icons
+  const renderContentTypeIcon = (type: string): ReactElement => {
+    const icons: Record<string, ReactElement> = {
+      photo: <Camera size={16} />,
+      art: <Palette size={16} />,
+      poetry: <Pen size={16} />,
+      essay: <BookOpen size={16} />,
+      music: <Music size={16} />
     };
-    // Fetch data on component mount
+    
+    const iconBgColors: Record<string, string> = {
+      photo: 'bg-blue-50 text-blue-500',
+      art: 'bg-indigo-50 text-indigo-500',
+      poetry: 'bg-purple-50 text-purple-500',
+      essay: 'bg-blue-50 text-blue-500',
+      music: 'bg-blue-50 text-blue-500'
+    };
+    
+    return (
+      <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
+        {icons[type] || (
+          <Image size={16} />
+        )}
+      </div>
+    );
+  };
+
+  // Helper to get the collaboration type
+  const getCollabType = (type: string | undefined): string => {
+    if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
+    return type;
+  };
+  
+  // Helper to extract recipient name
+  const getRecipientName = (profiles: CommunicationProfile | CommunicationProfile[] | undefined): string => {
+    if (!profiles) return 'Unknown Recipient';
+    
+    if (Array.isArray(profiles)) {
+      if (profiles.length > 0) {
+        const profile = profiles[0];
+        return `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown';
+      }
+      return 'Unknown Recipient';
+    }
+    
+    // Now TypeScript knows profiles is a CommunicationProfile object, not an array
+    return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
+  };
+  
+
+  // Fetch data on component mount
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -340,31 +325,31 @@ export default function Dashboard() {
           ];
           
           
-// Format for display
-const formattedCollabs = combined.map((collab) => {
-  // Explicitly assert the type
-  const collabData = collab as unknown as CollabData;
-  
-  // Extract status with type-safe checks
-  let status = 'draft';
-  
-  // Use optional chaining to safely access nested properties
-  if (collabData.status) {
-    status = collabData.status;
-  } else if (collabData.metadata?.status) {
-    status = collabData.metadata.status;
-  }
-  
-  return {
-    id: collabData.id,
-    title: collabData.title,
-    mode: collabData.participation_mode || (collabData.is_private ? 'private' : 'community'),
-    location: collabData.location,
-    participants: collabData.participantCount || 0,
-    type: getCollabType(collabData.type),
-    status: status
-  };
-});
+          // Format for display
+          const formattedCollabs = combined.map((collab) => {
+            // Explicitly assert the type
+            const collabData = collab as unknown as CollabData;
+            
+            // Extract status with type-safe checks
+            let status = 'draft';
+            
+            // Use optional chaining to safely access nested properties
+            if (collabData.status) {
+              status = collabData.status;
+            } else if (collabData.metadata?.status) {
+              status = collabData.metadata.status as string;
+            }
+            
+            return {
+              id: collabData.id,
+              title: collabData.title,
+              mode: collabData.participation_mode || (collabData.is_private ? 'private' : 'community'),
+              location: collabData.location,
+              participants: collabData.participantCount || 0,
+              type: getCollabType(collabData.type),
+              status: status
+            };
+          });
           
           setActiveCollabs(formattedCollabs);
         }
@@ -405,6 +390,20 @@ const formattedCollabs = combined.map((collab) => {
           { id: '1', type: 'content', user: 'Recent Curator', action: 'viewed your content', time: '2 hours ago' },
           { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' }
         ]);
+
+        // Fetch avatar
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .single();
+            
+          if (profileData?.avatar_url) {
+            setAvatarUrl(profileData.avatar_url);
+          }
+        }
         
         setIsLoading(false);
       } catch (error) {
@@ -415,7 +414,6 @@ const formattedCollabs = combined.map((collab) => {
     
     loadData();
   }, []);
-
   // Confirmation dialog component
   const ConfirmationDialog = () => {
     if (!showConfirm) return null;
@@ -540,44 +538,21 @@ const formattedCollabs = combined.map((collab) => {
     <div className="min-h-screen bg-white">
       {/* Header with text-based logo */}
       <header className="px-5 py-5 flex items-center justify-between bg-white border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <button className="w-8 h-8 flex items-center justify-center text-gray-400 group" aria-label="Settings menu">
-            <Settings size={20} className="group-hover:text-blue-500 transition-colors" />
-          </button>
-          <div className="h-6 flex items-center">
-            {/* Text-based logo - keeping the orange/yellow */}
-            <span className="text-lg font-normal">
-              <span className="text-[#F05A28]">online</span>
-              <span className="text-[#F5A93F]">{'//offline'}</span>
-            </span>
-          </div>
+        <div className="h-6 flex items-center">
+          {/* Text-based logo - keeping the orange/yellow */}
+          <span className="text-lg font-normal">
+            <span className="text-[#F05A28]">online</span>
+            <span className="text-[#F5A93F]">{'//offline'}</span>
+          </span>
         </div>
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center cursor-pointer group relative">
-            <User size={16} className="text-gray-600 group-hover:text-blue-500 transition-colors" />
-            
-            {/* Dropdown menu */}
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 top-full">
-              <Link
-                href="/profile"
-                className="block px-4 py-2 text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-              >
-                <User size={16} />
-                Profile
-              </Link>
-              <button
-                onClick={handleSignOut}
-                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 flex items-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-                Sign Out
-              </button>
-            </div>
-          </div>
+          <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <User size={16} className="text-gray-600" />
+            )}
+          </Link>
         </div>
       </header>
       
@@ -598,7 +573,6 @@ const formattedCollabs = combined.map((collab) => {
           </div>
         </div>
       </div>
-      
       {/* Tab Navigation */}
       <div className="border-b border-gray-100">
         <div className="flex px-6">
@@ -669,7 +643,6 @@ const formattedCollabs = combined.map((collab) => {
                 </Link>
               </div>
             </div>
-            
             {/* Content Submission - Single Card */}
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -714,24 +687,25 @@ const formattedCollabs = combined.map((collab) => {
             ) : (
               <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
                 <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <div className="w-5 h-5 bg-gray-400 rounded-sm"></div>
+                    <Camera size={24} className="text-gray-400" />
                 </div>
                 <p className="text-sm text-gray-500 mb-3">No content submission for current period</p>
                 <Link href="/submit" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                  Create Submission
+                  Provide Content
                 </Link>
               </div>
             )}
           </div>
-          
           {/* Active Collaborations */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-normal text-gray-400">Collaborations</h2>
-              <Link href="/collabs" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                <PlusCircle size={12} className="mr-0.5" />
-                New Collaboration
-              </Link>
+              {activeCollabs.length > 0 && (
+                <Link href="/collabs" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
+                  <PlusCircle size={12} className="mr-0.5" />
+                  New Collaboration
+                </Link>
+              )}
             </div>
             
             <div className="space-y-2">
@@ -789,7 +763,7 @@ const formattedCollabs = combined.map((collab) => {
               {activeCollabs.length === 0 && (
                 <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
                  <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <div className="w-5 h-5 bg-gray-400 rounded-sm"></div>
+                    <UsersRound size={24} className="text-gray-400" />
                 </div>
                   <p className="text-sm text-gray-500 mb-3">No active collaborations</p>
                   <Link href="/collabs" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
@@ -803,10 +777,12 @@ const formattedCollabs = combined.map((collab) => {
           <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-normal text-gray-400">Communications</h2>
-                <Link href="/communicate/new" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                  <PlusCircle size={12} className="mr-0.5" />
-                  New Communication
-                </Link>
+                {communications.length > 0 && (
+                  <Link href="/communicate/new" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
+                    <PlusCircle size={12} className="mr-0.5" />
+                    New Communication
+                  </Link>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -877,11 +853,11 @@ const formattedCollabs = combined.map((collab) => {
                 {communications.length === 0 && (
                   <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
                     <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <MessageCircle size={20} className="text-gray-400" aria-hidden="true" />
+                      <MessageCircle size={24} className="text-gray-400" aria-hidden="true" />
                     </div>
                     <p className="text-sm text-gray-500 mb-3">No communications yet</p>
                     <Link href="/communicate/new" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                      Create Communication
+                      Issue Communication
                     </Link>
                   </div>
                 )}
@@ -939,7 +915,6 @@ const formattedCollabs = combined.map((collab) => {
           </div>
         )}
       </div>
-
       {/* Confirmation Dialogs */}
       <ConfirmationDialog />
       <DeleteConfirmationDialog />
@@ -947,6 +922,7 @@ const formattedCollabs = combined.map((collab) => {
     </div>
   );
 }
+
 // Countdown timer component
 const CountdownTimer = ({ endDate }: { endDate: string }) => {
     const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number }>({ days: 0, hours: 0 });
@@ -977,3 +953,4 @@ const CountdownTimer = ({ endDate }: { endDate: string }) => {
       <span>{timeLeft.days}d {timeLeft.hours}h remaining</span>
     );
   };
+
