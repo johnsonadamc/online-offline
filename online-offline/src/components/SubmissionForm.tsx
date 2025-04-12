@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { uploadMedia } from '@/lib/supabase/storage';
 import { 
@@ -12,7 +12,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Image from 'next/image';
 
 interface Entry {
-  id: number;
+  id: string | number; // Allow both string and number IDs
   title: string;
   caption: string;
   selectedTags: string[];
@@ -20,6 +20,7 @@ interface Entry {
   isFeature: boolean;
   isFullSpread: boolean;
   isUploading?: boolean;
+  fileType?: string | null;
 }
 
 interface ContentTag {
@@ -28,7 +29,7 @@ interface ContentTag {
 }
 
 interface ContentEntry {
-  id: number;
+  id: string | number; // Allow both string and number IDs
   title: string;
   caption: string;
   media_url: string | null;
@@ -36,6 +37,11 @@ interface ContentEntry {
   is_full_spread: boolean;
   content_tags: ContentTag[];
 }
+
+// Helper function to generate a unique ID (a simple implementation)
+const generateUniqueId = (): string => {
+  return `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
 
 export default function SubmissionForm() {
   const supabase = createClientComponentClient();
@@ -52,7 +58,7 @@ export default function SubmissionForm() {
     season: ''
   });
   const [entries, setEntries] = useState<Entry[]>([{
-    id: 1,
+    id: generateUniqueId(), // Use our generator for initial entry
     title: '',
     caption: '',
     selectedTags: [],
@@ -78,6 +84,27 @@ export default function SubmissionForm() {
     'Architecture', 'Fashion', 'Technology', 'Literature', 'Dance', 'Film',
     'Street Life', 'Wildlife', 'Abstract', 'Portrait', 'Landscape', 'Urban'
   ];
+
+  // Cleanup blob URLs when component unmounts or entries change
+  useEffect(() => {
+    // Keep track of blob URLs to clean up
+    const blobUrls: string[] = [];
+    
+    entries.forEach(entry => {
+      if (entry.imageUrl && entry.imageUrl.startsWith('blob:')) {
+        blobUrls.push(entry.imageUrl);
+      }
+    });
+    
+    // Clean up function to revoke object URLs
+    return () => {
+      blobUrls.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, [entries]);
 
   // Load draft from database (maintaining original functionality)
   useEffect(() => {
@@ -115,14 +142,16 @@ export default function SubmissionForm() {
           
           // Map database entries to our state format
           if (data.content_entries && data.content_entries.length > 0) {
+            // Keep the original ID from the database
             setEntries(data.content_entries.map((entry: ContentEntry) => ({
-              id: entry.id,
+              id: entry.id, // Keep original ID, whether string or number
               title: entry.title || '',
               caption: entry.caption || '',
               selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
               imageUrl: entry.media_url,
               isFeature: entry.is_feature || false,
-              isFullSpread: entry.is_full_spread || false
+              isFullSpread: entry.is_full_spread || false,
+              fileType: 'stored' // Mark as stored URL (not blob)
             })));
             
             // Set current slide to the first entry
@@ -178,40 +207,92 @@ export default function SubmissionForm() {
     return () => clearInterval(timer);
   }, []);
 
-  // Image upload functionality (maintaining original functionality)
-  const handleImageChange = async (entryId: number, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image upload functionality - improved with better state management
+  const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     try {
+      // Create a blob URL for immediate preview
       const previewUrl = URL.createObjectURL(file);
-      setEntries(entries.map(entry => 
-        entry.id === entryId ? { ...entry, imageUrl: previewUrl, isUploading: true } : entry
+      
+      // Update the entry with the preview URL and mark as uploading
+      setEntries(prevEntries => prevEntries.map(entry => 
+        entry.id === entryId 
+          ? { ...entry, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } 
+          : entry
       ));
 
+      // Upload the file
       const { url } = await uploadMedia(file);
 
-      setEntries(entries.map(entry => 
-        entry.id === entryId ? { 
-          ...entry, 
-          imageUrl: url, 
-          isUploading: false 
-        } : entry
+      // Update the entry with the final URL and mark as not uploading
+      setEntries(prevEntries => prevEntries.map(entry => 
+        entry.id === entryId 
+          ? { ...entry, imageUrl: url, isUploading: false, fileType: 'stored' } 
+          : entry
       ));
+      
+      // Revoke the blob URL since we no longer need it
+      if (previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(previewUrl);
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Error uploading image. Please try again.');
-      setEntries(entries.map(entry => 
-        entry.id === entryId ? { ...entry, imageUrl: null, isUploading: false } : entry
+      
+      // Reset the entry to no image and not uploading
+      setEntries(prevEntries => prevEntries.map(entry => 
+        entry.id === entryId 
+          ? { ...entry, imageUrl: null, isUploading: false, fileType: null } 
+          : entry
       ));
     }
   };
 
-  // Image removal functionality
-  const handleRemoveImage = (entryId: number) => {
-    setEntries(entries.map(entry => 
-      entry.id === entryId ? { ...entry, imageUrl: null } : entry
-    ));
+  // Image removal functionality - now completely removes the entry
+  const handleRemoveImage = (entryId: string | number) => {
+    setEntries(prevEntries => {
+      // First, find the index of the entry to be removed
+      const entryIndex = prevEntries.findIndex(entry => entry.id === entryId);
+      
+      // If entry not found, return unchanged
+      if (entryIndex === -1) return prevEntries;
+      
+      // Get the entry to clean up any blob URLs
+      const entryToRemove = prevEntries[entryIndex];
+      
+      // If it's a blob URL, revoke it to prevent memory leaks
+      if (entryToRemove.imageUrl && entryToRemove.fileType === 'blob' && 
+          entryToRemove.imageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(entryToRemove.imageUrl);
+      }
+      
+      // Create a new array without the removed entry (actually removing it)
+      const filteredEntries = prevEntries.filter(entry => entry.id !== entryId);
+      
+      // If this would leave us with no entries, add one empty entry
+      if (filteredEntries.length === 0) {
+        filteredEntries.push({
+          id: generateUniqueId(),
+          title: '',
+          caption: '',
+          selectedTags: [],
+          imageUrl: null,
+          isFeature: false,
+          isFullSpread: false
+        });
+      }
+      
+      // If we removed the current slide, adjust the current slide index
+      if (entryIndex <= currentSlide && currentSlide > 0) {
+        // We need to set this outside the state update function for immediate effect
+        setTimeout(() => setCurrentSlide(current => Math.max(0, current - 1)), 0);
+      }
+      
+      // Return the filtered array
+      return filteredEntries;
+    });
   };
 
   // Save draft functionality, now including pageTitle
@@ -267,27 +348,32 @@ export default function SubmissionForm() {
     }
   };
 
-  // Add a new entry
-  const handleAddEntry = () => {
+  // Add a new entry with a unique ID
+  const handleAddEntry = useCallback(() => {
     if (entries.length >= MAX_ENTRIES) {
       alert(`You can only have up to ${MAX_ENTRIES} images per submission.`);
       return;
     }
     
-    const newId = Math.max(...entries.map(e => e.id)) + 1;
-    setEntries([...entries, {
-      id: newId,
-      title: '',
-      caption: '',
-      selectedTags: [],
-      imageUrl: null,
-      isFeature: false,
-      isFullSpread: false
-    }]);
+    // Generate a new unique ID using our helper function
+    const newId = generateUniqueId();
+    
+    setEntries(prevEntries => [
+      ...prevEntries,
+      {
+        id: newId,
+        title: '',
+        caption: '',
+        selectedTags: [],
+        imageUrl: null,
+        isFeature: false,
+        isFullSpread: false
+      }
+    ]);
     
     // Automatically navigate to the new entry
     setCurrentSlide(entries.length);
-  };
+  }, [entries, MAX_ENTRIES]);
 
   return (
     <div className="max-w-md mx-auto min-h-screen flex flex-col bg-white text-gray-900 md:border-x md:border-gray-200 md:min-h-0">
@@ -397,15 +483,24 @@ export default function SubmissionForm() {
             {entries.length > 0 && entries[0]?.imageUrl ? (
               <div className="relative w-full h-full flex items-center justify-center">
                 <div className="relative max-w-full max-h-full">
-                  <Image
-                    src={entries[0].imageUrl}
-                    alt={entries[0].title || "Full page spread"}
-                    width={400}
-                    height={400}
-                    className="object-contain rounded-lg shadow-md"
-                    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                    unoptimized={entries[0].imageUrl.startsWith('blob:')}
-                  />
+                  {/* Handle Image display based on URL type */}
+                  {entries[0].imageUrl.startsWith('blob:') ? (
+                    <img
+                      src={entries[0].imageUrl}
+                      alt={entries[0].title || "Full page spread"}
+                      className="object-contain rounded-lg shadow-md max-w-full max-h-full"
+                    />
+                  ) : (
+                    <Image
+                      src={entries[0].imageUrl}
+                      alt={entries[0].title || "Full page spread"}
+                      width={400}
+                      height={400}
+                      className="object-contain rounded-lg shadow-md"
+                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                      unoptimized={entries[0].fileType === 'blob'}
+                    />
+                  )}
                 </div>
                 
                 {/* Remove button */}
@@ -456,7 +551,7 @@ export default function SubmissionForm() {
               <input
                 value={entries[0]?.title || ''}
                 onChange={(e) => {
-                  setEntries(entries.map((entry, i) => 
+                  setEntries(prevEntries => prevEntries.map((entry, i) => 
                     i === 0 ? { ...entry, title: e.target.value } : entry
                   ));
                 }}
@@ -468,7 +563,7 @@ export default function SubmissionForm() {
               <textarea
                 value={entries[0]?.caption || ''}
                 onChange={(e) => {
-                  setEntries(entries.map((entry, i) => 
+                  setEntries(prevEntries => prevEntries.map((entry, i) => 
                     i === 0 ? { ...entry, caption: e.target.value } : entry
                   ));
                 }}
@@ -522,7 +617,7 @@ export default function SubmissionForm() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEntries(entries.map((entry, i) => {
+                                setEntries(prevEntries => prevEntries.map((entry, i) => {
                                   if (i !== 0) return entry;
                                   return { 
                                     ...entry, 
@@ -557,7 +652,7 @@ export default function SubmissionForm() {
                                 : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
                             }`}
                             onClick={() => {
-                              setEntries(entries.map((entry, i) => {
+                              setEntries(prevEntries => prevEntries.map((entry, i) => {
                                 if (i !== 0) return entry;
                                 
                                 const selectedTags = entry.selectedTags.includes(tag)
@@ -588,7 +683,7 @@ export default function SubmissionForm() {
             <div className="h-12 px-4 bg-transparent flex items-center">
               {entries.map((entry, index) => (
                 <button
-                  key={entry.id}
+                  key={`tab-${entry.id}`} // This will now be unique regardless of ID type
                   onClick={() => setCurrentSlide(index)}
                   className={`px-4 py-2 mr-1 flex items-center ${
                     currentSlide === index 
@@ -598,16 +693,26 @@ export default function SubmissionForm() {
                 >
                   {entry.imageUrl ? (
                     <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                      <div className="absolute inset-0">
-                        <Image 
-                          src={entry.imageUrl} 
-                          alt={`Thumbnail ${index + 1}`}
-                          width={24}
-                          height={24}
-                          className="w-full h-full object-cover"
-                          unoptimized={entry.imageUrl.startsWith('blob:')}
-                        />
-                      </div>
+                      {entry.imageUrl.startsWith('blob:') ? (
+                        <div className="w-full h-full bg-gray-200">
+                          <img 
+                            src={entry.imageUrl} 
+                            alt={`Thumbnail ${index + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0">
+                          <Image 
+                            src={entry.imageUrl} 
+                            alt={`Thumbnail ${index + 1}`}
+                            width={24}
+                            height={24}
+                            className="w-full h-full object-cover"
+                            unoptimized={entry.fileType === 'blob'}
+                          />
+                        </div>
+                      )}
                       {entry.isFeature && (
                         <div className="absolute inset-0 bg-amber-500/20 border border-amber-500 rounded-full"></div>
                       )}
@@ -639,7 +744,7 @@ export default function SubmissionForm() {
           {/* Main Image Viewer */}
           {entries.map((entry, index) => (
             <div 
-              key={entry.id} 
+              key={`slide-${entry.id}`} // This will now be unique regardless of ID type
               className={`flex-1 flex flex-col ${currentSlide === index ? 'block' : 'hidden'}`}
             >
               {/* Image Area */}
@@ -648,15 +753,24 @@ export default function SubmissionForm() {
                   {entry.imageUrl ? (
                     <div className="relative w-full h-full flex items-center justify-center">
                       <div className="relative max-w-full max-h-full">
-                        <Image
-                          src={entry.imageUrl}
-                          alt={entry.title || `Image ${index + 1}`}
-                          width={400}
-                          height={400}
-                          className="object-contain rounded-lg shadow-md"
-                          style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                          unoptimized={entry.imageUrl.startsWith('blob:')}
-                        />
+                        {/* Handle both blob URLs and stored URLs */}
+                        {entry.imageUrl.startsWith('blob:') ? (
+                          <img
+                            src={entry.imageUrl}
+                            alt={entry.title || `Image ${index + 1}`}
+                            className="object-contain rounded-lg shadow-md max-w-full max-h-full"
+                          />
+                        ) : (
+                          <Image
+                            src={entry.imageUrl}
+                            alt={entry.title || `Image ${index + 1}`}
+                            width={400}
+                            height={400}
+                            className="object-contain rounded-lg shadow-md"
+                            style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+                            unoptimized={entry.fileType === 'blob'}
+                          />
+                        )}
                       </div>
                       
                       {/* Remove button */}
@@ -729,9 +843,9 @@ export default function SubmissionForm() {
                 {entries.length > 1 && (
                   <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2">
                     <div className="py-1 px-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center gap-2">
-                      {entries.map((_, idx) => (
+                      {entries.map((entry, idx) => (
                         <button
-                          key={idx}
+                          key={`indicator-${entry.id}`} // This will now be unique regardless of ID type
                           onClick={() => setCurrentSlide(idx)}
                           className={`w-2.5 h-2.5 rounded-full ${
                             idx === currentSlide ? 'bg-blue-600' : 'bg-gray-300'
@@ -762,7 +876,7 @@ export default function SubmissionForm() {
                   <input
                     value={entry.title}
                     onChange={(e) => {
-                      setEntries(entries.map((ent, i) => 
+                      setEntries(prevEntries => prevEntries.map((ent, i) => 
                         i === index ? { ...ent, title: e.target.value } : ent
                       ));
                     }}
@@ -774,7 +888,7 @@ export default function SubmissionForm() {
                   <textarea
                     value={entry.caption}
                     onChange={(e) => {
-                      setEntries(entries.map((ent, i) => 
+                      setEntries(prevEntries => prevEntries.map((ent, i) => 
                         i === index ? { ...ent, caption: e.target.value } : ent
                       ));
                     }}
@@ -828,7 +942,7 @@ export default function SubmissionForm() {
                               ? 'bg-amber-100 text-amber-700 border border-amber-200' 
                               : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
                           }`}
-                          onClick={() => setEntries(entries.map((e, i) => 
+                          onClick={() => setEntries(prevEntries => prevEntries.map((e, i) => 
                             i === index ? { ...e, isFeature: !e.isFeature } : 
                             i !== index && e.isFeature && !entry.isFeature ? { ...e, isFeature: false } : e
                           ))}
@@ -845,7 +959,7 @@ export default function SubmissionForm() {
                               ? 'bg-purple-100 text-purple-700 border border-purple-200' 
                               : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
                           }`}
-                          onClick={() => setEntries(entries.map((e, i) => 
+                          onClick={() => setEntries(prevEntries => prevEntries.map((e, i) => 
                             i === index ? { ...e, isFullSpread: !e.isFullSpread } : e
                           ))}
                           disabled={!entry.isFeature}
@@ -909,7 +1023,7 @@ export default function SubmissionForm() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setEntries(entries.map((ent, i) => {
+                                    setEntries(prevEntries => prevEntries.map((ent, i) => {
                                       if (i !== index) return ent;
                                       return { 
                                         ...ent, 
@@ -944,7 +1058,7 @@ export default function SubmissionForm() {
                                     : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
                                 }`}
                                 onClick={() => {
-                                  setEntries(entries.map((ent, i) => {
+                                  setEntries(prevEntries => prevEntries.map((ent, i) => {
                                     if (i !== index) return ent;
                                     const selectedTags = ent.selectedTags.includes(tag)
                                       ? ent.selectedTags.filter(t => t !== tag)
