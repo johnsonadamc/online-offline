@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -564,12 +565,18 @@ function CollabSubmissionContent() {
   <div className="h-full flex-1 flex items-center justify-center p-4">
     {/* Image display */}
     {(previewUrl || submission.media_url) ? (
-      <div className="relative w-full h-full flex items-center justify-center">
-        <img
-          src={previewUrl || submission.media_url || ''}
-          alt={submission.title || "Submission preview"}
-          className="max-w-full max-h-full rounded-lg shadow-md object-contain"
-        />
+  <div className="relative w-full h-full flex items-center justify-center">
+    <div className="relative max-w-full max-h-full">
+      <Image
+        src={previewUrl || submission.media_url || ''}
+        alt={submission.title || "Submission preview"}
+        width={500}
+        height={500}
+        className="rounded-lg shadow-md object-contain"
+        style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
+        unoptimized={previewUrl?.startsWith('blob:') || false}
+      />
+    </div>
         
         {/* Fullscreen toggle button */}
         <button

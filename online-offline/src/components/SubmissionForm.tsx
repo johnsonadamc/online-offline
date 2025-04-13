@@ -17,6 +17,7 @@ interface Entry {
   caption: string;
   selectedTags: string[];
   imageUrl: string | null;
+  permanentUrl?: string | null; // Add this to store the permanent URL
   isFeature: boolean;
   isFullSpread: boolean;
   isUploading?: boolean;
@@ -207,48 +208,56 @@ export default function SubmissionForm() {
     return () => clearInterval(timer);
   }, []);
 
-  // Image upload functionality - improved with better state management
-  const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+ // Image upload functionality with smoother transition
+const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
 
-    try {
-      // Create a blob URL for immediate preview
-      const previewUrl = URL.createObjectURL(file);
-      
-      // Update the entry with the preview URL and mark as uploading
-      setEntries(prevEntries => prevEntries.map(entry => 
-        entry.id === entryId 
-          ? { ...entry, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } 
-          : entry
-      ));
+  try {
+    // Create a blob URL for immediate preview
+    const previewUrl = URL.createObjectURL(file);
+    
+    // Update the entry with the preview URL and mark as uploading
+    setEntries(prevEntries => prevEntries.map(entry => 
+      entry.id === entryId 
+        ? { ...entry, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } 
+        : entry
+    ));
 
-      // Upload the file
-      const { url } = await uploadMedia(file);
+    // Upload the file in the background
+    const { url } = await uploadMedia(file);
 
-      // Update the entry with the final URL and mark as not uploading
-      setEntries(prevEntries => prevEntries.map(entry => 
-        entry.id === entryId 
-          ? { ...entry, imageUrl: url, isUploading: false, fileType: 'stored' } 
-          : entry
-      ));
-      
-      // Revoke the blob URL since we no longer need it
-      if (previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
+    // Only update the fileType but keep using the blob URL for display
+    // This prevents the visual refresh but maintains the proper URL for saving
+    setEntries(prevEntries => prevEntries.map(entry => {
+      if (entry.id === entryId) {
+        return { 
+          ...entry, 
+          // Keep using the blob URL for display
+          imageUrl: previewUrl,
+          // Store the permanent URL in a new property
+          permanentUrl: url,
+          isUploading: false, 
+          // Mark it as stored even though we're still showing the blob
+          fileType: 'stored' 
+        };
       }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Error uploading image. Please try again.');
-      
-      // Reset the entry to no image and not uploading
-      setEntries(prevEntries => prevEntries.map(entry => 
-        entry.id === entryId 
-          ? { ...entry, imageUrl: null, isUploading: false, fileType: null } 
-          : entry
-      ));
-    }
-  };
+      return entry;
+    }));
+    
+    // We'll clean up the blob URL when the component unmounts or when removing the image
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    alert('Error uploading image. Please try again.');
+    
+    // Reset the entry to no image and not uploading
+    setEntries(prevEntries => prevEntries.map(entry => 
+      entry.id === entryId 
+        ? { ...entry, imageUrl: null, permanentUrl: null, isUploading: false, fileType: null } 
+        : entry
+    ));
+  }
+};
 
   // Image removal functionality - now completely removes the entry
   const handleRemoveImage = (entryId: string | number) => {
@@ -295,28 +304,35 @@ export default function SubmissionForm() {
     });
   };
 
-  // Save draft functionality, now including pageTitle
-  const handleSaveDraft = async () => {
-    console.log('Saving draft with ID, status, and page title:', draftId, status, pageTitle);
-    setSaveStatus('saving');
+// Save draft functionality - modified to use permanentUrl if available
+const handleSaveDraft = async () => {
+  console.log('Saving draft with ID, status, and page title:', draftId, status, pageTitle);
+  setSaveStatus('saving');
+  
+  try {
+    // Prepare entries for saving - use permanentUrl if available
+    const entriesToSave = entries.map(entry => ({
+      ...entry,
+      // Use permanentUrl for saving if available, otherwise use imageUrl
+      imageUrl: entry.permanentUrl || entry.imageUrl
+    }));
     
-    try {
-      // Modified to include page_title in save parameters
-      const result = await saveContent(submissionType, status, entries, draftId || undefined, pageTitle);
-      
-      if (result.success) {
-        setSaveStatus('saved');
-        setTimeout(() => setSaveStatus(''), 2000);
-      } else {
-        setSaveStatus('error');
-        alert('Error saving draft: ' + (result.error || 'Unknown error'));
-      }
-    } catch (saveError) {
-      console.error('Unexpected error saving draft:', saveError);
+    // Modified to include page_title in save parameters
+    const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle);
+    
+    if (result.success) {
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } else {
       setSaveStatus('error');
-      alert('Error saving draft');
+      alert('Error saving draft: ' + (result.error || 'Unknown error'));
     }
-  };
+  } catch (saveError) {
+    console.error('Unexpected error saving draft:', saveError);
+    setSaveStatus('error');
+    alert('Error saving draft');
+  }
+};
 
   // Submit functionality, now including pageTitle
   const handleSubmit = async () => {
@@ -485,22 +501,26 @@ export default function SubmissionForm() {
                 <div className="relative max-w-full max-h-full">
                   {/* Handle Image display based on URL type */}
                   {entries[0].imageUrl.startsWith('blob:') ? (
-                    <img
-                      src={entries[0].imageUrl}
-                      alt={entries[0].title || "Full page spread"}
-                      className="object-contain rounded-lg shadow-md max-w-full max-h-full"
-                    />
-                  ) : (
-                    <Image
-                      src={entries[0].imageUrl}
-                      alt={entries[0].title || "Full page spread"}
-                      width={400}
-                      height={400}
-                      className="object-contain rounded-lg shadow-md"
-                      style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                      unoptimized={entries[0].fileType === 'blob'}
-                    />
-                  )}
+  <div className="relative w-full h-full max-w-full max-h-full">
+    <Image 
+      src={entries[0].imageUrl}
+      alt={entries[0].title || "Full page spread"}
+      fill
+      className="object-contain rounded-lg shadow-md"
+      unoptimized={true} // Must use unoptimized for blob URLs
+    />
+  </div>
+) : (
+  <Image
+    src={entries[0].imageUrl}
+    alt={entries[0].title || "Full page spread"}
+    width={400}
+    height={400}
+    className="object-contain rounded-lg shadow-md"
+    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+    unoptimized={entries[0].fileType === 'blob'}
+  />
+)}
                 </div>
                 
                 {/* Remove button */}
@@ -694,25 +714,27 @@ export default function SubmissionForm() {
                   {entry.imageUrl ? (
                     <div className="relative w-6 h-6 rounded-full overflow-hidden">
                       {entry.imageUrl.startsWith('blob:') ? (
-                        <div className="w-full h-full bg-gray-200">
-                          <img 
-                            src={entry.imageUrl} 
-                            alt={`Thumbnail ${index + 1}`}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className="absolute inset-0">
-                          <Image 
-                            src={entry.imageUrl} 
-                            alt={`Thumbnail ${index + 1}`}
-                            width={24}
-                            height={24}
-                            className="w-full h-full object-cover"
-                            unoptimized={entry.fileType === 'blob'}
-                          />
-                        </div>
-                      )}
+  <div className="w-full h-full bg-gray-200 relative">
+    <Image 
+      src={entry.imageUrl} 
+      alt={`Thumbnail ${index + 1}`}
+      fill
+      className="object-cover"
+      unoptimized={true} // Must use unoptimized for blob URLs
+    />
+  </div>
+) : (
+  <div className="absolute inset-0">
+    <Image 
+      src={entry.imageUrl} 
+      alt={`Thumbnail ${index + 1}`}
+      width={24}
+      height={24}
+      className="w-full h-full object-cover"
+      unoptimized={entry.fileType === 'blob'}
+    />
+  </div>
+)}
                       {entry.isFeature && (
                         <div className="absolute inset-0 bg-amber-500/20 border border-amber-500 rounded-full"></div>
                       )}
@@ -755,22 +777,26 @@ export default function SubmissionForm() {
                       <div className="relative max-w-full max-h-full">
                         {/* Handle both blob URLs and stored URLs */}
                         {entry.imageUrl.startsWith('blob:') ? (
-                          <img
-                            src={entry.imageUrl}
-                            alt={entry.title || `Image ${index + 1}`}
-                            className="object-contain rounded-lg shadow-md max-w-full max-h-full"
-                          />
-                        ) : (
-                          <Image
-                            src={entry.imageUrl}
-                            alt={entry.title || `Image ${index + 1}`}
-                            width={400}
-                            height={400}
-                            className="object-contain rounded-lg shadow-md"
-                            style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-                            unoptimized={entry.fileType === 'blob'}
-                          />
-                        )}
+  <div className="relative w-full h-full max-w-full max-h-full">
+    <Image
+      src={entry.imageUrl}
+      alt={entry.title || `Image ${index + 1}`}
+      fill
+      className="object-contain rounded-lg shadow-md"
+      unoptimized={true} // Must use unoptimized for blob URLs
+    />
+  </div>
+) : (
+  <Image
+    src={entry.imageUrl}
+    alt={entry.title || `Image ${index + 1}`}
+    width={400}
+    height={400}
+    className="object-contain rounded-lg shadow-md"
+    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
+    unoptimized={entry.fileType === 'blob'}
+  />
+)}
                       </div>
                       
                       {/* Remove button */}

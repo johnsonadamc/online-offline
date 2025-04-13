@@ -4,12 +4,14 @@ import React, { useState, useEffect, ReactElement } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+// Import NextImage with a clear alias
+import NextImage from 'next/image';
 
 // Import all needed functions from your existing codebase
 import { 
   fetchCurrentPeriodDraft, 
   getCurrentPeriod,
-  deleteContent // Added import for content deletion
+  deleteContent
 } from '@/lib/supabase/content';
 import { 
   getUserCollabs, 
@@ -19,12 +21,13 @@ import {
   getDraftCommunications, 
   getSubmittedCommunications, 
   withdrawCommunication,
-  deleteDraftCommunication // Added import for communication deletion
+  deleteDraftCommunication
 } from '@/lib/supabase/communications';
 
+// Rename the Image import to ImageIcon
 import { 
   Camera, BookOpen, UsersRound, MessageCircle, Clock, 
-  Image, ChevronRight, Palette, Pen, Music, 
+  Image as ImageIcon, ChevronRight, Palette, Pen, Music, 
   User, CalendarDays, X, PlusCircle, RotateCcw, 
   MapPin, Globe, Lock, Check, Edit
 } from 'lucide-react';
@@ -275,7 +278,7 @@ export default function Dashboard() {
     return (
       <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
         {icons[type] || (
-          <Image size={16} />
+          <ImageIcon size={16} />
         )}
       </div>
     );
@@ -443,7 +446,7 @@ export default function Dashboard() {
     };
     
     loadData();
-  }, []);
+  }, [supabase]);
   // Confirmation dialog component
   const ConfirmationDialog = () => {
     if (!showConfirm) return null;
@@ -592,13 +595,20 @@ export default function Dashboard() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
-            ) : (
-              <User size={16} className="text-gray-600" />
-            )}
-          </Link>
+        <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
+  {avatarUrl ? (
+    <div className="relative w-full h-full">
+      <NextImage 
+        src={avatarUrl} 
+        alt="Profile avatar" 
+        fill
+        className="object-cover"
+      />
+    </div>
+  ) : (
+    <User size={16} className="text-gray-600" />
+  )}
+</Link>
         </div>
       </header>
       
