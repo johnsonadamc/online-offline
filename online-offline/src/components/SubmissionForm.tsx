@@ -209,7 +209,7 @@ export default function SubmissionForm() {
   }, []);
 
  // Image upload functionality with smoother transition
-const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
+ const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
   if (!file) return;
 
@@ -217,35 +217,44 @@ const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<
     // Create a blob URL for immediate preview
     const previewUrl = URL.createObjectURL(file);
     
-    // Update the entry with the preview URL and mark as uploading
-    setEntries(prevEntries => prevEntries.map(entry => 
+    // Force a different state update approach to ensure re-rendering
+    const updatedEntries = entries.map(entry => 
       entry.id === entryId 
-        ? { ...entry, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } 
+        ? { 
+            ...entry, 
+            imageUrl: previewUrl, 
+            isUploading: true, 
+            fileType: 'blob' 
+          } 
         : entry
-    ));
+    );
+    
+    // Set state with the new array
+    setEntries(updatedEntries);
+    
+    // Force the current slide to be visible
+    const entryIndex = updatedEntries.findIndex(entry => entry.id === entryId);
+    if (entryIndex !== -1) {
+      setCurrentSlide(entryIndex);
+    }
 
-    // Upload the file in the background
+    // Upload the file
     const { url } = await uploadMedia(file);
 
-    // Only update the fileType but keep using the blob URL for display
-    // This prevents the visual refresh but maintains the proper URL for saving
-    setEntries(prevEntries => prevEntries.map(entry => {
-      if (entry.id === entryId) {
-        return { 
-          ...entry, 
-          // Keep using the blob URL for display
-          imageUrl: previewUrl,
-          // Store the permanent URL in a new property
-          permanentUrl: url,
-          isUploading: false, 
-          // Mark it as stored even though we're still showing the blob
-          fileType: 'stored' 
-        };
-      }
-      return entry;
-    }));
-    
-    // We'll clean up the blob URL when the component unmounts or when removing the image
+    // Update with permanent URL
+    setEntries(prevEntries => {
+      const newEntries = prevEntries.map(entry => {
+        if (entry.id === entryId) {
+          return { 
+            ...entry, 
+            permanentUrl: url,
+            isUploading: false,
+          };
+        }
+        return entry;
+      });
+      return [...newEntries]; // Return a new array to ensure re-render
+    });
   } catch (error) {
     console.error('Error uploading image:', error);
     alert('Error uploading image. Please try again.');
@@ -337,8 +346,15 @@ const handleSaveDraft = async () => {
   // Submit functionality, now including pageTitle
   const handleSubmit = async () => {
     try {
+      // Prepare entries for saving - use permanentUrl if available
+      const entriesToSave = entries.map(entry => ({
+        ...entry,
+        // Use permanentUrl for saving if available, otherwise use imageUrl
+        imageUrl: entry.permanentUrl || entry.imageUrl
+      }));
+      
       // Modified to include page_title in save parameters
-      const result = await saveContent(submissionType, 'submitted', entries, draftId || undefined, pageTitle);
+      const result = await saveContent(submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle);
       
       if (result.success) {
         setStatus('submitted');
@@ -714,13 +730,11 @@ const handleSaveDraft = async () => {
                   {entry.imageUrl ? (
                     <div className="relative w-6 h-6 rounded-full overflow-hidden">
                       {entry.imageUrl.startsWith('blob:') ? (
-  <div className="w-full h-full bg-gray-200 relative">
-    <Image 
+  <div className="w-full h-full bg-gray-200">
+    <img 
       src={entry.imageUrl} 
       alt={`Thumbnail ${index + 1}`}
-      fill
-      className="object-cover"
-      unoptimized={true} // Must use unoptimized for blob URLs
+      className="w-full h-full object-cover"
     />
   </div>
 ) : (
@@ -731,7 +745,7 @@ const handleSaveDraft = async () => {
       width={24}
       height={24}
       className="w-full h-full object-cover"
-      unoptimized={entry.fileType === 'blob'}
+      unoptimized={true}
     />
   </div>
 )}
@@ -777,15 +791,11 @@ const handleSaveDraft = async () => {
                       <div className="relative max-w-full max-h-full">
                         {/* Handle both blob URLs and stored URLs */}
                         {entry.imageUrl.startsWith('blob:') ? (
-  <div className="relative w-full h-full max-w-full max-h-full">
-    <Image
-      src={entry.imageUrl}
-      alt={entry.title || `Image ${index + 1}`}
-      fill
-      className="object-contain rounded-lg shadow-md"
-      unoptimized={true} // Must use unoptimized for blob URLs
-    />
-  </div>
+  <img
+    src={entry.imageUrl}
+    alt={entry.title || `Image ${index + 1}`}
+    className="max-w-full max-h-full object-contain rounded-lg shadow-md"
+  />
 ) : (
   <Image
     src={entry.imageUrl}
@@ -794,7 +804,7 @@ const handleSaveDraft = async () => {
     height={400}
     className="object-contain rounded-lg shadow-md"
     style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-    unoptimized={entry.fileType === 'blob'}
+    unoptimized={true}
   />
 )}
                       </div>

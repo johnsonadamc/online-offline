@@ -318,33 +318,36 @@ export default function Dashboard() {
         }
         
         // Get current draft or submitted content
-        const draftResult = await fetchCurrentPeriodDraft();
-        if (draftResult.success && draftResult.draft) {
-          const draft = draftResult.draft;
-          
-          // First try to get page_title (preferred), then fall back to entry title
-          let title = draft.page_title || '';
-          
-          // If no page_title, try to get title from the first content entry
-          if (!title && draft.content_entries && draft.content_entries.length > 0) {
-            title = draft.content_entries[0].title || '';
-          }
-          
-          // If still no title, use 'Untitled'
-          if (!title) {
-            title = 'Untitled';
-          }
-              
-          setContentSubmission({
-            id: draft.id,
-            title: title,
-            status: draft.status,
-            period: periodResult?.period?.name || '',
-            date: new Date(draft.updated_at).toLocaleDateString(),
-            type: draft.type || 'photo',
-            imageCount: (draft.content_entries || []).length
-          });
-        }
+const draftResult = await fetchCurrentPeriodDraft();
+if (draftResult.success && draftResult.draft) {
+  const draft = draftResult.draft;
+  
+  // First try to get page_title (preferred), then fall back to entry title
+  let title = draft.page_title || '';
+  
+  // If no page_title, try to get title from the first content entry
+  if (!title && draft.content_entries && draft.content_entries.length > 0) {
+    title = draft.content_entries[0].title || '';
+  }
+  
+  // If still no title, use 'Untitled'
+  if (!title) {
+    title = 'Untitled';
+  }
+      
+  setContentSubmission({
+    id: draft.id,
+    title: title,
+    status: draft.status,
+    period: periodResult?.period?.name || '',
+    date: new Date(draft.updated_at).toLocaleDateString(),
+    type: draft.type || 'photo',
+    imageCount: (draft.content_entries || []).length
+  });
+} else {
+  // Explicitly set to null if no content is found
+  setContentSubmission(null);
+}
         
         // Get user's collabs
         const collabsResult = await getUserCollabs();
@@ -590,8 +593,8 @@ export default function Dashboard() {
         <div className="h-6 flex items-center">
           {/* Text-based logo - keeping the orange/yellow */}
           <span className="text-lg font-normal">
-            <span className="text-[#F05A28]">online</span>
-            <span className="text-[#F5A93F]">{'//offline'}</span>
+            <span className="text-[#F05A28]">online/</span>
+            <span className="text-[#F5A93F]">{'/offline'}</span>
           </span>
         </div>
         <div className="flex items-center gap-3">

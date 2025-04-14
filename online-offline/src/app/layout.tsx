@@ -5,8 +5,8 @@ import "./globals.css";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: "Slowcial Media",
-  description: "Create and curate digital magazines",
+  title: "online//offline",
+  description: "slowcial media, deliberate by design",
 };
 
 export default function RootLayout({

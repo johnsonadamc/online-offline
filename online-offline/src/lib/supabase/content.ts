@@ -98,12 +98,19 @@ export async function fetchCurrentPeriodDraft() {
   
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('No user found');
+    if (!user) {
+      console.error("No authenticated user found");
+      return { success: false, error: "Not authenticated" };
+    }
 
     // Get current period
     const { period, error: periodError } = await getCurrentPeriod();
-    if (!period || periodError) throw new Error('No active period found');
+    if (!period || periodError) {
+      console.error("No active period found:", periodError);
+      return { success: false, error: "No active period found" };
+    }
 
+    // Use the existing query with better error handling
     const { data: contentData, error: contentError } = await supabase
       .from('content')
       .select(`
@@ -116,21 +123,32 @@ export async function fetchCurrentPeriodDraft() {
         )
       `)
       .eq('creator_id', user.id)
-      .in('status', ['draft', 'submitted'])  // Include submitted drafts
+      .in('status', ['draft', 'submitted'])
       .eq('period_id', period.id)
       .order('updated_at', { ascending: false })
       .limit(1)
       .single();
 
-    if (contentError && contentError.code !== 'PGRST116') {
-      throw contentError;
+    // Handle the special case where no records are found
+    if (contentError) {
+      // PGRST116 is the error code for "no rows returned by the query"
+      if (contentError.code === 'PGRST116') {
+        // No data found - this is not an error, just return null for draft
+        console.log("No draft found for current period");
+        return { success: true, draft: null, period };
+      }
+      
+      // For any other error, this is a real error
+      console.error("Error fetching content:", contentError);
+      return { success: false, error: contentError.message };
     }
 
+    // Success with data
     return { success: true, draft: contentData, period };
 
   } catch (error) {
     console.error('Error fetching current draft:', error);
-    return { success: false, error };
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
   }
 }
 
@@ -393,6 +411,8 @@ export async function deleteContent(contentId: string) {
   const supabase = createClientComponentClient();
   
   try {
+    console.log("Deleting content with ID:", contentId);
+    
     // Get current user for authorization check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -465,6 +485,7 @@ export async function deleteContent(contentId: string) {
       return { success: false, error: 'Failed to delete content' };
     }
     
+    console.log("Content successfully deleted");
     return { success: true };
     
   } catch (error) {
