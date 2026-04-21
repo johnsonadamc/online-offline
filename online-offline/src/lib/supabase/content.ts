@@ -21,33 +21,19 @@ interface Period {
 
 export async function getCurrentPeriod() {
   const supabase = createClientComponentClient();
-  
+
   try {
-    console.log("Fetching current period...");
-    
     // First, check how many active periods we have
     const { data: activePeriods, error: countError } = await supabase
       .from('periods')
       .select('id')
       .eq('is_active', true);
-    
+
     if (countError) {
       console.error('Error checking active periods:', countError);
       return { success: false, error: countError };
     }
-    
-    console.log(`Found ${activePeriods?.length || 0} active periods`);
-    
-    // If there are multiple active periods, let's see what they are
-    if (activePeriods && activePeriods.length > 1) {
-      const { data: multipleActive } = await supabase
-        .from('periods')
-        .select('id, name, season, year')
-        .eq('is_active', true);
-        
-      console.log('Multiple active periods found:', multipleActive);
-    }
-    
+
     // Get the single active period with most recent end_date
     const { data, error } = await supabase
       .from('periods')
@@ -56,36 +42,31 @@ export async function getCurrentPeriod() {
       .order('end_date', { ascending: false })
       .limit(1)
       .single();
-    
+
     if (error) {
       console.error('Error fetching current period:', error);
-      
-      // If the error is "No rows found" but we know there are active periods,
-      // it could be because .single() expects exactly one row
+
       if (activePeriods && activePeriods.length > 0) {
-        // Try again without .single()
         const { data: fallback, error: fallbackError } = await supabase
           .from('periods')
           .select('id, name, season, year, start_date, end_date, is_active')
           .eq('is_active', true)
           .order('end_date', { ascending: false })
           .limit(1);
-          
+
         if (fallbackError) {
           console.error('Error in fallback query:', fallbackError);
           return { success: false, error: fallbackError };
         }
-        
+
         if (fallback && fallback.length > 0) {
-          console.log('Retrieved period using fallback:', fallback[0]);
           return { success: true, period: fallback[0] };
         }
       }
-      
+
       return { success: false, error };
     }
-    
-    console.log('Successfully retrieved current period:', data);
+
     return { success: true, period: data };
   } catch (error) {
     console.error('Error fetching current period:', error);
@@ -129,12 +110,9 @@ export async function fetchCurrentPeriodDraft() {
       .limit(1)
       .single();
 
-    // Handle the special case where no records are found
     if (contentError) {
-      // PGRST116 is the error code for "no rows returned by the query"
+      // PGRST116 = no rows returned; not an error, just no draft yet
       if (contentError.code === 'PGRST116') {
-        // No data found - this is not an error, just return null for draft
-        console.log("No draft found for current period");
         return { success: true, draft: null, period };
       }
       
@@ -266,16 +244,13 @@ export async function saveContent(
 
 export async function getPastContributions() {
   const supabase = createClientComponentClient();
-  
+
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      console.log("No authenticated user found");
       return { success: false, error: "No authenticated user found" };
     }
-    
-    console.log("Fetching past contributions for user:", user.id);
-    
+
     // Get the current active period to exclude it
     const { data: activePeriod, error: periodError } = await supabase
       .from('periods')
@@ -284,14 +259,13 @@ export async function getPastContributions() {
       .order('end_date', { ascending: false })
       .limit(1)
       .single();
-      
+
     if (periodError) {
       console.error("Error fetching active period:", periodError);
       // Continue anyway - we'll include all periods
     }
-    
+
     const activePeriodId = activePeriod?.id;
-    console.log("Active period ID:", activePeriodId);
     
     // Get all submissions (not drafts) - now including page_title
     const { data, error } = await supabase
@@ -329,32 +303,12 @@ export async function getPastContributions() {
     }
     
     if (!data || data.length === 0) {
-      console.log("No past content found");
       return { success: true, pastContent: [] };
     }
-    
-    console.log(`Found ${data.length} content items`);
-    
-    // Log detailed information about each item for debugging
-    data.forEach((item, index) => {
-      const period = Array.isArray(item.periods) ? item.periods[0] as Period : undefined;
-    
-      console.log(`Item ${index + 1}:`, {
-        id: item.id,
-        title: item.page_title || item.content_entries?.[0]?.title || 'No title',
-        period: period ? `${period.season} ${period.year}` : 'No period',
-        periodId: item.period_id,
-        status: item.status,
-        type: item.type,
-        updatedAt: item.updated_at
-      });
-    });
-    
+
     // Separate regular content and collab content
     const regularContent = data.filter(item => item.type !== 'collab');
     const collabContent = data.filter(item => item.type === 'collab');
-    
-    console.log(`Regular content: ${regularContent.length}, Collab content: ${collabContent.length}`);
     
     // Filter to get only the latest entry per period for regular content
     const periodMap = new Map();
@@ -400,7 +354,6 @@ export async function getPastContributions() {
       return seasonA - seasonB;
     });
     
-    console.log(`Returning ${sortedContent.length} past content items`);
     return { success: true, pastContent: sortedContent };
   } catch (error) {
     console.error("Error in getPastContributions:", error);
@@ -409,10 +362,8 @@ export async function getPastContributions() {
 }
 export async function deleteContent(contentId: string) {
   const supabase = createClientComponentClient();
-  
+
   try {
-    console.log("Deleting content with ID:", contentId);
-    
     // Get current user for authorization check
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -485,7 +436,6 @@ export async function deleteContent(contentId: string) {
       return { success: false, error: 'Failed to delete content' };
     }
     
-    console.log("Content successfully deleted");
     return { success: true };
     
   } catch (error) {
