@@ -92,7 +92,7 @@ export interface Collaboration {
 
 export interface CollabTemplate {
   id: string;
-  title: string;
+  name: string;
   type: 'chain' | 'theme' | 'narrative';
   description: string;
   instructions?: string;
