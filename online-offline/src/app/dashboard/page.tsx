@@ -601,10 +601,11 @@ if (draftResult.success && draftResult.draft) {
         <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
   {avatarUrl ? (
     <div className="relative w-full h-full">
-      <NextImage 
-        src={avatarUrl} 
-        alt="Profile avatar" 
+      <NextImage
+        src={avatarUrl}
+        alt="Profile avatar"
         fill
+        sizes="32px"
         className="object-cover"
       />
     </div>
