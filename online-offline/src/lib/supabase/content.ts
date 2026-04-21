@@ -9,16 +9,6 @@ interface ContentEntry {
   isFullSpread: boolean;
 }
 
-interface Period {
-  id: string;
-  name: string;
-  season: string;
-  year: number;
-  start_date: string;
-  end_date: string;
-  is_active: boolean;
-}
-
 export async function getCurrentPeriod() {
   const supabase = createClientComponentClient();
 

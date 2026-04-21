@@ -133,7 +133,7 @@ export default function Dashboard() {
   const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
   const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const recentActivity: Activity[] = [];
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
