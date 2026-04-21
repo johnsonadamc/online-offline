@@ -92,7 +92,7 @@ export interface Collaboration {
 
 export interface CollabTemplate {
   id: string;
-  title: string;
+  name: string;
   type: 'chain' | 'theme' | 'narrative';
   description: string;
   instructions?: string;
@@ -191,10 +191,14 @@ export default function CurationInterface() {
       handleDirectCollabsUpdate as EventListener);
     
     return () => {
-      window.removeEventListener('updateSelectedCollabs', 
+      window.removeEventListener('updateSelectedCollabs',
         handleDirectCollabsUpdate as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('temp_selected_collabs', JSON.stringify(selectedCollabs));
+  }, [selectedCollabs]);
 
   // Calculate unique template count for collaborations
   const uniqueTemplateIds = new Set();
@@ -301,44 +305,22 @@ export default function CurationInterface() {
   const toggleItem = (id: string, type: 'friend' | 'ad' | 'collab' | 'communication') => {
     if (type === 'ad') {
       if (selectedAds.includes(id)) {
-        setSelectedAds(selectedAds.filter(adId => adId !== id));
+        setSelectedAds(prev => prev.filter(adId => adId !== id));
       } else if (remainingContent > 0) {
-        setSelectedAds([...selectedAds, id]);
+        setSelectedAds(prev => [...prev, id]);
       }
     } else if (type === 'friend') {
       if (selectedCreators.includes(id)) {
-        setSelectedCreators(selectedCreators.filter(creatorId => creatorId !== id));
+        setSelectedCreators(prev => prev.filter(creatorId => creatorId !== id));
       } else if (remainingContent > 0) {
-        setSelectedCreators([...selectedCreators, id]);
+        setSelectedCreators(prev => [...prev, id]);
       }
     } else if (type === 'collab') {
-      // For deselection, ALWAYS proceed with no conditions
       if (selectedCollabs.includes(id)) {
-        // Use functional update to ensure we're working with the latest state
-        setSelectedCollabs(current => {
-          const updated = current.filter(cid => cid !== id);
-          return updated;
-        });
-      } 
-      // For selection, apply normal constraints
-      else if (remainingContent > 0 || isAnyVersionSelected(id)) {
-        // Use functional update to ensure we're working with the latest state
-        setSelectedCollabs(current => {
-          const updated = [...current, id];
-          return updated;
-        });
+        setSelectedCollabs(current => current.filter(cid => cid !== id));
+      } else if (remainingContent > 0 || isAnyVersionSelected(id)) {
+        setSelectedCollabs(current => [...current, id]);
       }
-      
-      // Update localStorage directly - but do it inside a setTimeout to ensure state is updated
-      setTimeout(() => {
-        const newState = selectedCollabs.includes(id) 
-          ? selectedCollabs.filter(cid => cid !== id) 
-          : (remainingContent > 0 || isAnyVersionSelected(id)) 
-            ? [...selectedCollabs, id] 
-            : selectedCollabs;
-        
-        localStorage.setItem('temp_selected_collabs', JSON.stringify(newState));
-      }, 10);
     } else if (type === 'communication') {
       if (selectedCommunications.includes(id)) {
         setSelectedCommunications([]);
@@ -349,19 +331,14 @@ export default function CurationInterface() {
   };
 
   const handleRequestFollow = async (creatorId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering card selection
-    
+    e.stopPropagation();
+
     const result = await sendFollowRequest(creatorId);
-    
+
     if (result.success) {
-      setPendingRequestMap(prev => ({
-        ...prev,
-        [creatorId]: true
-      }));
-      
-      alert('Follow request sent!');
+      setPendingRequestMap(prev => ({ ...prev, [creatorId]: true }));
     } else {
-      alert(`Error: ${result.error || 'Failed to send request'}`);
+      setError(result.error || 'Failed to send follow request');
     }
   };
   

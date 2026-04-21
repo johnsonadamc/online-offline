@@ -1,11 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: true,
-  },
   images: {
-    domains: ['cbdiujvqpirrvzodfujm.supabase.co'],
-    // You may also want to include any other domains your app uses for images
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cbdiujvqpirrvzodfujm.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
   async redirects() {
     return [];

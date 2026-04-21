@@ -133,7 +133,7 @@ export default function Dashboard() {
   const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
   const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
+  const recentActivity: Activity[] = [];
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   
@@ -420,11 +420,6 @@ if (draftResult.success && draftResult.draft) {
         
         setCommunications(allComms);
         
-        // Mock recent activity - we would implement this with actual data
-        setRecentActivity([
-          { id: '1', type: 'content', user: 'Recent Curator', action: 'viewed your content', time: '2 hours ago' },
-          { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' }
-        ]);
 
         // Fetch avatar
         const { data: { user } } = await supabase.auth.getUser();
@@ -601,10 +596,11 @@ if (draftResult.success && draftResult.draft) {
         <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
   {avatarUrl ? (
     <div className="relative w-full h-full">
-      <NextImage 
-        src={avatarUrl} 
-        alt="Profile avatar" 
+      <NextImage
+        src={avatarUrl}
+        alt="Profile avatar"
         fill
+        sizes="32px"
         className="object-cover"
       />
     </div>
