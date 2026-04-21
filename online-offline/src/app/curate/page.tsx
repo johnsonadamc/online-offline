@@ -191,10 +191,14 @@ export default function CurationInterface() {
       handleDirectCollabsUpdate as EventListener);
     
     return () => {
-      window.removeEventListener('updateSelectedCollabs', 
+      window.removeEventListener('updateSelectedCollabs',
         handleDirectCollabsUpdate as EventListener);
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('temp_selected_collabs', JSON.stringify(selectedCollabs));
+  }, [selectedCollabs]);
 
   // Calculate unique template count for collaborations
   const uniqueTemplateIds = new Set();
@@ -312,33 +316,11 @@ export default function CurationInterface() {
         setSelectedCreators([...selectedCreators, id]);
       }
     } else if (type === 'collab') {
-      // For deselection, ALWAYS proceed with no conditions
       if (selectedCollabs.includes(id)) {
-        // Use functional update to ensure we're working with the latest state
-        setSelectedCollabs(current => {
-          const updated = current.filter(cid => cid !== id);
-          return updated;
-        });
-      } 
-      // For selection, apply normal constraints
-      else if (remainingContent > 0 || isAnyVersionSelected(id)) {
-        // Use functional update to ensure we're working with the latest state
-        setSelectedCollabs(current => {
-          const updated = [...current, id];
-          return updated;
-        });
+        setSelectedCollabs(current => current.filter(cid => cid !== id));
+      } else if (remainingContent > 0 || isAnyVersionSelected(id)) {
+        setSelectedCollabs(current => [...current, id]);
       }
-      
-      // Update localStorage directly - but do it inside a setTimeout to ensure state is updated
-      setTimeout(() => {
-        const newState = selectedCollabs.includes(id) 
-          ? selectedCollabs.filter(cid => cid !== id) 
-          : (remainingContent > 0 || isAnyVersionSelected(id)) 
-            ? [...selectedCollabs, id] 
-            : selectedCollabs;
-        
-        localStorage.setItem('temp_selected_collabs', JSON.stringify(newState));
-      }, 10);
     } else if (type === 'communication') {
       if (selectedCommunications.includes(id)) {
         setSelectedCommunications([]);
