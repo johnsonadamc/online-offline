@@ -331,19 +331,14 @@ export default function CurationInterface() {
   };
 
   const handleRequestFollow = async (creatorId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent triggering card selection
-    
+    e.stopPropagation();
+
     const result = await sendFollowRequest(creatorId);
-    
+
     if (result.success) {
-      setPendingRequestMap(prev => ({
-        ...prev,
-        [creatorId]: true
-      }));
-      
-      alert('Follow request sent!');
+      setPendingRequestMap(prev => ({ ...prev, [creatorId]: true }));
     } else {
-      alert(`Error: ${result.error || 'Failed to send request'}`);
+      setError(result.error || 'Failed to send follow request');
     }
   };
   
