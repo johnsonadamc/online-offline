@@ -305,15 +305,15 @@ export default function CurationInterface() {
   const toggleItem = (id: string, type: 'friend' | 'ad' | 'collab' | 'communication') => {
     if (type === 'ad') {
       if (selectedAds.includes(id)) {
-        setSelectedAds(selectedAds.filter(adId => adId !== id));
+        setSelectedAds(prev => prev.filter(adId => adId !== id));
       } else if (remainingContent > 0) {
-        setSelectedAds([...selectedAds, id]);
+        setSelectedAds(prev => [...prev, id]);
       }
     } else if (type === 'friend') {
       if (selectedCreators.includes(id)) {
-        setSelectedCreators(selectedCreators.filter(creatorId => creatorId !== id));
+        setSelectedCreators(prev => prev.filter(creatorId => creatorId !== id));
       } else if (remainingContent > 0) {
-        setSelectedCreators([...selectedCreators, id]);
+        setSelectedCreators(prev => [...prev, id]);
       }
     } else if (type === 'collab') {
       if (selectedCollabs.includes(id)) {
