@@ -420,11 +420,6 @@ if (draftResult.success && draftResult.draft) {
         
         setCommunications(allComms);
         
-        // Mock recent activity - we would implement this with actual data
-        setRecentActivity([
-          { id: '1', type: 'content', user: 'Recent Curator', action: 'viewed your content', time: '2 hours ago' },
-          { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' }
-        ]);
 
         // Fetch avatar
         const { data: { user } } = await supabase.auth.getUser();
