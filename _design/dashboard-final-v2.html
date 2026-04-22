@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>online//offline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* slightly lighter warm dark — print shop at dusk */
+    --ground:      #252119;
+    --ground-2:    #2e2a20;
+    --ground-3:    #373229;
+    --ground-4:    #413c31;
+    --ground-5:    #4c4639;
+    --paper:       #f0ebe2;
+    --paper-2:     #d8d2c8;
+    --paper-3:     #b0a898;
+    --paper-4:     #857d72;
+    --paper-5:     #554d44;
+    --neon-accent: #e05a28;
+    --neon-blue:   #5a9fd4;
+    --neon-green:  #4ec47a;
+    --neon-amber:  #e0a830;
+    --neon-purple: #a888e8;
+    --glow-accent: rgba(224,90,40,0.4);
+    --glow-blue:   rgba(90,159,212,0.4);
+    --glow-green:  rgba(78,196,122,0.4);
+    --glow-amber:  rgba(224,168,48,0.4);
+    --glow-purple: rgba(168,136,232,0.35);
+    --glow-paper:  rgba(240,235,226,0.15);
+    --rule:        rgba(240,235,226,0.08);
+    --rule-mid:    rgba(240,235,226,0.14);
+    --rule-strong: rgba(240,235,226,0.24);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: #181511;
+    color: var(--paper);
+    min-height: 100vh;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 20px 0 60px;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  @media (max-width: 440px) {
+    body { background: var(--ground); padding: 0; }
+  }
+
+  .shell {
+    width: 390px; min-height: 820px;
+    background: var(--ground);
+    position: relative; overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(240,235,226,0.05),
+      0 8px 32px rgba(0,0,0,0.45),
+      0 32px 80px rgba(0,0,0,0.5);
+  }
+
+  @media (max-width: 440px) {
+    .shell { width: 100vw; min-height: 100vh; box-shadow: none; }
+  }
+
+  /* grain */
+  .grain {
+    position: absolute; inset: 0; z-index: 400; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+    background-size: 200px; mix-blend-mode: overlay; opacity: 0.7;
+  }
+
+  /* ── REGISTRATION MARKS — bottom only ── */
+  .reg-corner { position: absolute; z-index: 300; pointer-events: none; width: 18px; height: 18px; }
+  .reg-bl { bottom: 14px; left: 14px; }
+  .reg-br { bottom: 14px; right: 14px; }
+  .reg-corner svg { width: 18px; height: 18px; overflow: visible; opacity: 0.18; transition: opacity 0.5s, filter 0.5s; }
+  .reg-c { fill: none; stroke: var(--paper); stroke-width: 0.8; transition: stroke 0.5s; }
+  .reg-l { stroke: var(--paper); stroke-width: 0.8; transition: stroke 0.5s; }
+  .shell.curate-mode .reg-corner svg { opacity: 0.32; filter: drop-shadow(0 0 3px var(--glow-green)); }
+  .shell.curate-mode .reg-c, .shell.curate-mode .reg-l { stroke: var(--neon-green); }
+
+  /* ── HEADER ── */
+  .top-bar { padding: 22px 26px 0; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 10; flex-shrink: 0; }
+  .wordmark { font-family: 'Instrument Serif', serif; font-size: 15px; letter-spacing: 0.04em; color: var(--paper); opacity: 0.88; text-shadow: 0 0 20px var(--glow-paper); }
+  .wordmark .sep { color: var(--paper-5); margin: 0 1px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--ground-3); border: 1px solid var(--rule-mid); font-size: 10px; font-weight: 500; color: var(--paper-3); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .thick-rule { height: 1px; background: var(--paper); margin: 13px 26px 0; opacity: 0.8; box-shadow: 0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08); position: relative; z-index: 10; flex-shrink: 0; }
+  .period-strip { padding: 9px 26px 0; display: flex; align-items: center; gap: 10px; position: relative; z-index: 10; flex-shrink: 0; }
+  .period-name { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 12px; color: var(--paper-3); }
+  .period-dash { flex: 1; height: 1px; background: linear-gradient(to right, var(--rule-mid), transparent); }
+  .period-time { font-size: 10px; color: var(--paper-4); font-variant-numeric: tabular-nums; }
+  .period-time strong { color: var(--neon-accent); font-weight: 500; text-shadow: 0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12); }
+
+  /* ── TABS ── */
+  .tabs { display: flex; padding: 0 26px; border-bottom: 1px solid var(--rule); margin-top: 14px; flex-shrink: 0; position: relative; z-index: 10; }
+  .tab { padding: 12px 0; margin-right: 26px; font-size: 11px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; color: var(--paper-5); cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px; transition: color 0.2s, text-shadow 0.2s; user-select: none; }
+  .tab.active { color: var(--paper); opacity: 0.88; border-bottom-color: var(--paper); text-shadow: 0 0 12px var(--glow-paper); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ══════════════════════════════════════
+     CONTRIBUTE TAB
+  ══════════════════════════════════════ */
+  .glyph-sections { padding: 16px 26px 80px; position: relative; z-index: 10; }
+  .glyph-section { border-top: 1px solid var(--rule); overflow: hidden; }
+  .glyph-section:last-child { border-bottom: 1px solid var(--rule); }
+  .glyph-header { padding: 17px 0; display: flex; align-items: center; gap: 16px; cursor: pointer; user-select: none; -webkit-tap-highlight-color: transparent; transition: transform 0.1s cubic-bezier(0.4,0,0.6,1), opacity 0.1s; }
+  .glyph-header:active { transform: scale(0.986); opacity: 0.6; }
+  .section-icon { width: 40px; height: 40px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; border-radius: 2px; background: var(--ground-3); border: 1px solid var(--rule-mid); position: relative; transition: background 0.3s, border-color 0.3s, box-shadow 0.3s; }
+  .section-icon::after { content: ''; position: absolute; inset: 0; border-radius: 2px; box-shadow: inset 0 1px 4px rgba(0,0,0,0.5); pointer-events: none; }
+  .section-icon svg { width: 20px; height: 20px; overflow: visible; }
+  .icon-stroke { stroke: var(--paper-4); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; fill: none; transition: stroke 0.3s, filter 0.3s; }
+  .icon-fill { fill: var(--paper-4); transition: fill 0.3s, filter 0.3s; }
+
+  #sec-content.open .section-icon, #sec-content .glyph-header:hover .section-icon { background: rgba(224,90,40,0.1); border-color: rgba(224,90,40,0.4); box-shadow: 0 0 10px 2px var(--glow-accent), 0 0 28px 4px rgba(224,90,40,0.1), inset 0 0 10px rgba(224,90,40,0.06); }
+  #sec-content.open .icon-stroke, #sec-content .glyph-header:hover .icon-stroke { stroke: var(--neon-accent); filter: drop-shadow(0 0 4px var(--glow-accent)); }
+  #sec-content.open .icon-fill, #sec-content .glyph-header:hover .icon-fill { fill: var(--neon-accent); }
+
+  #sec-collab.open .section-icon, #sec-collab .glyph-header:hover .section-icon { background: rgba(90,159,212,0.1); border-color: rgba(90,159,212,0.4); box-shadow: 0 0 10px 2px var(--glow-blue), 0 0 28px 4px rgba(90,159,212,0.1); }
+  #sec-collab.open .icon-stroke, #sec-collab .glyph-header:hover .icon-stroke { stroke: var(--neon-blue); filter: drop-shadow(0 0 4px var(--glow-blue)); }
+  #sec-collab.open .icon-fill, #sec-collab .glyph-header:hover .icon-fill { fill: var(--neon-blue); }
+
+  #sec-comm.open .section-icon, #sec-comm .glyph-header:hover .section-icon { background: rgba(224,168,48,0.1); border-color: rgba(224,168,48,0.4); box-shadow: 0 0 10px 2px var(--glow-amber), 0 0 28px 4px rgba(224,168,48,0.1); }
+  #sec-comm.open .icon-stroke, #sec-comm .glyph-header:hover .icon-stroke { stroke: var(--neon-amber); filter: drop-shadow(0 0 4px var(--glow-amber)); }
+  #sec-comm.open .icon-fill, #sec-comm .glyph-header:hover .icon-fill { fill: var(--neon-amber); }
+
+  .section-open-rule { height: 1px; margin: 0 0 2px; opacity: 0; transition: opacity 0.3s; }
+  #sec-content.open .section-open-rule { opacity: 1; background: var(--neon-accent); box-shadow: 0 0 8px 1px var(--glow-accent); }
+  #sec-collab.open .section-open-rule { opacity: 1; background: var(--neon-blue); box-shadow: 0 0 8px 1px var(--glow-blue); }
+  #sec-comm.open .section-open-rule { opacity: 1; background: var(--neon-amber); box-shadow: 0 0 8px 1px var(--glow-amber); }
+
+  .glyph-meta { flex: 1; min-width: 0; }
+  .glyph-name { font-family: 'Instrument Serif', serif; font-size: 18px; color: var(--paper); line-height: 1.1; margin-bottom: 2px; opacity: 0.88; transition: text-shadow 0.3s; }
+  #sec-content.open .glyph-name { text-shadow: 0 0 16px rgba(224,90,40,0.2); }
+  #sec-collab.open .glyph-name { text-shadow: 0 0 16px rgba(90,159,212,0.2); }
+  #sec-comm.open .glyph-name { text-shadow: 0 0 16px rgba(224,168,48,0.2); }
+  .glyph-sub { font-size: 11px; color: var(--paper-4); }
+  .glyph-chevron { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); }
+  .glyph-chevron svg { width: 12px; height: 12px; stroke: var(--paper-5); stroke-width: 2; fill: none; }
+  .glyph-section.open .glyph-chevron { transform: rotate(90deg); }
+  .glyph-content { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease; }
+  .glyph-section.open .glyph-content { max-height: 1000px; opacity: 1; }
+  .glyph-content-inner { padding: 0 0 20px; }
+
+  /* content items */
+  .content-item { padding: 18px 0; border-top: 1px solid var(--rule); cursor: pointer; position: relative; transition: transform 0.1s cubic-bezier(0.4,0,0.6,1), opacity 0.1s; -webkit-tap-highlight-color: transparent; }
+  .content-item:active { transform: scale(0.984) translateY(1px); opacity: 0.6; }
+  .content-season { font-size: 9px; font-weight: 500; letter-spacing: 0.2em; text-transform: uppercase; color: var(--paper-5); margin-bottom: 8px; }
+  .content-title { font-family: 'Instrument Serif', serif; font-size: 26px; color: var(--paper); line-height: 1.05; margin-bottom: 12px; letter-spacing: -0.01em; opacity: 0.88; }
+  .content-footer { display: flex; align-items: center; justify-content: space-between; }
+  .content-meta { font-size: 11px; color: var(--paper-4); display: flex; align-items: center; gap: 7px; }
+  .content-meta .sep { color: var(--paper-5); }
+  .content-status { font-family: 'Instrument Serif', serif; font-size: 12px; font-style: italic; color: var(--neon-accent); text-shadow: 0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12); }
+  .item-dismiss { position: absolute; top: 14px; right: 0; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; color: var(--paper-5); cursor: pointer; transition: color 0.15s; }
+  .item-dismiss:hover { color: var(--neon-accent); }
+  .item-dismiss svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+  /* collab items */
+  .collab-item { padding: 14px 0 14px 14px; border-top: 1px solid var(--rule); border-left: 2px solid transparent; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: transform 0.1s cubic-bezier(0.4,0,0.6,1), opacity 0.1s; -webkit-tap-highlight-color: transparent; }
+  .collab-item:active { transform: scale(0.984) translateY(1px); opacity: 0.6; }
+  .collab-item.mode-community { border-left-color: var(--neon-blue); box-shadow: -3px 0 10px -2px var(--glow-blue); }
+  .collab-item.mode-local { border-left-color: var(--neon-green); box-shadow: -3px 0 10px -2px var(--glow-green); }
+  .collab-item.mode-private { border-left-color: var(--neon-purple); box-shadow: -3px 0 10px -2px var(--glow-purple); }
+  .collab-body { flex: 1; min-width: 0; }
+  .collab-mode { font-size: 9px; font-weight: 500; letter-spacing: 0.16em; text-transform: uppercase; margin-bottom: 3px; }
+  .mode-community .collab-mode { color: var(--neon-blue); text-shadow: 0 0 8px var(--glow-blue); }
+  .mode-local .collab-mode { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+  .mode-private .collab-mode { color: var(--neon-purple); text-shadow: 0 0 8px var(--glow-purple); }
+  .collab-title { font-size: 15px; color: var(--paper); margin-bottom: 4px; opacity: 0.85; }
+  .collab-detail { font-size: 11px; color: var(--paper-4); display: flex; align-items: center; gap: 6px; }
+  .collab-detail .sep { color: var(--paper-5); }
+  .collab-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+  .collab-badge { font-family: 'Instrument Serif', serif; font-size: 11px; font-style: italic; color: var(--neon-accent); text-shadow: 0 0 8px var(--glow-accent); }
+  .inline-dismiss { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--paper-5); cursor: pointer; transition: color 0.15s; }
+  .inline-dismiss:hover { color: var(--neon-accent); }
+  .inline-dismiss svg { width: 10px; height: 10px; stroke: currentColor; stroke-width: 2; fill: none; }
+  .section-cta { padding: 12px 0 4px; border-top: 1px solid var(--rule); display: flex; align-items: center; justify-content: space-between; }
+  .section-cta-text { font-size: 12px; color: var(--paper-4); }
+
+  /* comm items */
+  .comm-item { padding: 14px 0; border-top: 1px solid var(--rule); cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: start; transition: transform 0.1s cubic-bezier(0.4,0,0.6,1), opacity 0.1s; -webkit-tap-highlight-color: transparent; }
+  .comm-item:active { transform: scale(0.984) translateY(1px); opacity: 0.6; }
+  .comm-to { font-size: 9px; font-weight: 500; letter-spacing: 0.14em; text-transform: uppercase; color: var(--neon-amber); margin-bottom: 3px; display: flex; align-items: center; gap: 7px; text-shadow: 0 0 8px var(--glow-amber); }
+  .comm-to::before { content: ''; display: inline-block; width: 14px; height: 1px; background: var(--neon-amber); opacity: 0.4; }
+  .comm-recipient { font-family: 'Instrument Serif', serif; font-size: 17px; color: var(--paper); margin-bottom: 3px; opacity: 0.88; }
+  .comm-subject { font-size: 12px; color: var(--paper-4); font-style: italic; font-family: 'Instrument Serif', serif; }
+  .comm-date { font-size: 10px; color: var(--paper-5); margin-top: 5px; }
+  .comm-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .comm-state { font-family: 'Instrument Serif', serif; font-size: 11px; font-style: italic; color: var(--paper-4); }
+  .comm-state.submitted { color: var(--neon-accent); text-shadow: 0 0 8px var(--glow-accent); }
+
+  .btn-ghost { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--paper-3); padding: 8px 0; border-bottom: 1px solid var(--rule-mid); cursor: pointer; background: none; border-top: none; border-left: none; border-right: none; font-family: 'Instrument Sans', sans-serif; transition: color 0.2s, border-color 0.2s, text-shadow 0.2s; }
+  .btn-ghost:hover { color: var(--paper); border-color: var(--rule-strong); text-shadow: 0 0 10px var(--glow-paper); }
+  .btn-ghost svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+  /* ══════════════════════════════════════
+     PRESS RHYTHM SUBMIT — simplified
+     (no typewriter text, just the press)
+  ══════════════════════════════════════ */
+  .press-submit-wrap { padding: 10px 0 4px; border-top: 1px solid var(--rule); display: flex; align-items: center; justify-content: space-between; }
+  .press-submit-wrap-text { font-size: 12px; color: var(--paper-4); }
+  .press-btn-outer { position: relative; display: inline-flex; flex-direction: column; align-items: flex-end; }
+
+  .press-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'Courier Prime', monospace; font-size: 10px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; color: var(--paper-3);
+    padding: 9px 16px; background: var(--ground-3);
+    border: 1px solid var(--rule-mid); border-bottom: 2px solid var(--ground-4);
+    border-radius: 2px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transform: translateY(0);
+    box-shadow: 0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4);
+    transition: transform 0.08s cubic-bezier(0.4,0,0.6,1), box-shadow 0.08s cubic-bezier(0.4,0,0.6,1), background 0.08s, color 0.2s;
+  }
+
+  .press-btn svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 2; fill: none; }
+
+  .press-btn:hover { background: rgba(224,90,40,0.12); border-color: rgba(224,90,40,0.35); border-bottom-color: rgba(224,90,40,0.5); color: var(--neon-accent); box-shadow: 0 2px 0 rgba(224,90,40,0.3), 0 3px 8px rgba(224,90,40,0.15), 0 0 16px rgba(224,90,40,0.08); }
+
+  .press-btn.pressing { transform: translateY(2px); box-shadow: 0 0 0 transparent, 0 1px 3px rgba(0,0,0,0.6); background: rgba(224,90,40,0.18); border-color: rgba(224,90,40,0.5); border-bottom-color: rgba(224,90,40,0.6); color: var(--neon-accent); }
+
+  .press-btn.releasing { transform: translateY(0); box-shadow: 0 2px 0 var(--ground-4), 0 3px 8px rgba(0,0,0,0.4); transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, background 0.3s; }
+
+  /* ══════════════════════════════════════
+     CURATE TAB — PROOF LIGHT TABLE
+     Full functionality preserved:
+     - Search
+     - 4 sections: Contributors, Collabs, Comms, Ads
+     - Slot counter + price
+     - Select/deselect proofs
+     - Private profile handling
+     - Bottom action bar (reset + save)
+  ══════════════════════════════════════ */
+
+  #tab-curate {
+    background: #100f0c;
+    position: relative;
+    min-height: 680px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ambient light effects */
+  .lt-ambient { position: absolute; bottom: 0; left: 0; right: 0; height: 200px; background: radial-gradient(ellipse at 50% 100%, rgba(210,190,150,0.06) 0%, transparent 70%); pointer-events: none; z-index: 1; }
+  .lt-top-glow { position: absolute; top: 0; left: 0; right: 0; height: 120px; background: radial-gradient(ellipse at 50% 0%, rgba(210,190,150,0.035) 0%, transparent 70%); pointer-events: none; z-index: 1; }
+  .lt-glass { position: absolute; top: 100px; left: 16px; right: 16px; bottom: 72px; background: rgba(230,215,185,0.02); border: 1px solid rgba(230,215,185,0.05); border-radius: 2px; box-shadow: inset 0 0 40px rgba(210,190,150,0.02); pointer-events: none; z-index: 1; }
+
+  /* curate header */
+  .lt-top-bar { padding: 20px 22px 0; display: flex; justify-content: space-between; align-items: center; position: relative; z-index: 10; flex-shrink: 0; }
+  .lt-wordmark { font-family: 'Instrument Serif', serif; font-size: 13px; color: rgba(230,215,185,0.45); letter-spacing: 0.04em; }
+  .lt-badge { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(78,196,122,0.5); text-shadow: 0 0 8px rgba(78,196,122,0.18); }
+
+  /* search */
+  .lt-search-wrap { padding: 10px 22px 0; position: relative; z-index: 10; flex-shrink: 0; }
+  .lt-search { width: 100%; background: rgba(230,215,185,0.04); border: 1px solid rgba(230,215,185,0.08); color: rgba(230,215,185,0.7); font-family: 'Instrument Sans', sans-serif; font-size: 12px; padding: 8px 12px 8px 32px; border-radius: 2px; outline: none; transition: border-color 0.2s, background 0.2s; }
+  .lt-search::placeholder { color: rgba(230,215,185,0.25); }
+  .lt-search:focus { border-color: rgba(230,215,185,0.16); background: rgba(230,215,185,0.06); }
+  .lt-search-icon { position: absolute; left: 32px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+  .lt-search-icon svg { width: 13px; height: 13px; stroke: rgba(230,215,185,0.3); stroke-width: 2; fill: none; }
+
+  /* stats bar */
+  .lt-stats { padding: 8px 22px 0; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 10; flex-shrink: 0; }
+  .lt-stat-group { display: flex; align-items: center; gap: 14px; }
+  .lt-stat { display: flex; flex-direction: column; align-items: flex-start; }
+  .lt-stat-label { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(230,215,185,0.28); }
+  .lt-stat-val { font-family: 'Instrument Serif', serif; font-size: 16px; color: rgba(230,215,185,0.7); line-height: 1; }
+  .lt-stat-val.green { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+  .lt-stat-sep { width: 1px; height: 24px; background: rgba(230,215,185,0.08); }
+
+  /* section tabs */
+  .lt-section-tabs { padding: 10px 22px 0; display: flex; gap: 0; position: relative; z-index: 10; flex-shrink: 0; border-bottom: 1px solid rgba(230,215,185,0.06); }
+  .lt-section-tab { padding: 8px 0; margin-right: 20px; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(230,215,185,0.25); cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px; transition: color 0.2s; user-select: none; position: relative; }
+  .lt-section-tab.active { color: rgba(230,215,185,0.6); border-bottom-color: rgba(230,215,185,0.3); }
+  .lt-section-tab .tab-count { position: absolute; top: 4px; right: -8px; width: 12px; height: 12px; border-radius: 50%; background: var(--neon-green); display: flex; align-items: center; justify-content: center; font-size: 7px; color: #100f0c; font-weight: 700; opacity: 0; transition: opacity 0.2s; }
+  .lt-section-tab .tab-count.show { opacity: 1; }
+
+  /* proof scroll area */
+  .lt-proof-area { flex: 1; overflow-y: auto; padding: 12px 22px 80px; position: relative; z-index: 10; -webkit-overflow-scrolling: touch; }
+
+  /* section label */
+  .lt-section-label { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(230,215,185,0.22); margin-bottom: 10px; padding-top: 2px; }
+
+  /* proof grid — 2 col for contributors/collabs, 1 col for comms/ads */
+  .proof-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .proof-grid-1 { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 16px; }
+
+  .proof-card {
+    background: rgba(235,220,190,0.045);
+    border: 1px solid rgba(235,220,190,0.08);
+    border-radius: 1px; padding: 10px;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column; gap: 5px;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: inset 0 0 12px rgba(210,190,150,0.025);
+  }
+
+  .proof-card:hover { background: rgba(235,220,190,0.085); transform: translateY(-2px); }
+  .proof-card:active { transform: translateY(0); }
+
+  .proof-card.selected {
+    background: rgba(235,220,190,0.11);
+    border-color: rgba(235,220,190,0.2);
+    box-shadow: 0 0 20px rgba(210,190,150,0.08), inset 0 0 20px rgba(210,190,150,0.05);
+  }
+
+  /* wide card — spans full width */
+  .proof-card.wide { grid-column: 1 / -1; }
+
+  .proof-check { position: absolute; top: 7px; right: 8px; font-family: 'Courier Prime', monospace; font-size: 13px; color: transparent; transition: color 0.2s, text-shadow 0.2s; }
+  .proof-card.selected .proof-check { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green), 0 0 20px rgba(78,196,122,0.18); }
+
+  .proof-type { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(230,215,185,0.28); margin-bottom: 1px; }
+  .proof-name { font-family: 'Instrument Serif', serif; font-size: 13px; color: rgba(230,215,185,0.65); line-height: 1.2; padding-right: 18px; }
+  .proof-name.wide-name { font-size: 15px; }
+  .proof-img { height: 48px; background: rgba(210,190,150,0.04); border: 1px solid rgba(210,190,150,0.07); border-radius: 1px; position: relative; overflow: hidden; }
+  .proof-img::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(210,190,150,0.06) 0%, transparent 70%); }
+  .proof-meta { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.08em; color: rgba(230,215,185,0.2); }
+
+  /* private proof card */
+  .proof-card.private-card { opacity: 0.5; cursor: default; }
+  .proof-card.private-card:hover { transform: none; }
+
+  .proof-lock { position: absolute; bottom: 7px; right: 8px; }
+  .proof-lock svg { width: 10px; height: 10px; stroke: rgba(230,215,185,0.35); stroke-width: 2; fill: none; }
+
+  /* request access button inside proof card */
+  .proof-request-btn { margin-top: 4px; width: 100%; padding: 5px 0; background: rgba(90,159,212,0.12); border: 1px solid rgba(90,159,212,0.22); border-radius: 1px; font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--neon-blue); text-shadow: 0 0 6px var(--glow-blue); cursor: pointer; text-align: center; transition: background 0.15s; }
+  .proof-request-btn:hover { background: rgba(90,159,212,0.2); }
+  .proof-pending { margin-top: 4px; width: 100%; padding: 5px 0; text-align: center; font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(230,215,185,0.3); }
+
+  /* collab mode pill */
+  .proof-mode { display: inline-block; padding: 1px 5px; margin-bottom: 2px; font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.1em; text-transform: uppercase; border-radius: 1px; }
+  .proof-mode.community { background: rgba(90,159,212,0.15); color: var(--neon-blue); }
+  .proof-mode.local { background: rgba(78,196,122,0.15); color: var(--neon-green); }
+  .proof-mode.private { background: rgba(168,136,232,0.15); color: var(--neon-purple); }
+
+  /* discount badge */
+  .proof-discount { display: inline-block; padding: 1px 5px; background: rgba(78,196,122,0.15); border: 1px solid rgba(78,196,122,0.25); font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.1em; color: var(--neon-green); border-radius: 1px; }
+
+  /* selected divider */
+  .proof-divider { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 4px 0 2px; }
+  .proof-divider-line { flex: 1; height: 1px; background: rgba(230,215,185,0.08); }
+  .proof-divider-text { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(230,215,185,0.2); white-space: nowrap; }
+
+  /* show more */
+  .lt-show-more { text-align: center; padding: 8px 0 4px; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(230,215,185,0.25); cursor: pointer; transition: color 0.15s; }
+  .lt-show-more:hover { color: rgba(230,215,185,0.45); }
+
+  /* ── BOTTOM ACTION BAR ── */
+  .lt-action-bar {
+    position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 390px; padding: 12px 22px;
+    background: rgba(16,15,12,0.95);
+    border-top: 1px solid rgba(230,215,185,0.08);
+    display: flex; align-items: center; gap: 10px;
+    z-index: 200; backdrop-filter: blur(8px);
+  }
+
+  @media (max-width: 440px) { .lt-action-bar { width: 100vw; } }
+
+  .lt-price { flex: 1; }
+  .lt-price-label { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(230,215,185,0.25); }
+  .lt-price-val { font-family: 'Instrument Serif', serif; font-size: 20px; color: rgba(230,215,185,0.75); line-height: 1; }
+
+  .lt-reset-btn {
+    padding: 9px 14px; background: transparent; border: 1px solid rgba(230,215,185,0.14); border-radius: 2px; cursor: pointer;
+    font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(230,215,185,0.35); transition: all 0.2s; -webkit-tap-highlight-color: transparent;
+  }
+  .lt-reset-btn:hover { border-color: rgba(224,90,40,0.35); color: var(--neon-accent); }
+
+  .lt-save-btn {
+    padding: 9px 20px; background: rgba(78,196,122,0.1); border: 1px solid rgba(78,196,122,0.25); border-bottom: 2px solid rgba(78,196,122,0.3); border-radius: 2px; cursor: pointer;
+    font-family: 'Courier Prime', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green);
+    box-shadow: 0 2px 0 rgba(78,196,122,0.18), 0 0 14px rgba(78,196,122,0.06);
+    transform: translateY(0); transition: background 0.2s, box-shadow 0.2s, transform 0.08s cubic-bezier(0.4,0,0.6,1);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .lt-save-btn:hover { background: rgba(78,196,122,0.16); }
+  .lt-save-btn.pressing { transform: translateY(2px); box-shadow: 0 0 0 transparent, 0 0 14px rgba(78,196,122,0.06); }
+  .lt-save-btn.releasing { transform: translateY(0); transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s; }
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <div class="grain"></div>
+
+  <!-- REG MARKS -->
+  <div class="reg-corner reg-bl"><svg viewBox="-9 -9 18 18" overflow="visible"><circle class="reg-c" cx="0" cy="0" r="4"/><line class="reg-l" x1="-8" y1="0" x2="8" y2="0"/><line class="reg-l" x1="0" y1="-8" x2="0" y2="8"/></svg></div>
+  <div class="reg-corner reg-br"><svg viewBox="-9 -9 18 18" overflow="visible"><circle class="reg-c" cx="0" cy="0" r="4"/><line class="reg-l" x1="-8" y1="0" x2="8" y2="0"/><line class="reg-l" x1="0" y1="-8" x2="0" y2="8"/></svg></div>
+
+  <!-- HEADER -->
+  <div class="top-bar">
+    <div class="wordmark">online<span class="sep">//</span>offline</div>
+    <div class="avatar">AJ</div>
+  </div>
+  <div class="thick-rule"></div>
+  <div class="period-strip">
+    <span class="period-name">Spring 2026</span>
+    <div class="period-dash"></div>
+    <span class="period-time"><strong>47d</strong> remaining</span>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <div class="tab active" id="tab-contribute-btn" onclick="switchTab('contribute')">Contribute</div>
+    <div class="tab" id="tab-curate-btn" onclick="switchTab('curate')">Curate</div>
+  </div>
+
+  <!-- ══ CONTRIBUTE ══ -->
+  <div class="tab-panel active" id="tab-contribute">
+  <div class="glyph-sections">
+
+    <div class="glyph-section" id="sec-content">
+      <div class="glyph-header" onclick="toggleSection('sec-content')">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24">
+            <rect class="icon-stroke" x="2" y="7" width="20" height="14" rx="1.5"/>
+            <circle class="icon-stroke" cx="12" cy="14" r="4.5"/>
+            <circle class="icon-stroke" cx="12" cy="14" r="2"/>
+            <rect class="icon-fill" x="7" y="5" width="4" height="3" rx="1"/>
+            <line class="icon-stroke" x1="17" y1="9.5" x2="20" y2="9.5"/>
+          </svg>
+        </div>
+        <div class="glyph-meta">
+          <div class="glyph-name">Content</div>
+          <div class="glyph-sub">Your work this season — 1 submission</div>
+        </div>
+        <div class="glyph-chevron"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+      </div>
+      <div class="section-open-rule"></div>
+      <div class="glyph-content">
+        <div class="glyph-content-inner">
+          <div class="content-item">
+            <div class="item-dismiss" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
+            <div class="content-season">Spring 2026</div>
+            <div class="content-title">Morning Commute Series</div>
+            <div class="content-footer">
+              <div class="content-meta"><span>6 images</span><span class="sep">·</span><span>Photography</span></div>
+              <div class="content-status">submitted</div>
+            </div>
+          </div>
+          <div class="press-submit-wrap">
+            <span class="press-submit-wrap-text">Add more work this season</span>
+            <div class="press-btn-outer">
+              <button class="press-btn" id="press-btn" onclick="pressSubmit()">
+                <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glyph-section" id="sec-collab">
+      <div class="glyph-header" onclick="toggleSection('sec-collab')">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24">
+            <circle class="icon-stroke" cx="6" cy="9" r="2.5" style="stroke-width:1.3"/>
+            <path class="icon-stroke" d="M1,20 C1,15.5 3.5,13.5 6,13.5 C7.2,13.5 8.3,14 9.1,14.8" style="stroke-width:1.3"/>
+            <circle class="icon-stroke" cx="18" cy="9" r="2.5" style="stroke-width:1.3"/>
+            <path class="icon-stroke" d="M23,20 C23,15.5 20.5,13.5 18,13.5 C16.8,13.5 15.7,14 14.9,14.8" style="stroke-width:1.3"/>
+            <circle class="icon-stroke" cx="12" cy="8" r="3"/>
+            <path class="icon-stroke" d="M5.5,21 C5.5,16 8.2,14 12,14 C15.8,14 18.5,16 18.5,21"/>
+          </svg>
+        </div>
+        <div class="glyph-meta">
+          <div class="glyph-name">Collaborations</div>
+          <div class="glyph-sub">3 active — 2 awaiting your contribution</div>
+        </div>
+        <div class="glyph-chevron"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+      </div>
+      <div class="section-open-rule"></div>
+      <div class="glyph-content">
+        <div class="glyph-content-inner">
+          <div class="collab-item mode-community">
+            <div class="collab-body"><div class="collab-mode">Community</div><div class="collab-title">Neon Nighthawks</div><div class="collab-detail"><span>Theme</span><span class="sep">·</span><span>142 participants</span></div></div>
+            <div class="collab-right"><div class="inline-dismiss" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+          </div>
+          <div class="collab-item mode-local">
+            <div class="collab-body"><div class="collab-mode">Local · Pensacola</div><div class="collab-title">Urban Relay</div><div class="collab-detail"><span>Chain · Phase 2</span><span class="sep">·</span><span>8 participants</span></div></div>
+            <div class="collab-right"><div class="collab-badge">submitted</div><div class="inline-dismiss" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+          </div>
+          <div class="collab-item mode-private">
+            <div class="collab-body"><div class="collab-mode">Private</div><div class="collab-title">Four Seasons</div><div class="collab-detail"><span>Chain · Phase 1</span><span class="sep">·</span><span>4 members</span></div></div>
+            <div class="collab-right"><div class="inline-dismiss" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+          </div>
+          <div class="section-cta">
+            <span class="section-cta-text">Join a new collaboration</span>
+            <button class="btn-ghost"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Browse</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="glyph-section" id="sec-comm">
+      <div class="glyph-header" onclick="toggleSection('sec-comm')">
+        <div class="section-icon">
+          <svg viewBox="0 0 24 24">
+            <rect class="icon-stroke" x="2" y="8" width="20" height="13" rx="1.5"/>
+            <line class="icon-stroke" x1="6" y1="14" x2="14" y2="14" style="stroke-width:1.2;opacity:0.5"/>
+            <path class="icon-stroke" d="M2,8 L12,3 L22,8"/>
+            <circle class="icon-fill" cx="12" cy="8" r="1.2"/>
+          </svg>
+        </div>
+        <div class="glyph-meta">
+          <div class="glyph-name">Communications</div>
+          <div class="glyph-sub">1 draft in progress</div>
+        </div>
+        <div class="glyph-chevron"><svg viewBox="0 0 24 24"><polyline points="9,18 15,12 9,6"/></svg></div>
+      </div>
+      <div class="section-open-rule"></div>
+      <div class="glyph-content">
+        <div class="glyph-content-inner">
+          <div class="comm-item">
+            <div><div class="comm-to">to</div><div class="comm-recipient">Margaret H.</div><div class="comm-subject">Re: Spring submission</div><div class="comm-date">Apr 18</div></div>
+            <div class="comm-right"><div class="comm-state">draft</div><div class="inline-dismiss" onclick="event.stopPropagation()"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div></div>
+          </div>
+          <div class="section-cta">
+            <span class="section-cta-text">Write to a curator</span>
+            <button class="btn-ghost"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+
+  <!-- ══ CURATE — PROOF LIGHT TABLE ══ -->
+  <div class="tab-panel" id="tab-curate">
+    <div class="lt-ambient"></div>
+    <div class="lt-top-glow"></div>
+    <div class="lt-glass"></div>
+
+    <!-- header -->
+    <div class="lt-top-bar">
+      <div class="lt-wordmark">online//offline</div>
+      <div class="lt-badge">Curation mode</div>
+    </div>
+
+    <!-- search -->
+    <div class="lt-search-wrap">
+      <div style="position:relative;">
+        <div class="lt-search-icon">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        <input class="lt-search" id="lt-search-input" type="text" placeholder="Search contributors, collabs, campaigns…" oninput="filterProofs(this.value)"/>
+      </div>
+    </div>
+
+    <!-- stats -->
+    <div class="lt-stats">
+      <div class="lt-stat-group">
+        <div class="lt-stat">
+          <div class="lt-stat-label">Selected</div>
+          <div class="lt-stat-val" id="stat-selected">0</div>
+        </div>
+        <div class="lt-stat-sep"></div>
+        <div class="lt-stat">
+          <div class="lt-stat-label">Remaining</div>
+          <div class="lt-stat-val green" id="stat-remaining">20</div>
+        </div>
+        <div class="lt-stat-sep"></div>
+        <div class="lt-stat">
+          <div class="lt-stat-label">of</div>
+          <div class="lt-stat-val">20</div>
+        </div>
+      </div>
+      <div class="lt-stat">
+        <div class="lt-stat-label">Price</div>
+        <div class="lt-stat-val" id="stat-price" style="color:rgba(230,215,185,0.7)">$25.00</div>
+      </div>
+    </div>
+
+    <!-- section tabs -->
+    <div class="lt-section-tabs">
+      <div class="lt-section-tab active" id="stab-contributors" onclick="switchLtSection('contributors')">
+        Contributors
+        <span class="tab-count" id="cnt-contributors">0</span>
+      </div>
+      <div class="lt-section-tab" id="stab-collabs" onclick="switchLtSection('collabs')">
+        Collabs
+        <span class="tab-count" id="cnt-collabs">0</span>
+      </div>
+      <div class="lt-section-tab" id="stab-comms" onclick="switchLtSection('comms')">
+        Comms
+        <span class="tab-count" id="cnt-comms">0</span>
+      </div>
+      <div class="lt-section-tab" id="stab-ads" onclick="switchLtSection('ads')">
+        Ads
+        <span class="tab-count" id="cnt-ads">0</span>
+      </div>
+    </div>
+
+    <!-- proof scroll area -->
+    <div class="lt-proof-area">
+
+      <!-- CONTRIBUTORS -->
+      <div class="lt-section-content" id="ltsec-contributors">
+        <div class="lt-section-label">Contributors · Spring 2026</div>
+        <div class="proof-grid-2" id="contributors-grid">
+
+          <div class="proof-card selected" onclick="toggleProof(this, 'creator')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Photographer</div>
+            <div class="proof-name">A. Johnson</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">6 images · photography</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'creator')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Visual Artist</div>
+            <div class="proof-name">M. Hartwell</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">4 images · botanical art</div>
+          </div>
+
+          <div class="proof-card private-card">
+            <div class="proof-type">Poet</div>
+            <div class="proof-name">S. Okafor</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">private profile</div>
+            <div class="proof-lock"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div class="proof-request-btn" onclick="event.stopPropagation()">Request access</div>
+          </div>
+
+          <div class="proof-card selected" onclick="toggleProof(this, 'creator')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Essayist</div>
+            <div class="proof-name">R. Yamamoto</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">essay · 800 words</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'creator')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Musician</div>
+            <div class="proof-name">T. Okonkwo</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">3 compositions</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'creator')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Photographer</div>
+            <div class="proof-name">L. Chen</div>
+            <div class="proof-img"></div>
+            <div class="proof-meta">8 images · street</div>
+          </div>
+
+        </div>
+        <div class="lt-show-more">View all 12 contributors ↓</div>
+      </div>
+
+      <!-- COLLABS -->
+      <div class="lt-section-content" id="ltsec-collabs" style="display:none;">
+        <div class="lt-section-label">Collaborations · Spring 2026</div>
+        <div class="proof-grid-1">
+
+          <div class="proof-card" onclick="toggleProof(this, 'collab')">
+            <div class="proof-check">✓</div>
+            <span class="proof-mode community">Community</span>
+            <div class="proof-name wide-name">Neon Nighthawks</div>
+            <div class="proof-meta">Theme · 142 participants · random selection of 10</div>
+          </div>
+
+          <div class="proof-card selected" onclick="toggleProof(this, 'collab')">
+            <div class="proof-check">✓</div>
+            <span class="proof-mode local">Local · Pensacola</span>
+            <div class="proof-name wide-name">Urban Relay</div>
+            <div class="proof-meta">Chain · Phase 2 · 8 local participants</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'collab')">
+            <div class="proof-check">✓</div>
+            <span class="proof-mode private">Private</span>
+            <div class="proof-name wide-name">Four Seasons</div>
+            <div class="proof-meta">Chain · Phase 1 · all 4 members included</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'collab')">
+            <div class="proof-check">✓</div>
+            <span class="proof-mode community">Community</span>
+            <div class="proof-name wide-name">Bench Biography</div>
+            <div class="proof-meta">Narrative · 67 participants · random selection of 10</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- COMMS -->
+      <div class="lt-section-content" id="ltsec-comms" style="display:none;">
+        <div class="lt-section-label">Communications · from contributors</div>
+        <div class="proof-grid-1">
+
+          <div class="proof-card" onclick="toggleProof(this, 'comm')">
+            <div class="proof-check">✓</div>
+            <div class="proof-type">Communications page</div>
+            <div class="proof-name wide-name">Include contributor messages</div>
+            <div class="proof-meta">2 messages this season · auto-formatted · up to 10 per page</div>
+          </div>
+
+        </div>
+
+        <div style="margin-top:12px; padding:12px 0; border-top: 1px solid rgba(230,215,185,0.06);">
+          <div class="lt-section-label" style="margin-bottom:8px;">Messages received</div>
+
+          <div class="proof-card" style="margin-bottom:8px; cursor:default;" onmouseover="this.style.transform=''" >
+            <div class="proof-type">From Sarah Chen</div>
+            <div class="proof-name" style="font-size:12px;">Thoughts on my latest series</div>
+            <div class="proof-meta">submitted · Apr 14</div>
+          </div>
+
+          <div class="proof-card" style="cursor:default;" onmouseover="this.style.transform=''">
+            <div class="proof-type">From Marcus Johnson</div>
+            <div class="proof-name" style="font-size:12px;">Collaboration opportunity</div>
+            <div class="proof-meta">submitted · Apr 18</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ADS -->
+      <div class="lt-section-content" id="ltsec-ads" style="display:none;">
+        <div class="lt-section-label">Campaigns · each reduces price by $2</div>
+        <div class="proof-grid-1">
+
+          <div class="proof-card" onclick="toggleProof(this, 'ad')">
+            <div class="proof-check">✓</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+              <div class="proof-type">Campaign</div>
+              <span class="proof-discount">$2 off</span>
+            </div>
+            <div class="proof-name wide-name">Artisan's Supply Co.</div>
+            <div class="proof-meta">Premium art supplies and workshops for creators</div>
+          </div>
+
+          <div class="proof-card" onclick="toggleProof(this, 'ad')">
+            <div class="proof-check">✓</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
+              <div class="proof-type">Campaign</div>
+              <span class="proof-discount">$2 off</span>
+            </div>
+            <div class="proof-name wide-name">The Reading Room</div>
+            <div class="proof-meta">Independent bookstore · curated collections & events</div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /lt-proof-area -->
+
+    <!-- BOTTOM ACTION BAR -->
+    <div class="lt-action-bar">
+      <div class="lt-price">
+        <div class="lt-price-label">Your price</div>
+        <div class="lt-price-val" id="action-price">$25.00</div>
+      </div>
+      <button class="lt-reset-btn" onclick="resetSelections()">Reset</button>
+      <button class="lt-save-btn" id="lt-save-btn" onclick="pressSave()">Save selections</button>
+    </div>
+
+  </div><!-- /tab-curate -->
+
+</div><!-- /shell -->
+
+<script>
+  const shell = document.getElementById('shell');
+  const MAX_SLOTS = 20;
+  const BASE_PRICE = 25;
+  const AD_DISCOUNT = 2;
+
+  let selectedCreators = 2; // start with 2 selected (for demo)
+  let selectedCollabs  = 1;
+  let selectedComms    = 0;
+  let selectedAds      = 0;
+
+  /* ── TAB SWITCHING ── */
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name + '-btn').classList.add('active');
+    document.getElementById('tab-' + name).classList.add('active');
+    shell.classList.toggle('curate-mode', name === 'curate');
+  }
+
+  /* ── CONTRIBUTE SECTION TOGGLE ── */
+  function toggleSection(id) {
+    const sec = document.getElementById(id);
+    const isOpen = sec.classList.contains('open');
+    document.querySelectorAll('.glyph-section').forEach(s => s.classList.remove('open'));
+    if (!isOpen) sec.classList.add('open');
+  }
+
+  /* ── LIGHT TABLE SECTION SWITCHING ── */
+  function switchLtSection(name) {
+    document.querySelectorAll('.lt-section-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.lt-section-content').forEach(s => s.style.display = 'none');
+    document.getElementById('stab-' + name).classList.add('active');
+    document.getElementById('ltsec-' + name).style.display = 'block';
+  }
+
+  /* ── PROOF SELECTION ── */
+  function toggleProof(el, type) {
+    if (el.classList.contains('private-card')) return;
+
+    const wasSelected = el.classList.contains('selected');
+    const totalSelected = getTotalSelected();
+
+    if (!wasSelected && totalSelected >= MAX_SLOTS) return; // at limit
+
+    el.classList.toggle('selected');
+
+    // update counters
+    updateStats();
+    updateTabCounts();
+  }
+
+  function getTotalSelected() {
+    return document.querySelectorAll('.proof-card.selected:not(.private-card)').length;
+  }
+
+  function getAdCount() {
+    return document.querySelectorAll('#ltsec-ads .proof-card.selected').length;
+  }
+
+  function updateStats() {
+    const total    = getTotalSelected();
+    const ads      = getAdCount();
+    const remaining = MAX_SLOTS - total;
+    const price    = Math.max(0, BASE_PRICE - (ads * AD_DISCOUNT));
+
+    document.getElementById('stat-selected').textContent  = total;
+    document.getElementById('stat-remaining').textContent = remaining;
+    document.getElementById('stat-price').textContent     = '$' + price.toFixed(2);
+    document.getElementById('action-price').textContent   = '$' + price.toFixed(2);
+  }
+
+  function updateTabCounts() {
+    const sections = ['contributors', 'collabs', 'comms', 'ads'];
+    const sectionIds = ['ltsec-contributors', 'ltsec-collabs', 'ltsec-comms', 'ltsec-ads'];
+    const countIds   = ['cnt-contributors', 'cnt-collabs', 'cnt-comms', 'cnt-ads'];
+
+    sections.forEach((_, i) => {
+      const count = document.querySelectorAll('#' + sectionIds[i] + ' .proof-card.selected').length;
+      const el = document.getElementById(countIds[i]);
+      el.textContent = count;
+      el.classList.toggle('show', count > 0);
+    });
+  }
+
+  /* ── SEARCH FILTER ── */
+  function filterProofs(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('.proof-card').forEach(card => {
+      if (!q) { card.style.display = ''; return; }
+      const text = card.textContent.toLowerCase();
+      card.style.display = text.includes(q) ? '' : 'none';
+    });
+  }
+
+  /* ── RESET ── */
+  function resetSelections() {
+    if (!confirm('Reset all selections? This cannot be undone.')) return;
+    document.querySelectorAll('.proof-card.selected').forEach(c => c.classList.remove('selected'));
+    updateStats();
+    updateTabCounts();
+  }
+
+  /* ── SAVE PRESS ── */
+  let savePressing = false;
+  function pressSave() {
+    if (savePressing) return;
+    savePressing = true;
+    const btn = document.getElementById('lt-save-btn');
+    btn.classList.add('pressing');
+    setTimeout(() => {
+      btn.classList.remove('pressing');
+      btn.classList.add('releasing');
+      setTimeout(() => { btn.classList.remove('releasing'); savePressing = false; }, 220);
+    }, 160);
+  }
+
+  /* ── SUBMIT PRESS (contribute tab) — simplified, no typewriter ── */
+  let submitPressing = false;
+  function pressSubmit() {
+    if (submitPressing) return;
+    submitPressing = true;
+    const btn = document.getElementById('press-btn');
+    btn.classList.add('pressing');
+    setTimeout(() => {
+      btn.classList.remove('pressing');
+      btn.classList.add('releasing');
+      setTimeout(() => { btn.classList.remove('releasing'); submitPressing = false; }, 220);
+    }, 160);
+  }
+
+  /* open content section by default */
+  document.getElementById('sec-content').classList.add('open');
+  updateStats();
+  updateTabCounts();
+</script>
+</body>
+</html>
