@@ -1,38 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, ReactElement } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// Import NextImage with a clear alias
 import NextImage from 'next/image';
 
-// Import all needed functions from your existing codebase
-import { 
-  fetchCurrentPeriodDraft, 
+import {
+  fetchCurrentPeriodDraft,
   getCurrentPeriod,
   deleteContent
 } from '@/lib/supabase/content';
-import { 
-  getUserCollabs, 
-  leaveCollab, 
+import {
+  getUserCollabs,
+  leaveCollab,
 } from '@/lib/supabase/collabs';
-import { 
-  getDraftCommunications, 
-  getSubmittedCommunications, 
+import {
+  getDraftCommunications,
+  getSubmittedCommunications,
   withdrawCommunication,
   deleteDraftCommunication
 } from '@/lib/supabase/communications';
 
-// Rename the Image import to ImageIcon
-import { 
-  Camera, BookOpen, UsersRound, MessageCircle, Clock, 
-  Image as ImageIcon, ChevronRight, Palette, Pen, Music, 
-  User, CalendarDays, X, PlusCircle, RotateCcw, 
-  MapPin, Globe, Lock, Check, Edit
-} from 'lucide-react';
+// ── Interfaces ────────────────────────────────────────────────────────────────
 
-// Define interfaces for our data types
 interface ContentSubmission {
   id: string;
   title: string;
@@ -63,11 +54,8 @@ interface CollabData {
   participants?: { name: string; role: string }[];
   participantCount?: number;
   status?: string;
-  metadata?: {
-    status?: string;
-    [key: string]: unknown;
-  };
-  [key: string]: unknown; // Add index signature for flexibility
+  metadata?: { status?: string; [key: string]: unknown };
+  [key: string]: unknown;
 }
 
 interface Communication {
@@ -107,47 +95,46 @@ interface ConfirmActionState {
   action: string;
   id: string;
 }
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const router = useRouter();
   const supabase = createClientComponentClient();
-  
-  // Tab state
+
+  // ── Existing state (unchanged) ──────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
-  const [showConfirm, setShowConfirm] = useState<boolean>(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
-  
-  // State to track which communication we might want to delete
-  const [deleteCommId, setDeleteCommId] = useState<string>('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  
-  // State to track which content we might want to delete
-  const [deleteContentId, setDeleteContentId] = useState<string>('');
-  const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState<boolean>(false);
-  
-  // Success/error notification state
-  const [successMessage, setSuccessMessage] = useState<string>('');
-  const [errorMessage, setErrorMessage] = useState<string>('');
-  
-  // Data states
+  const [deleteCommId, setDeleteCommId] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteContentId, setDeleteContentId] = useState('');
+  const [showDeleteContentConfirm, setShowDeleteContentConfirm] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [currentPeriod, setCurrentPeriod] = useState<Period | null>(null);
   const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
   const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
-  // Helper functions for notifications
+
+  // ── Visual-only UI state ────────────────────────────────────────────────────
+  const [activeSection, setActiveSection] = useState<string | null>('content');
+  const [submitPress, setSubmitPress] = useState<'rest' | 'pressing' | 'releasing'>('rest');
+
+  // ── Notification helpers (unchanged) ───────────────────────────────────────
   const showSuccess = (message: string) => {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(''), 3000);
   };
-  
   const showError = (message: string) => {
     setErrorMessage(message);
     setTimeout(() => setErrorMessage(''), 3000);
   };
-  // Handle confirmation actions
+
+  // ── Confirm dialog helpers (unchanged) ────────────────────────────────────
   const showConfirmDialog = (action: string, id: string) => {
     setConfirmAction({ action, id });
     setShowConfirm(true);
@@ -156,277 +143,165 @@ export default function Dashboard() {
   const handleConfirmAction = async () => {
     try {
       if (confirmAction.action === 'leave') {
-        // Call the leaveCollab function to handle leaving the collaboration
         const result = await leaveCollab(confirmAction.id);
         if (result.success) {
-          // Update the UI by removing the collab
-          setActiveCollabs(prev => prev.filter(collab => collab.id !== confirmAction.id));
+          setActiveCollabs(prev => prev.filter(c => c.id !== confirmAction.id));
           showSuccess('Successfully left collaboration');
         } else {
-          console.error("Error leaving collab:", result.error);
           showError(result.error || 'Failed to leave collaboration');
         }
       } else if (confirmAction.action === 'withdraw') {
-        // Handle withdraw communication logic
         const result = await withdrawCommunication(confirmAction.id);
         if (result.success) {
-          // Update communications state
-          setCommunications(prev => {
-            return prev.map(c => c.id === confirmAction.id 
-              ? { ...c, status: 'draft' } 
-              : c
-            );
-          });
+          setCommunications(prev =>
+            prev.map(c => c.id === confirmAction.id ? { ...c, status: 'draft' } : c)
+          );
           showSuccess('Communication withdrawn successfully');
         } else {
           showError(result.error || 'Failed to withdraw communication');
         }
       }
-      
       setShowConfirm(false);
-    } catch (error) {
-      console.error("Error processing action:", error);
+    } catch {
       showError('An unexpected error occurred');
       setShowConfirm(false);
     }
   };
-  
-  // Function to handle communication deletion
+
   const handleDeleteCommunication = async () => {
     try {
-      // Call the actual deletion function
       const result = await deleteDraftCommunication(deleteCommId);
-      
       if (result.success) {
-        // Update the UI by removing it from state
         setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
         showSuccess('Communication deleted successfully');
       } else {
         showError(result.error || 'Failed to delete communication');
       }
-      
-      // Reset the delete confirmation state
       setShowDeleteConfirm(false);
       setDeleteCommId('');
-      
-    } catch (error) {
-      console.error("Error deleting communication:", error);
+    } catch {
       showError('Error deleting communication');
       setShowDeleteConfirm(false);
     }
   };
-  
-  // Function to handle content deletion
+
   const handleDeleteContent = async () => {
     try {
-      // Call the actual deletion function
       const result = await deleteContent(deleteContentId);
-      
       if (result.success) {
-        // Update the UI state
         setContentSubmission(null);
         showSuccess('Content deleted successfully');
       } else {
         showError(result.error || 'Failed to delete content');
       }
-      
-      // Reset the delete confirmation state
       setShowDeleteContentConfirm(false);
       setDeleteContentId('');
-      
-    } catch (error) {
-      console.error("Error deleting content:", error);
+    } catch {
       showError('Error deleting content');
       setShowDeleteContentConfirm(false);
     }
   };
-  // Status badges - now only render for 'submitted' or 'published'
-  const renderStatusBadge = (status: string) => {
-    // If status is 'draft', don't render any badge
-    if (status === 'draft') return null;
-    
-    const statusStyles: Record<string, string> = {
-      submitted: 'bg-blue-100 text-blue-600 border border-blue-200',
-      published: 'bg-green-100 text-green-600 border border-green-200'
-    };
-    
-    return (
-      <span className={`text-xs px-2 py-0.5 rounded-sm ${statusStyles[status] || 'bg-gray-100'}`}>
-        {status}
-      </span>
-    );
-  };
-  
-  // Content type icons
-  const renderContentTypeIcon = (type: string): ReactElement => {
-    const icons: Record<string, ReactElement> = {
-      photo: <Camera size={16} />,
-      art: <Palette size={16} />,
-      poetry: <Pen size={16} />,
-      essay: <BookOpen size={16} />,
-      music: <Music size={16} />
-    };
-    
-    const iconBgColors: Record<string, string> = {
-      photo: 'bg-blue-50 text-blue-500',
-      art: 'bg-indigo-50 text-indigo-500',
-      poetry: 'bg-purple-50 text-purple-500',
-      essay: 'bg-blue-50 text-blue-500',
-      music: 'bg-blue-50 text-blue-500'
-    };
-    
-    return (
-      <div className={`w-10 h-10 rounded-sm flex items-center justify-center ${iconBgColors[type] || 'bg-gray-100 text-gray-700'}`}>
-        {icons[type] || (
-          <ImageIcon size={16} />
-        )}
-      </div>
-    );
-  };
 
-  // Helper to get the collaboration type
+  // ── Data helpers (unchanged) ───────────────────────────────────────────────
   const getCollabType = (type: string | undefined): string => {
     if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
     return type;
   };
-  
-  // Helper to extract recipient name
+
   const getRecipientName = (profiles: CommunicationProfile | CommunicationProfile[] | undefined): string => {
     if (!profiles) return 'Unknown Recipient';
-    
     if (Array.isArray(profiles)) {
       if (profiles.length > 0) {
-        const profile = profiles[0];
-        return `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unknown';
+        const p = profiles[0];
+        return `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown';
       }
       return 'Unknown Recipient';
     }
-    
-    // Now TypeScript knows profiles is a CommunicationProfile object, not an array
     return `${profiles.first_name || ''} ${profiles.last_name || ''}`.trim() || 'Unknown';
   };
-  // Fetch data on component mount
+
+  // ── Data loading (unchanged) ───────────────────────────────────────────────
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        
-        // Get current period
+
         const periodResult = await getCurrentPeriod();
-        if (periodResult && periodResult.success && periodResult.period) {
+        if (periodResult?.success && periodResult.period) {
           setCurrentPeriod(periodResult.period as Period);
         }
-        
-        // Get current draft or submitted content
-const draftResult = await fetchCurrentPeriodDraft();
-if (draftResult.success && draftResult.draft) {
-  const draft = draftResult.draft;
-  
-  // First try to get page_title (preferred), then fall back to entry title
-  let title = draft.page_title || '';
-  
-  // If no page_title, try to get title from the first content entry
-  if (!title && draft.content_entries && draft.content_entries.length > 0) {
-    title = draft.content_entries[0].title || '';
-  }
-  
-  // If still no title, use 'Untitled'
-  if (!title) {
-    title = 'Untitled';
-  }
-      
-  setContentSubmission({
-    id: draft.id,
-    title: title,
-    status: draft.status,
-    period: periodResult?.period?.name || '',
-    date: new Date(draft.updated_at).toLocaleDateString(),
-    type: draft.type || 'photo',
-    imageCount: (draft.content_entries || []).length
-  });
-} else {
-  // Explicitly set to null if no content is found
-  setContentSubmission(null);
-}
-        
-        // Get user's collabs
+
+        const draftResult = await fetchCurrentPeriodDraft();
+        if (draftResult.success && draftResult.draft) {
+          const draft = draftResult.draft;
+          let title = draft.page_title || '';
+          if (!title && draft.content_entries?.length > 0) title = draft.content_entries[0].title || '';
+          if (!title) title = 'Untitled';
+          setContentSubmission({
+            id: draft.id,
+            title,
+            status: draft.status,
+            period: periodResult?.period?.name || '',
+            date: new Date(draft.updated_at).toLocaleDateString(),
+            type: draft.type || 'photo',
+            imageCount: (draft.content_entries || []).length,
+          });
+        } else {
+          setContentSubmission(null);
+        }
+
         const collabsResult = await getUserCollabs();
         if (collabsResult) {
-          // Combined all types of collabs
           const combined = [
             ...(collabsResult.private || []),
             ...(collabsResult.community || []),
-            ...(collabsResult.local || [])
+            ...(collabsResult.local || []),
           ];
-          
-          
-          // Format for display
-          const formattedCollabs = combined.map((collab) => {
-            // Explicitly assert the type
-            const collabData = collab as unknown as CollabData;
-            
-            // Extract status with type-safe checks
-            let status = 'draft';
-            
-            // Use optional chaining to safely access nested properties
-            if (collabData.status) {
-              status = collabData.status;
-            } else if (collabData.metadata?.status) {
-              status = collabData.metadata.status as string;
-            }
-            
+          setActiveCollabs(combined.map((c) => {
+            const cd = c as unknown as CollabData;
+            const status = cd.status || cd.metadata?.status || 'draft';
             return {
-              id: collabData.id,
-              title: collabData.title,
-              mode: collabData.participation_mode || (collabData.is_private ? 'private' : 'community'),
-              location: collabData.location,
-              participants: collabData.participantCount || 0,
-              type: getCollabType(collabData.type),
-              status: status
+              id: cd.id,
+              title: cd.title,
+              mode: cd.participation_mode || (cd.is_private ? 'private' : 'community'),
+              location: cd.location,
+              participants: cd.participantCount || 0,
+              type: getCollabType(cd.type),
+              status: status as string,
             };
-          });
-          
-          setActiveCollabs(formattedCollabs);
+          }));
         }
-        
-        // Get communications
+
         const [draftComms, submittedComms] = await Promise.all([
           getDraftCommunications(),
-          getSubmittedCommunications()
+          getSubmittedCommunications(),
         ]);
-        
-        // Combine communications
         const allComms: Communication[] = [];
-        
         if (draftComms.success && draftComms.drafts) {
-          allComms.push(...draftComms.drafts.map(comm => ({
-            id: comm.id,
-            subject: comm.subject || 'No Subject',
+          allComms.push(...draftComms.drafts.map(c => ({
+            id: c.id,
+            subject: c.subject || 'No Subject',
             status: 'draft',
-            recipient: getRecipientName(comm.profiles),
-            date: new Date(comm.updated_at).toLocaleDateString()
+            recipient: getRecipientName(c.profiles),
+            date: new Date(c.updated_at).toLocaleDateString(),
           })));
         }
-        
         if (submittedComms.success && submittedComms.submissions) {
-          allComms.push(...submittedComms.submissions.map(comm => ({
-            id: comm.id,
-            subject: comm.subject || 'No Subject',
+          allComms.push(...submittedComms.submissions.map(c => ({
+            id: c.id,
+            subject: c.subject || 'No Subject',
             status: 'submitted',
-            recipient: getRecipientName(comm.profiles),
-            date: new Date(comm.created_at || Date.now()).toLocaleDateString()
+            recipient: getRecipientName(c.profiles),
+            date: new Date(c.created_at || Date.now()).toLocaleDateString(),
           })));
         }
-        
         setCommunications(allComms);
-        
-        // Mock recent activity - we would implement this with actual data
+
         setRecentActivity([
           { id: '1', type: 'content', user: 'Recent Curator', action: 'viewed your content', time: '2 hours ago' },
-          { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' }
+          { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' },
         ]);
 
-        // Fetch avatar
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profileData } = await supabase
@@ -434,581 +309,183 @@ if (draftResult.success && draftResult.draft) {
             .select('avatar_url')
             .eq('id', user.id)
             .single();
-            
-          if (profileData?.avatar_url) {
-            setAvatarUrl(profileData.avatar_url);
-          }
+          if (profileData?.avatar_url) setAvatarUrl(profileData.avatar_url);
         }
-        
+
         setIsLoading(false);
-      } catch (error) {
-        console.error("Error loading dashboard data:", error);
+      } catch {
         showError('Failed to load dashboard data');
         setIsLoading(false);
       }
     };
-    
     loadData();
   }, [supabase]);
-  // Confirmation dialog component
+
+  // ── Visual-only handlers ───────────────────────────────────────────────────
+  const toggleSection = (id: string) => {
+    setActiveSection(prev => (prev === id ? null : id));
+  };
+
+  const pressSubmit = () => {
+    if (submitPress !== 'rest') return;
+    setSubmitPress('pressing');
+    const href = contentSubmission ? `/submit?draft=${contentSubmission.id}` : '/submit';
+    setTimeout(() => {
+      setSubmitPress('releasing');
+      router.push(href);
+      setTimeout(() => setSubmitPress('rest'), 220);
+    }, 160);
+  };
+
+  // ── Inline dialog components (restyled) ───────────────────────────────────
+  const dialogOverlay: React.CSSProperties = {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
+  };
+  const dialogCard: React.CSSProperties = {
+    background: 'var(--ground-3)', border: '1px solid var(--rule-mid)',
+    borderRadius: '2px', maxWidth: '320px', width: '90%', padding: '20px',
+  };
+  const dialogTitle: React.CSSProperties = {
+    fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--paper)',
+    marginBottom: '10px', opacity: 0.88,
+  };
+  const dialogBody: React.CSSProperties = {
+    fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--paper-3)',
+    marginBottom: '20px', lineHeight: 1.5,
+  };
+  const dialogFooter: React.CSSProperties = {
+    display: 'flex', justifyContent: 'flex-end', gap: '10px',
+  };
+  const ghostBtn: React.CSSProperties = {
+    padding: '8px 14px', background: 'transparent',
+    border: '1px solid var(--rule-mid)', borderRadius: '2px',
+    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--paper-3)', cursor: 'pointer',
+  };
+  const destructiveBtn: React.CSSProperties = {
+    padding: '8px 14px',
+    background: 'rgba(224,90,40,0.12)', border: '1px solid rgba(224,90,40,0.4)',
+    borderRadius: '2px',
+    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--neon-accent)', cursor: 'pointer',
+  };
+
   const ConfirmationDialog = () => {
     if (!showConfirm) return null;
-    
-    const getConfirmationText = () => {
-      switch (confirmAction.action) {
-        case 'leave':
-          return 'Are you sure you want to leave this collaboration?';
-        case 'withdraw':
-          return 'Are you sure you want to withdraw this communication?';
-        default:
-          return 'Are you sure you want to proceed?';
-      }
-    };
-    
+    const text = confirmAction.action === 'leave'
+      ? 'Are you sure you want to leave this collaboration?'
+      : confirmAction.action === 'withdraw'
+      ? 'Are you sure you want to withdraw this communication?'
+      : 'Are you sure you want to proceed?';
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-sm max-w-sm w-full p-5 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-sm bg-amber-100 flex items-center justify-center">
-              <Clock size={20} className="text-amber-600" />
-            </div>
-            <h3 className="text-lg font-medium">Confirm Action</h3>
-          </div>
-          <p className="text-gray-700 mb-6">{getConfirmationText()}</p>
-          <div className="flex justify-end gap-3">
-            <button 
-              className="px-4 py-2 border border-gray-200 rounded-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => setShowConfirm(false)}
-            >
-              Cancel
-            </button>
-            <button 
-              className="px-4 py-2 bg-blue-500 text-white rounded-sm hover:bg-blue-600"
-              onClick={handleConfirmAction}
-            >
-              Confirm
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  // Delete Communication confirmation dialog
-  const DeleteConfirmationDialog = () => {
-    if (!showDeleteConfirm) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-sm max-w-sm w-full p-5 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-sm bg-red-100 flex items-center justify-center">
-              <X size={20} className="text-red-600" />
-            </div>
-            <h3 className="text-lg font-medium">Delete Communication</h3>
-          </div>
-          <p className="text-gray-700 mb-6">Are you sure you want to delete this draft communication? This action cannot be undone.</p>
-          <div className="flex justify-end gap-3">
-            <button 
-              className="px-4 py-2 border border-gray-200 rounded-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => setShowDeleteConfirm(false)}
-            >
-              Cancel
-            </button>
-            <button 
-              className="px-4 py-2 bg-red-500 text-white rounded-sm hover:bg-red-600"
-              onClick={handleDeleteCommunication}
-            >
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  // Delete Content confirmation dialog
-  const DeleteContentConfirmationDialog = () => {
-    if (!showDeleteContentConfirm) return null;
-    
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white rounded-sm max-w-sm w-full p-5 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-sm bg-red-100 flex items-center justify-center">
-              <X size={20} className="text-red-600" />
-            </div>
-            <h3 className="text-lg font-medium">Delete Content</h3>
-          </div>
-          <p className="text-gray-700 mb-6">Are you sure you want to delete this content? This action cannot be undone.</p>
-          <div className="flex justify-end gap-3">
-            <button 
-              className="px-4 py-2 border border-gray-200 rounded-sm text-gray-700 hover:bg-gray-50"
-              onClick={() => setShowDeleteContentConfirm(false)}
-            >
-              Cancel
-            </button>
-            <button 
-              className="px-4 py-2 bg-red-500 text-white rounded-sm hover:bg-red-600"
-              onClick={handleDeleteContent}
-            >
-              Delete
-            </button>
+      <div style={dialogOverlay}>
+        <div style={dialogCard}>
+          <div style={dialogTitle}>Confirm</div>
+          <div style={dialogBody}>{text}</div>
+          <div style={dialogFooter}>
+            <button style={ghostBtn} onClick={() => setShowConfirm(false)}>Cancel</button>
+            <button style={destructiveBtn} onClick={handleConfirmAction}>Confirm</button>
           </div>
         </div>
       </div>
     );
   };
 
-  // Loading state
+  const DeleteCommDialog = () => {
+    if (!showDeleteConfirm) return null;
+    return (
+      <div style={dialogOverlay}>
+        <div style={dialogCard}>
+          <div style={dialogTitle}>Delete Communication</div>
+          <div style={dialogBody}>Are you sure you want to delete this draft? This cannot be undone.</div>
+          <div style={dialogFooter}>
+            <button style={ghostBtn} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+            <button style={destructiveBtn} onClick={handleDeleteCommunication}>Delete</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const DeleteContentDialog = () => {
+    if (!showDeleteContentConfirm) return null;
+    return (
+      <div style={dialogOverlay}>
+        <div style={dialogCard}>
+          <div style={dialogTitle}>Delete Content</div>
+          <div style={dialogBody}>Are you sure you want to delete this submission? This cannot be undone.</div>
+          <div style={dialogFooter}>
+            <button style={ghostBtn} onClick={() => setShowDeleteContentConfirm(false)}>Cancel</button>
+            <button style={destructiveBtn} onClick={handleDeleteContent}>Delete</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Loading state ──────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading dashboard...</p>
-        </div>
+      <div style={{ background: 'var(--ground)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.14em', color: 'var(--paper-4)' }}>
+          loading…
+        </p>
       </div>
     );
   }
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Success/Error Messages */}
-      {successMessage && (
-        <div className="fixed top-5 right-5 bg-green-100 border border-green-200 text-green-700 px-4 py-3 rounded-sm flex items-center z-50">
-          <Check size={16} className="mr-2" />
-          {successMessage}
-        </div>
-      )}
-      
-      {errorMessage && (
-        <div className="fixed top-5 right-5 bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-sm flex items-center z-50">
-          <X size={16} className="mr-2" />
-          {errorMessage}
-        </div>
-      )}
-    
-      {/* Header with text-based logo */}
-      <header className="px-5 py-5 flex items-center justify-between bg-white border-b border-gray-100">
-        <div className="h-6 flex items-center">
-          {/* Text-based logo - keeping the orange/yellow */}
-          <span className="text-lg font-normal">
-            <span className="text-[#F05A28]">online/</span>
-            <span className="text-[#F5A93F]">{'/offline'}</span>
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-        <Link href="/profile" className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center cursor-pointer group relative">
-  {avatarUrl ? (
-    <div className="relative w-full h-full">
-      <NextImage 
-        src={avatarUrl} 
-        alt="Profile avatar" 
-        fill
-        className="object-cover"
-      />
-    </div>
-  ) : (
-    <User size={16} className="text-gray-600" />
-  )}
-</Link>
-        </div>
-      </header>
-      
-      {/* Period Info */}
-      <div className="px-6 py-4 bg-blue-50 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 flex items-center justify-center rounded-sm bg-white border border-blue-100">
-            <CalendarDays size={18} className="text-blue-500" />
-          </div>
-          <div>
-            <h2 className="text-base font-normal text-gray-900">{currentPeriod?.name || 'Current Period'}</h2>
-            {currentPeriod?.end_date && (
-              <div className="text-xs text-gray-600 flex items-center gap-1 mt-0.5">
-                <Clock size={12} className="text-blue-500" />
-                <CountdownTimer endDate={currentPeriod.end_date} />
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      {/* Tab Navigation */}
-      <div className="border-b border-gray-100">
-        <div className="flex px-6">
-          <button
-            className={`py-4 text-sm font-normal border-b-2 transition-colors ${
-              activeTab === 'contribute'
-                ? 'border-blue-500 text-blue-500'
-                : 'border-transparent text-gray-500 hover:text-gray-900'
-            }`}
-            onClick={() => setActiveTab('contribute')}
-          >
-            Contribute
-          </button>
-          <button
-            className={`py-4 ml-8 text-sm font-normal border-b-2 transition-colors ${
-              activeTab === 'curate'
-                ? 'border-blue-500 text-blue-500'
-                : 'border-transparent text-gray-500 hover:text-gray-900'
-            }`}
-            onClick={() => setActiveTab('curate')}
-          >
-            Curate
-          </button>
-        </div>
-      </div>
-      
-      {/* Content area */}
-      <div className="px-6 py-6 pb-24">
-        {activeTab === 'contribute' ? (
-          <div className="space-y-8">
-            {/* Quick Actions (without "Create New" heading) */}
-            <div>
-              <div className="grid grid-cols-3 gap-3">
-                {contentSubmission ? (
-                  // If we have content, this button should edit existing draft
-                  <Link 
-                    href={`/submit?draft=${contentSubmission.id}`} 
-                    className="aspect-square bg-white border border-gray-200 rounded-sm p-4 flex flex-col items-center justify-center gap-2 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center">
-                      <Camera size={20} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                    </div>
-                    <span className="text-xs font-normal text-gray-700 group-hover:text-blue-500 transition-colors">Content</span>
-                  </Link>
-                ) : (
-                  // If no content, this button should create new
-                  <Link 
-                    href="/submit" 
-                    className="aspect-square bg-white border border-gray-200 rounded-sm p-4 flex flex-col items-center justify-center gap-2 hover:border-blue-300 hover:bg-blue-50 transition-colors group"
-                  >
-                    <div className="w-10 h-10 flex items-center justify-center">
-                      <Camera size={20} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                    </div>
-                    <span className="text-xs font-normal text-gray-700 group-hover:text-blue-500 transition-colors">Content</span>
-                  </Link>
-                )}
-                <Link href="/collabs" className="aspect-square bg-white border border-gray-200 rounded-sm p-4 flex flex-col items-center justify-center gap-2 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <UsersRound size={20} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                  </div>
-                  <span className="text-xs font-normal text-gray-700 group-hover:text-blue-500 transition-colors">Collaboration</span>
-                </Link>
-                <Link href="/communicate/new" className="aspect-square bg-white border border-gray-200 rounded-sm p-4 flex flex-col items-center justify-center gap-2 hover:border-blue-300 hover:bg-blue-50 transition-colors group">
-                  <div className="w-10 h-10 flex items-center justify-center">
-                    <MessageCircle size={20} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                  </div>
-                  <span className="text-xs font-normal text-gray-700 group-hover:text-blue-500 transition-colors">Communication</span>
-                </Link>
-              </div>
-            </div>
-            {/* Content Submission - Single Card */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-normal text-gray-400">Content</h2>
-              </div>
-              
-              {contentSubmission ? (
-                <Link 
-                href={`/submit?draft=${contentSubmission.id}`}
-                className={`p-3 border rounded-sm transition-colors ${
-                  contentSubmission.status === 'submitted'
-                    ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
-                    : 'border-gray-100 hover:border-gray-200'
-                } block cursor-pointer`}
-              >
-                <div className="flex items-center gap-3">
-                  {renderContentTypeIcon(contentSubmission.type)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h3 className="text-sm font-normal text-gray-900 truncate">{contentSubmission.title}</h3>
-                      {renderStatusBadge(contentSubmission.status)}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span>{contentSubmission.period}</span>
-                      <span>•</span>
-                      <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
-                    </div>
-                  </div>
-                  <button 
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setDeleteContentId(contentSubmission.id);
-                      setShowDeleteContentConfirm(true);
-                    }}
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              </Link>
-            ) : (
-              <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <Camera size={24} className="text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-500 mb-3">No content submission for current period</p>
-                <Link href="/submit" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                  Provide Content
-                </Link>
-              </div>
-            )}
-          </div>
-          {/* Active Collaborations */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-normal text-gray-400">Collaborations</h2>
-              {activeCollabs.length > 0 && (
-                <Link href="/collabs" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                  <PlusCircle size={12} className="mr-0.5" />
-                  New Collaboration
-                </Link>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              {activeCollabs.map(collab => (
-                <div 
-                  key={collab.id} 
-                  className="p-3 border rounded-sm hover:border-gray-200 transition-colors hover:bg-blue-50 cursor-pointer"
-                  onClick={() => router.push(`/collabs/${collab.id}/submit`)}
-                >
-                  <div className="flex items-center gap-3">
-                    {collab.mode === 'local' ? (
-                      <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-green-50 text-green-500">
-                        <MapPin size={16} />
-                      </div>
-                    ) : collab.mode === 'private' ? (
-                      <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-purple-50 text-purple-500">
-                        <Lock size={16} />
-                      </div>
-                    ) : (
-                      <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-blue-50 text-blue-500">
-                        <Globe size={16} />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-sm font-normal text-gray-900 truncate">{collab.title}</h3>
-                        {collab.status === 'submitted' && (
-                          <span className="text-xs px-2 py-0.5 rounded-sm bg-blue-100 text-blue-600 border border-blue-200">
-                            submitted
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          {collab.participants} participant{collab.participants !== 1 ? 's' : ''}
-                        </span>
-                        {collab.mode === 'local' && collab.location && (
-                          <span className="text-xs text-gray-500">• {collab.location}</span>
-                        )}
-                      </div>
-                    </div>
-                    <button 
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        showConfirmDialog('leave', collab.id);
-                      }}
-                    >
-                      <X size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              
-              {activeCollabs.length === 0 && (
-                <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                 <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                    <UsersRound size={24} className="text-gray-400" />
-                </div>
-                  <p className="text-sm text-gray-500 mb-3">No active collaborations</p>
-                  <Link href="/collabs" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                    Join Collaboration
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Communications */}
-          <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-normal text-gray-400">Communications</h2>
-                {communications.length > 0 && (
-                  <Link href="/communicate/new" className="text-xs text-blue-500 font-normal flex items-center gap-0.5 hover:underline">
-                    <PlusCircle size={12} className="mr-0.5" />
-                    New Communication
-                  </Link>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                {communications.map(comm => (
-                  <Link
-                    key={comm.id}
-                    href={`/communicate/${comm.id}`}
-                    className={`p-3 border rounded-sm transition-colors ${
-                      comm.status === 'submitted'
-                        ? 'border-blue-200 hover:border-blue-300 bg-blue-50'
-                        : 'border-gray-100 hover:border-gray-200'
-                    } block cursor-pointer`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-sm flex items-center justify-center bg-amber-50 text-amber-500">
-                        <MessageCircle size={16} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <h3 className="text-sm font-normal text-gray-900 truncate">{comm.subject}</h3>
-                          {renderStatusBadge(comm.status)}
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                            <span>To: {comm.recipient}</span>
-                            <span>•</span>
-                            <span>{comm.date}</span>
-                          </div>
-                          
-                          {comm.status === 'submitted' && (
-                            <button 
-                              className="text-blue-500 hover:text-blue-600 text-xs flex items-center gap-0.5"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                showConfirmDialog('withdraw', comm.id);
-                              }}
-                            >
-                              <RotateCcw size={12} />
-                              Withdraw
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Replace chevron with X for draft communications */}
-                      {comm.status === 'draft' ? (
-                        <button 
-                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDeleteCommId(comm.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                        >
-                          <X size={14} />
-                        </button>
-                      ) : (
-                        <div className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-blue-500">
-                          <ChevronRight size={16} />
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-                
-                {communications.length === 0 && (
-                  <div className="py-12 border border-gray-100 rounded-sm flex flex-col items-center justify-center">
-                    <div className="w-12 h-12 border border-gray-200 rounded-sm flex items-center justify-center mb-3">
-                      <MessageCircle size={24} className="text-gray-400" aria-hidden="true" />
-                    </div>
-                    <p className="text-sm text-gray-500 mb-3">No communications yet</p>
-                    <Link href="/communicate/new" className="px-4 py-2 bg-blue-500 text-white text-sm rounded-sm">
-                      Issue Communication
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Curation Actions */}
-            <div className="space-y-2">
-              <h2 className="text-sm font-normal text-gray-400 mb-3">Actions</h2>
-              
-              <Link href="/curate" className="p-3 border border-gray-100 rounded-sm hover:border-blue-200 transition-colors hover:bg-blue-50 group block">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 border border-gray-100 rounded-sm flex items-center justify-center group-hover:border-blue-200 group-hover:bg-white transition-colors">
-                    <Edit size={16} className="text-gray-700 group-hover:text-blue-500 transition-colors" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-normal text-gray-900 group-hover:text-blue-500 transition-colors">Curate Your Magazine</h3>
-                    <p className="text-xs text-gray-500 mt-0.5">Select content for your print magazine</p>
-                  </div>
-                  <div className="w-8 h-8 flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
-                    <ChevronRight size={16} />
-                  </div>
-                </div>
-              </Link>
-            </div>
-            
-            {/* Recent Activity */}
-            <div className="space-y-2">
-              <h2 className="text-sm font-normal text-gray-400 mb-3">Recent Activity</h2>
-              
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="p-3 border border-gray-100 rounded-sm hover:border-gray-200 transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-sm bg-blue-50 flex-shrink-0 flex items-center justify-center">
-                      <Camera size={14} className="text-blue-500" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        <span className="font-medium">{activity.user}</span> {activity.action}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {recentActivity.length === 0 && (
-                <div className="py-6 text-center">
-                  <p className="text-sm text-gray-500">No recent activity</p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-      {/* Confirmation Dialogs */}
-      <ConfirmationDialog />
-      <DeleteConfirmationDialog />
-      <DeleteContentConfirmationDialog />
-    </div>
-  );
-}
 
-// Countdown timer component
-const CountdownTimer = ({ endDate }: { endDate: string }) => {
-    const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number }>({ days: 0, hours: 0 });
-  
-    useEffect(() => {
-      const calculateTimeLeft = () => {
-        const endDateTime = new Date(endDate).getTime();
-        const now = new Date().getTime();
-        const difference = endDateTime - now;
-        
-        if (difference > 0) {
-          setTimeLeft({
-            days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-            hours: Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-          });
-        } else {
-          setTimeLeft({ days: 0, hours: 0 });
-        }
-      };
-      
-      calculateTimeLeft();
-      const timerId = setInterval(calculateTimeLeft, 60000); // Update every minute
-      
-      return () => clearInterval(timerId);
-    }, [endDate]);
-  
-    return (
-      <span>{timeLeft.days}d {timeLeft.hours}h remaining</span>
-    );
+  // ── Shared style helpers ───────────────────────────────────────────────────
+  const sectionColors: Record<string, { neon: string; glow: string; rgba01: string; rgba04: string }> = {
+    content: {
+      neon: 'var(--neon-accent)',
+      glow: 'var(--glow-accent)',
+      rgba01: 'rgba(224,90,40,0.1)',
+      rgba04: 'rgba(224,90,40,0.4)',
+    },
+    collabs: {
+      neon: 'var(--neon-blue)',
+      glow: 'var(--glow-blue)',
+      rgba01: 'rgba(90,159,212,0.1)',
+      rgba04: 'rgba(90,159,212,0.4)',
+    },
+    comms: {
+      neon: 'var(--neon-amber)',
+      glow: 'var(--glow-amber)',
+      rgba01: 'rgba(224,168,48,0.1)',
+      rgba04: 'rgba(224,168,48,0.4)',
+    },
   };
+
+  const modeStyle: Record<string, { border: string; shadow: string; label: string }> = {
+    community: {
+      border: 'var(--neon-blue)',
+      shadow: '-3px 0 10px -2px var(--glow-blue)',
+      label: 'var(--neon-blue)',
+    },
+    local: {
+      border: 'var(--neon-green)',
+      shadow: '-3px 0 10px -2px var(--glow-green)',
+      label: 'var(--neon-green)',
+    },
+    private: {
+      border: 'var(--neon-purple)',
+      shadow: '-3px 0 10px -2px var(--glow-purple)',
+      label: 'var(--neon-purple)',
+    },
+  };
+
+  const iconStroke = (sec: string) =>
+    activeSection === sec ? sectionColors[sec].neon : 'var(--paper-4)';
+  const iconFilter = (sec: string) =>
+    activeSection === sec ? `drop-shadow(0 0 4px ${sectionColors[sec].glow})` : 'none';
+  const iconBoxBg = (sec: string) =>
+    activeSection === sec ? sectionColors[sec].rgba01 : 'var(--ground-3)';
+  const iconBoxBorder = (sec: string) =>
+    activeSection === sec ? sectionColors[sec].rgba04 : 'var(--rule-mid)';
+  const iconBoxShadow = (sec: string) =>
+    activeSection === sec
+      ? `0 0 10px 2px ${sectionColors[sec].glow}, 0 0 28px 4px ${sectionColors[sec].rgba01}, inset 0 0 10px ${sectionColors[sec].rgba01}`
+      : 'inset 0 1px 4px rgba(0,0,0,0.5)';
+
+  // PART 1 ENDS HERE — return statement begins in part 2
