@@ -289,3 +289,13 @@ PDF sent to print fulfillment service (Mixam or similar)
 - **Contributors**: Submit content, join/participate in collaborations, send communications to curators
 - **Curators**: Select content for their personalized printed magazine, manage which creators/collabs/comms appear
 - Users can be both. Currently single developer testing both roles, no real users yet.
+
+## Design Reference Files
+
+The `_design/` directory contains visual reference for the current UI redesign:
+
+- `_design/DESIGN_BRIEF.md` — full design system spec (colors, typography, components)
+- `_design/dashboard-final-v2.html` — contributor dashboard reference
+- `_design/curate-page-v4.html` — curation proof light table reference
+
+Read these before starting any UI work. The redesign is a visual-only change — do not alter any Supabase queries, state management, or business logic.

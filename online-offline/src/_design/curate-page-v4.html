@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>online//offline — Curate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --lt-bg:           #0f0e0b;
+    --lt-text:         rgba(235,225,205,0.85);
+    --lt-text-2:       rgba(235,225,205,0.65);
+    --lt-text-3:       rgba(235,225,205,0.42);
+    --lt-rule:         rgba(235,225,205,0.09);
+    --lt-card:         rgba(235,220,185,0.06);
+    --lt-card-sel:     rgba(235,220,185,0.13);
+    --lt-card-bdr:     rgba(235,220,185,0.1);
+    --lt-card-bdr-sel: rgba(235,220,185,0.24);
+    --neon-green:      #4ec47a;
+    --neon-accent:     #e05a28;
+    --neon-blue:       #5a9fd4;
+    --neon-amber:      #e0a830;
+    --neon-purple:     #a888e8;
+    --glow-green:      rgba(78,196,122,0.4);
+    --glow-accent:     rgba(224,90,40,0.4);
+    --glow-blue:       rgba(90,159,212,0.4);
+    --glow-amber:      rgba(224,168,48,0.4);
+    --glow-purple:     rgba(168,136,232,0.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Instrument Sans', sans-serif;
+    background: #181511;
+    color: var(--lt-text);
+    min-height: 100vh;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding: 20px 0 60px;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  @media (max-width: 440px) {
+    body { background: var(--lt-bg); padding: 0; }
+  }
+
+  .shell {
+    width: 390px; height: 820px;
+    background: var(--lt-bg);
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow:
+      0 0 0 1px rgba(240,235,226,0.05),
+      0 8px 32px rgba(0,0,0,0.45),
+      0 32px 80px rgba(0,0,0,0.5);
+  }
+
+  @media (max-width: 440px) {
+    .shell { width: 100vw; height: 100dvh; box-shadow: none; }
+  }
+
+  .grain {
+    position: absolute; inset: 0; z-index: 400; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23g)' opacity='0.05'/%3E%3C/svg%3E");
+    background-size: 200px; mix-blend-mode: overlay; opacity: 0.65;
+  }
+
+  .lt-ambient {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 220px;
+    background: radial-gradient(ellipse at 50% 100%, rgba(210,190,150,0.07) 0%, transparent 70%);
+    pointer-events: none; z-index: 1;
+  }
+
+  .lt-glass {
+    position: absolute; top: 130px; left: 16px; right: 16px; bottom: 72px;
+    background: rgba(230,215,185,0.018); border: 1px solid rgba(230,215,185,0.05);
+    border-radius: 2px; pointer-events: none; z-index: 1;
+  }
+
+  .reg-corner { position: absolute; z-index: 300; pointer-events: none; width: 18px; height: 18px; }
+  .reg-bl { bottom: 14px; left: 14px; }
+  .reg-br { bottom: 14px; right: 14px; }
+  .reg-corner svg { width: 18px; height: 18px; overflow: visible; opacity: 0.28; filter: drop-shadow(0 0 3px var(--glow-green)); }
+  .reg-c { fill: none; stroke: var(--neon-green); stroke-width: 0.8; }
+  .reg-l { stroke: var(--neon-green); stroke-width: 0.8; }
+
+  /* ── HEADER ── */
+  .page-header { flex-shrink: 0; padding: 20px 22px 0; position: relative; z-index: 10; display: flex; flex-direction: column; }
+  .header-row-1 { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .back-link { display: flex; align-items: center; gap: 5px; font-family: 'Courier Prime', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lt-text-3); cursor: pointer; transition: color 0.15s; }
+  .back-link:hover { color: var(--lt-text-2); }
+  .back-link svg { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; }
+  .header-wordmark { font-family: 'Instrument Serif', serif; font-size: 14px; letter-spacing: 0.04em; color: var(--lt-text-2); }
+  .header-wordmark .sep { color: rgba(235,225,205,0.28); margin: 0 1px; }
+  .header-badge { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(78,196,122,0.6); text-shadow: 0 0 8px rgba(78,196,122,0.22); }
+  .header-rule { height: 1px; background: var(--lt-text); opacity: 0.6; box-shadow: 0 0 6px 1px rgba(235,225,205,0.2), 0 0 18px rgba(235,225,205,0.06); margin-bottom: 10px; }
+  .header-row-2 { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .header-season { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 12px; color: var(--lt-text-2); white-space: nowrap; }
+  .header-dash { flex: 1; height: 1px; background: linear-gradient(to right, var(--lt-rule), transparent); }
+  .header-deadline { font-size: 10px; color: var(--lt-text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .header-deadline strong { color: var(--neon-accent); font-weight: 500; text-shadow: 0 0 8px var(--glow-accent); }
+
+  /* ── SEARCH ── */
+  .search-row { flex-shrink: 0; padding: 0 22px 8px; position: relative; z-index: 10; }
+  .search-wrap { position: relative; }
+  .search-input { width: 100%; background: rgba(235,225,205,0.05); border: 1px solid rgba(235,225,205,0.1); color: var(--lt-text); font-family: 'Instrument Sans', sans-serif; font-size: 12px; padding: 8px 12px 8px 34px; border-radius: 2px; outline: none; transition: border-color 0.2s, background 0.2s; }
+  .search-input::placeholder { color: var(--lt-text-3); }
+  .search-input:focus { border-color: rgba(235,225,205,0.18); background: rgba(235,225,205,0.07); }
+  .search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+  .search-icon svg { width: 13px; height: 13px; stroke: var(--lt-text-3); stroke-width: 2; fill: none; }
+
+  /* ── STATS ── */
+  .stats-bar { flex-shrink: 0; padding: 0 22px 0; display: flex; align-items: center; position: relative; z-index: 10; }
+  .stat-item { display: flex; flex-direction: column; align-items: flex-start; padding-right: 14px; }
+  .stat-label { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lt-text-3); margin-bottom: 1px; }
+  .stat-value { font-family: 'Instrument Serif', serif; font-size: 18px; color: var(--lt-text); line-height: 1; }
+  .stat-value.accent { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+  .stat-sep { width: 1px; height: 28px; background: var(--lt-rule); margin-right: 14px; flex-shrink: 0; }
+  .stat-price { margin-left: auto; padding-right: 0; text-align: right; }
+  .stat-price .stat-value { color: var(--lt-text-2); }
+
+  /* ── SECTION TABS ── */
+  .section-tabs { flex-shrink: 0; padding: 10px 22px 0; display: flex; border-bottom: 1px solid var(--lt-rule); position: relative; z-index: 10; }
+  .s-tab { display: flex; align-items: center; gap: 5px; padding: 8px 0; margin-right: 18px; font-family: 'Courier Prime', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lt-text-3); cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px; transition: color 0.2s; user-select: none; white-space: nowrap; }
+  .s-tab.active { color: var(--lt-text); border-bottom-color: rgba(235,225,205,0.35); }
+  .s-count { display: none; width: 14px; height: 14px; border-radius: 50%; background: var(--neon-green); color: #0f0e0b; font-family: 'Courier Prime', monospace; font-size: 7px; font-weight: 700; align-items: center; justify-content: center; flex-shrink: 0; }
+  .s-count.show { display: flex; }
+
+  /* ── PROOF SCROLL ── */
+  .proof-scroll { flex: 1; overflow-y: auto; padding: 14px 22px 80px; position: relative; z-index: 10; -webkit-overflow-scrolling: touch; }
+  .section-content { display: none; }
+  .section-content.active { display: block; }
+  .section-heading { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--lt-text-3); margin-bottom: 10px; }
+
+  /* ── BASE PROOF CARD ── */
+  .proof-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .proof-grid-1 { display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 14px; }
+
+  .proof-card {
+    background: var(--lt-card); border: 1px solid var(--lt-card-bdr);
+    border-radius: 1px; padding: 0;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .proof-card:hover { transform: translateY(-2px); border-color: rgba(235,220,185,0.18); }
+  .proof-card:active { transform: translateY(0); }
+  .proof-card.disabled { opacity: 0.45; cursor: default; }
+  .proof-card.disabled:hover { transform: none; }
+  .proof-card.static { cursor: default; }
+  .proof-card.static:hover { transform: none; background: var(--lt-card); }
+
+  /* ── content-type neon on select ── */
+  /* neutral fallback */
+  .proof-card.selected {
+    border-left: 3px solid rgba(235,220,185,0.4);
+    box-shadow: -4px 0 12px -2px rgba(235,220,185,0.18), inset 0 0 20px rgba(235,220,185,0.03);
+  }
+
+  /* photography — blue */
+  .proof-card.selected.type-photo {
+    background: rgba(90,159,212,0.06);
+    border-color: rgba(90,159,212,0.25);
+    border-left-color: var(--neon-blue);
+    box-shadow: -4px 0 14px -2px rgba(90,159,212,0.4), 0 0 18px rgba(90,159,212,0.07), inset 0 0 22px rgba(90,159,212,0.04);
+  }
+
+  /* art — purple */
+  .proof-card.selected.type-art {
+    background: rgba(168,136,232,0.06);
+    border-color: rgba(168,136,232,0.25);
+    border-left-color: var(--neon-purple);
+    box-shadow: -4px 0 14px -2px rgba(168,136,232,0.38), 0 0 18px rgba(168,136,232,0.07), inset 0 0 22px rgba(168,136,232,0.04);
+  }
+
+  /* poetry / essay — amber */
+  .proof-card.selected.type-poetry,
+  .proof-card.selected.type-essay {
+    background: rgba(224,168,48,0.06);
+    border-color: rgba(224,168,48,0.25);
+    border-left-color: var(--neon-amber);
+    box-shadow: -4px 0 14px -2px rgba(224,168,48,0.38), 0 0 18px rgba(224,168,48,0.07), inset 0 0 22px rgba(224,168,48,0.04);
+  }
+
+  /* music — green */
+  .proof-card.selected.type-music {
+    background: rgba(78,196,122,0.06);
+    border-color: rgba(78,196,122,0.25);
+    border-left-color: var(--neon-green);
+    box-shadow: -4px 0 14px -2px rgba(78,196,122,0.38), 0 0 18px rgba(78,196,122,0.07), inset 0 0 22px rgba(78,196,122,0.04);
+  }
+
+  .proof-check { position: absolute; top: 8px; right: 9px; z-index: 10; font-family: 'Courier Prime', monospace; font-size: 14px; color: transparent; transition: color 0.18s, text-shadow 0.18s; filter: drop-shadow(0 0 3px rgba(0,0,0,0.6)); }
+  /* check color matches content type */
+  .proof-card.selected .proof-check              { color: var(--lt-text-2); }
+  .proof-card.selected.type-photo  .proof-check  { color: var(--neon-blue);   text-shadow: 0 0 8px rgba(90,159,212,0.7),  0 0 18px rgba(90,159,212,0.2); }
+  .proof-card.selected.type-art    .proof-check  { color: var(--neon-purple); text-shadow: 0 0 8px rgba(168,136,232,0.7), 0 0 18px rgba(168,136,232,0.2); }
+  .proof-card.selected.type-poetry .proof-check,
+  .proof-card.selected.type-essay  .proof-check  { color: var(--neon-amber);  text-shadow: 0 0 8px rgba(224,168,48,0.7),  0 0 18px rgba(224,168,48,0.2); }
+  .proof-card.selected.type-music  .proof-check  { color: var(--neon-green);  text-shadow: 0 0 8px rgba(78,196,122,0.7),  0 0 18px rgba(78,196,122,0.2); }
+
+  /* identity banner */
+  .proof-banner { width: 100%; height: 72px; position: relative; flex-shrink: 0; overflow: hidden; }
+  .proof-banner.has-banner { background-size: cover; background-position: center; }
+  .proof-banner.has-banner::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.35) 100%); }
+  .proof-banner.has-photo { background: rgba(235,220,185,0.05); display: flex; align-items: center; justify-content: center; }
+  .proof-avatar { width: 40px; height: 40px; border-radius: 50%; background-size: cover; background-position: center; border: 1px solid rgba(235,220,185,0.2); display: flex; align-items: center; justify-content: center; }
+  .proof-banner.placeholder { display: flex; align-items: center; justify-content: center; }
+  .proof-placeholder-glyph { font-family: 'Instrument Serif', serif; font-style: italic; font-size: 28px; line-height: 1; opacity: 0.25; user-select: none; }
+  .proof-banner.placeholder.type-photo  { background: linear-gradient(135deg, rgba(90,159,212,0.1) 0%, rgba(90,159,212,0.04) 100%); }
+  .proof-banner.placeholder.type-art    { background: linear-gradient(135deg, rgba(168,136,232,0.1) 0%, rgba(168,136,232,0.04) 100%); }
+  .proof-banner.placeholder.type-poetry { background: linear-gradient(135deg, rgba(224,168,48,0.1) 0%, rgba(224,168,48,0.04) 100%); }
+  .proof-banner.placeholder.type-music  { background: linear-gradient(135deg, rgba(78,196,122,0.1) 0%, rgba(78,196,122,0.04) 100%); }
+  .proof-banner.placeholder.type-photo  .proof-placeholder-glyph { color: var(--neon-blue); }
+  .proof-banner.placeholder.type-art    .proof-placeholder-glyph { color: var(--neon-purple); }
+  .proof-banner.placeholder.type-poetry .proof-placeholder-glyph { color: var(--neon-amber); }
+  .proof-banner.placeholder.type-music  .proof-placeholder-glyph { color: var(--neon-green); }
+
+  /* card body */
+  .proof-body { padding: 9px 10px 10px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .proof-body.padded { padding: 11px 10px; }
+  .proof-type { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--lt-text-3); }
+  .proof-name { font-family: 'Instrument Serif', serif; font-size: 14px; color: var(--lt-text); line-height: 1.2; padding-right: 18px; }
+  .proof-name.lg { font-size: 16px; }
+  .proof-detail { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.06em; color: var(--lt-text-2); line-height: 1.4; margin-top: 1px; }
+  .proof-lock-icon { position: absolute; bottom: 8px; right: 9px; z-index: 10; }
+  .proof-lock-icon svg { width: 10px; height: 10px; stroke: var(--lt-text-3); stroke-width: 2; fill: none; }
+  .proof-access-btn { margin-top: 5px; padding: 5px 0; width: 100%; text-align: center; background: rgba(90,159,212,0.12); border: 1px solid rgba(90,159,212,0.24); border-radius: 1px; font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.12em; text-transform: uppercase; color: #7fbfe8; cursor: pointer; transition: background 0.15s; }
+  .proof-access-btn:hover { background: rgba(90,159,212,0.2); }
+  .show-more { text-align: center; padding: 8px 0; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lt-text-3); cursor: pointer; transition: color 0.15s; }
+  .show-more:hover { color: var(--lt-text-2); }
+
+  /* ══════════════════════════════════════
+     COLLAB CARDS — neon left border glow
+     per participation mode, card wash on select
+  ══════════════════════════════════════ */
+
+  .collab-card {
+    background: var(--lt-card);
+    border: 1px solid var(--lt-card-bdr);
+    border-left: 3px solid transparent;
+    border-radius: 1px;
+    padding: 14px 14px 14px 14px;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column; gap: 5px;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  .collab-card:hover { transform: translateY(-2px); }
+  .collab-card:active { transform: translateY(0); }
+
+  /* mode-specific border + glow */
+  .collab-card.community {
+    border-left-color: var(--neon-blue);
+    box-shadow: -4px 0 12px -2px rgba(90,159,212,0.3);
+  }
+
+  .collab-card.local {
+    border-left-color: var(--neon-green);
+    box-shadow: -4px 0 12px -2px rgba(78,196,122,0.3);
+  }
+
+  .collab-card.private {
+    border-left-color: var(--neon-purple);
+    box-shadow: -4px 0 12px -2px rgba(168,136,232,0.28);
+  }
+
+  /* selected state — stronger glow, color wash */
+  .collab-card.community.selected {
+    background: rgba(90,159,212,0.07);
+    border-color: rgba(90,159,212,0.35);
+    border-left-color: var(--neon-blue);
+    box-shadow: -4px 0 16px -1px rgba(90,159,212,0.45), 0 0 20px rgba(90,159,212,0.08), inset 0 0 24px rgba(90,159,212,0.04);
+  }
+
+  .collab-card.local.selected {
+    background: rgba(78,196,122,0.07);
+    border-color: rgba(78,196,122,0.35);
+    border-left-color: var(--neon-green);
+    box-shadow: -4px 0 16px -1px rgba(78,196,122,0.45), 0 0 20px rgba(78,196,122,0.08), inset 0 0 24px rgba(78,196,122,0.04);
+  }
+
+  .collab-card.private.selected {
+    background: rgba(168,136,232,0.07);
+    border-color: rgba(168,136,232,0.35);
+    border-left-color: var(--neon-purple);
+    box-shadow: -4px 0 16px -1px rgba(168,136,232,0.4), 0 0 20px rgba(168,136,232,0.07), inset 0 0 24px rgba(168,136,232,0.04);
+  }
+
+  .collab-check { position: absolute; top: 10px; right: 10px; font-family: 'Courier Prime', monospace; font-size: 14px; color: transparent; transition: color 0.18s, text-shadow 0.18s; }
+  .collab-card.selected .collab-check { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green), 0 0 18px rgba(78,196,122,0.2); }
+
+  .collab-mode-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+
+  .collab-card.community .collab-mode-label { color: var(--neon-blue); text-shadow: 0 0 8px rgba(90,159,212,0.5); }
+  .collab-card.local     .collab-mode-label { color: var(--neon-green); text-shadow: 0 0 8px rgba(78,196,122,0.5); }
+  .collab-card.private   .collab-mode-label { color: var(--neon-purple); text-shadow: 0 0 8px rgba(168,136,232,0.45); }
+
+  .collab-title { font-family: 'Instrument Serif', serif; font-size: 17px; color: var(--lt-text); line-height: 1.2; padding-right: 20px; }
+  .collab-detail { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.06em; color: var(--lt-text-2); line-height: 1.5; margin-top: 2px; }
+
+  /* participant count — glows in mode color */
+  .collab-count {
+    margin-top: 6px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 9px; letter-spacing: 0.08em;
+    display: flex; align-items: center; gap: 6px;
+  }
+
+  .collab-count-num {
+    font-family: 'Instrument Serif', serif;
+    font-size: 20px; line-height: 1;
+  }
+
+  .collab-card.community .collab-count-num { color: var(--neon-blue); text-shadow: 0 0 10px rgba(90,159,212,0.5); }
+  .collab-card.local     .collab-count-num { color: var(--neon-green); text-shadow: 0 0 10px rgba(78,196,122,0.5); }
+  .collab-card.private   .collab-count-num { color: var(--neon-purple); text-shadow: 0 0 10px rgba(168,136,232,0.45); }
+
+  .collab-count-label { color: var(--lt-text-3); font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; }
+
+  /* ══════════════════════════════════════
+     COMM CARDS — amber neon
+  ══════════════════════════════════════ */
+
+  .comm-card {
+    background: rgba(224,168,48,0.05);
+    border: 1px solid rgba(224,168,48,0.14);
+    border-left: 3px solid var(--neon-amber);
+    border-radius: 1px;
+    padding: 14px 14px;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column; gap: 5px;
+    box-shadow: -4px 0 12px -2px rgba(224,168,48,0.22), inset 0 0 30px rgba(224,168,48,0.03);
+    transition: background 0.2s, transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .comm-card:hover { transform: translateY(-2px); background: rgba(224,168,48,0.08); }
+  .comm-card:active { transform: translateY(0); }
+
+  .comm-card.selected {
+    background: rgba(224,168,48,0.1);
+    border-color: rgba(224,168,48,0.3);
+    border-left-color: var(--neon-amber);
+    box-shadow: -4px 0 18px -1px rgba(224,168,48,0.4), 0 0 20px rgba(224,168,48,0.08), inset 0 0 28px rgba(224,168,48,0.05);
+  }
+
+  .comm-check { position: absolute; top: 10px; right: 10px; font-family: 'Courier Prime', monospace; font-size: 14px; color: transparent; transition: color 0.18s, text-shadow 0.18s; }
+  .comm-card.selected .comm-check { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+
+  .comm-to-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--neon-amber);
+    text-shadow: 0 0 8px rgba(224,168,48,0.45);
+    display: flex; align-items: center; gap: 7px; margin-bottom: 2px;
+  }
+
+  .comm-to-label::before { content: ''; display: inline-block; width: 14px; height: 1px; background: var(--neon-amber); opacity: 0.4; box-shadow: 0 0 4px rgba(224,168,48,0.4); }
+
+  .comm-card-title { font-family: 'Instrument Serif', serif; font-size: 17px; color: var(--lt-text); line-height: 1.2; padding-right: 20px; }
+  .comm-card-detail { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.06em; color: var(--lt-text-2); line-height: 1.5; margin-top: 2px; }
+
+  /* message count in amber */
+  .comm-msg-count {
+    margin-top: 6px; display: flex; align-items: baseline; gap: 6px;
+  }
+
+  .comm-msg-num {
+    font-family: 'Instrument Serif', serif;
+    font-size: 22px; color: var(--neon-amber); line-height: 1;
+    text-shadow: 0 0 12px rgba(224,168,48,0.5);
+  }
+
+  .comm-msg-label { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--lt-text-3); }
+
+  /* static message preview cards */
+  .comm-preview-card {
+    background: rgba(224,168,48,0.03);
+    border: 1px solid rgba(224,168,48,0.1);
+    border-radius: 1px;
+    padding: 11px 12px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+
+  .comm-preview-from { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--neon-amber); opacity: 0.6; }
+  .comm-preview-subject { font-family: 'Instrument Serif', serif; font-size: 13px; color: var(--lt-text-2); }
+  .comm-preview-date { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.06em; color: var(--lt-text-3); }
+
+  /* ══════════════════════════════════════
+     AD CARDS — green neon, price prominent
+  ══════════════════════════════════════ */
+
+  .ad-card {
+    background: rgba(78,196,122,0.04);
+    border: 1px solid rgba(78,196,122,0.12);
+    border-radius: 1px;
+    padding: 14px 14px;
+    cursor: pointer; position: relative;
+    display: flex; flex-direction: column; gap: 0;
+    transition: background 0.2s, transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+    overflow: hidden;
+  }
+
+  /* subtle green glow edge at top */
+  .ad-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: var(--neon-green);
+    box-shadow: 0 0 8px 1px rgba(78,196,122,0.45), 0 0 20px 2px rgba(78,196,122,0.15);
+    opacity: 0.6;
+    transition: opacity 0.2s;
+  }
+
+  .ad-card:hover { transform: translateY(-2px); background: rgba(78,196,122,0.07); }
+  .ad-card:hover::before { opacity: 1; }
+  .ad-card:active { transform: translateY(0); }
+
+  .ad-card.selected {
+    background: rgba(78,196,122,0.09);
+    border-color: rgba(78,196,122,0.28);
+    box-shadow: 0 0 20px rgba(78,196,122,0.08), inset 0 0 24px rgba(78,196,122,0.04);
+  }
+
+  .ad-card.selected::before { opacity: 1; box-shadow: 0 0 12px 2px rgba(78,196,122,0.55), 0 0 30px 4px rgba(78,196,122,0.18); }
+
+  .ad-check { position: absolute; top: 10px; right: 10px; font-family: 'Courier Prime', monospace; font-size: 14px; color: transparent; transition: color 0.18s, text-shadow 0.18s; }
+  .ad-card.selected .ad-check { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+
+  /* price display — the hero element */
+  .ad-price-row {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    margin-bottom: 10px; padding-top: 4px;
+  }
+
+  .ad-price-num {
+    font-family: 'Instrument Serif', serif;
+    font-size: 36px; line-height: 1;
+    color: var(--neon-green);
+    text-shadow: 0 0 16px rgba(78,196,122,0.55), 0 0 40px rgba(78,196,122,0.2);
+    letter-spacing: -0.01em;
+  }
+
+  .ad-price-label {
+    font-family: 'Courier Prime', monospace;
+    font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(78,196,122,0.6);
+    margin-bottom: 6px;
+  }
+
+  .ad-divider { height: 1px; background: rgba(78,196,122,0.12); margin-bottom: 10px; }
+
+  .ad-name { font-family: 'Instrument Serif', serif; font-size: 16px; color: var(--lt-text); line-height: 1.2; padding-right: 20px; margin-bottom: 3px; }
+  .ad-detail { font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.06em; color: var(--lt-text-2); line-height: 1.4; }
+
+  /* total savings note */
+  .ad-savings-note {
+    margin-top: 14px; padding: 10px 12px;
+    background: rgba(78,196,122,0.05);
+    border: 1px solid rgba(78,196,122,0.1);
+    border-radius: 1px;
+  }
+
+  .ad-savings-label { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lt-text-3); margin-bottom: 3px; }
+  .ad-savings-val { font-family: 'Instrument Serif', serif; font-size: 16px; color: var(--neon-green); text-shadow: 0 0 10px rgba(78,196,122,0.4); }
+
+  /* ── ACTION BAR ── */
+  .action-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 12px 22px; background: rgba(15,14,11,0.96); border-top: 1px solid var(--lt-rule); display: flex; align-items: center; gap: 10px; z-index: 200; backdrop-filter: blur(8px); }
+  .action-price { flex: 1; }
+  .action-price-label { font-family: 'Courier Prime', monospace; font-size: 7px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lt-text-3); margin-bottom: 2px; }
+  .action-price-val { font-family: 'Instrument Serif', serif; font-size: 22px; color: var(--lt-text); line-height: 1; }
+  .action-reset { padding: 9px 14px; background: transparent; border: 1px solid rgba(235,225,205,0.12); border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 8px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--lt-text-3); cursor: pointer; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+  .action-reset:hover { border-color: rgba(224,90,40,0.35); color: var(--neon-accent); }
+  .action-save { padding: 9px 20px; background: rgba(78,196,122,0.1); border: 1px solid rgba(78,196,122,0.25); border-bottom: 2px solid rgba(78,196,122,0.3); border-radius: 2px; font-family: 'Courier Prime', monospace; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); box-shadow: 0 2px 0 rgba(78,196,122,0.18); cursor: pointer; transition: all 0.2s; transform: translateY(0); -webkit-tap-highlight-color: transparent; }
+  .action-save:hover { background: rgba(78,196,122,0.16); }
+  .action-save.pressing { transform: translateY(2px); box-shadow: none; }
+  .action-save.releasing { transform: translateY(0); transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="grain"></div>
+  <div class="lt-ambient"></div>
+  <div class="lt-glass"></div>
+
+  <div class="reg-corner reg-bl"><svg viewBox="-9 -9 18 18" overflow="visible"><circle class="reg-c" cx="0" cy="0" r="4"/><line class="reg-l" x1="-8" y1="0" x2="8" y2="0"/><line class="reg-l" x1="0" y1="-8" x2="0" y2="8"/></svg></div>
+  <div class="reg-corner reg-br"><svg viewBox="-9 -9 18 18" overflow="visible"><circle class="reg-c" cx="0" cy="0" r="4"/><line class="reg-l" x1="-8" y1="0" x2="8" y2="0"/><line class="reg-l" x1="0" y1="-8" x2="0" y2="8"/></svg></div>
+
+  <!-- HEADER -->
+  <div class="page-header">
+    <div class="header-row-1">
+      <div class="back-link"><svg viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>Dashboard</div>
+      <div class="header-wordmark">online<span class="sep">//</span>offline</div>
+      <div class="header-badge">Curate</div>
+    </div>
+    <div class="header-rule"></div>
+    <div class="header-row-2">
+      <span class="header-season">Spring 2026</span>
+      <div class="header-dash"></div>
+      <span class="header-deadline"><strong>47d</strong> remaining</span>
+    </div>
+  </div>
+
+  <!-- SEARCH -->
+  <div class="search-row">
+    <div class="search-wrap">
+      <div class="search-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+      <input class="search-input" type="text" placeholder="Search contributors, collabs, campaigns…" oninput="filterCards(this.value)"/>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-label">Selected</div><div class="stat-value" id="stat-sel">2</div></div>
+    <div class="stat-sep"></div>
+    <div class="stat-item"><div class="stat-label">Remaining</div><div class="stat-value accent" id="stat-rem">18</div></div>
+    <div class="stat-sep"></div>
+    <div class="stat-item"><div class="stat-label">Slots</div><div class="stat-value">20</div></div>
+    <div class="stat-item stat-price"><div class="stat-label">Your price</div><div class="stat-value" id="stat-price">$25.00</div></div>
+  </div>
+
+  <!-- TABS -->
+  <div class="section-tabs">
+    <div class="s-tab active" id="stab-contributors" onclick="switchSection('contributors')">Contributors<span class="s-count show" id="cnt-contributors">2</span></div>
+    <div class="s-tab" id="stab-collabs" onclick="switchSection('collabs')">Collabs<span class="s-count" id="cnt-collabs">0</span></div>
+    <div class="s-tab" id="stab-comms" onclick="switchSection('comms')">Comms<span class="s-count" id="cnt-comms">0</span></div>
+    <div class="s-tab" id="stab-ads" onclick="switchSection('ads')">Ads<span class="s-count" id="cnt-ads">0</span></div>
+  </div>
+
+  <!-- PROOF SCROLL -->
+  <div class="proof-scroll">
+
+    <!-- ── CONTRIBUTORS ── -->
+    <div class="section-content active" id="sec-contributors">
+      <div class="section-heading">Contributors · Spring 2026</div>
+      <div class="proof-grid-2">
+
+        <div class="proof-card selected type-photo" onclick="toggleProof(this)">
+          <div class="proof-check">✓</div>
+          <div class="proof-banner has-banner" style="background-image: linear-gradient(135deg, #1a2535 0%, #2d4a6e 40%, #1e3a5a 70%, #0f1e30 100%);"></div>
+          <div class="proof-body"><div class="proof-type">Photographer</div><div class="proof-name">A. Johnson</div><div class="proof-detail">6 images · Spring 2026</div></div>
+        </div>
+
+        <div class="proof-card type-art" onclick="toggleProof(this)">
+          <div class="proof-check">✓</div>
+          <div class="proof-banner has-banner" style="background-image: linear-gradient(135deg, #2a1a0e 0%, #5c3a1e 40%, #3d2510 70%, #1a0f08 100%);"></div>
+          <div class="proof-body"><div class="proof-type">Visual artist</div><div class="proof-name">M. Hartwell</div><div class="proof-detail">4 images · Spring 2026</div></div>
+        </div>
+
+        <div class="proof-card disabled">
+          <div class="proof-banner placeholder type-poetry"><span class="proof-placeholder-glyph">✦</span></div>
+          <div class="proof-body"><div class="proof-type">Poet</div><div class="proof-name">S. Okafor</div><div class="proof-detail">Private profile</div><div class="proof-access-btn" onclick="event.stopPropagation()">Request access</div></div>
+          <div class="proof-lock-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+        </div>
+
+        <div class="proof-card selected type-essay" onclick="toggleProof(this)">
+          <div class="proof-check">✓</div>
+          <div class="proof-banner has-photo"><div class="proof-avatar" style="background: linear-gradient(135deg, #3a3028, #6a5840);"><span style="font-family:'Instrument Serif',serif; font-size:16px; color:rgba(240,230,210,0.7); font-style:italic;">RY</span></div></div>
+          <div class="proof-body"><div class="proof-type">Essayist</div><div class="proof-name">R. Yamamoto</div><div class="proof-detail">Essay · Spring 2026</div></div>
+        </div>
+
+        <div class="proof-card type-music" onclick="toggleProof(this)">
+          <div class="proof-check">✓</div>
+          <div class="proof-banner placeholder type-music"><span class="proof-placeholder-glyph">♩</span></div>
+          <div class="proof-body"><div class="proof-type">Musician</div><div class="proof-name">T. Okonkwo</div><div class="proof-detail">3 compositions · Spring 2026</div></div>
+        </div>
+
+        <div class="proof-card type-photo" onclick="toggleProof(this)">
+          <div class="proof-check">✓</div>
+          <div class="proof-banner has-banner" style="background-image: linear-gradient(135deg, #0e1f14 0%, #1a3d22 40%, #0f2916 70%, #080f0a 100%);"></div>
+          <div class="proof-body"><div class="proof-type">Photographer</div><div class="proof-name">L. Chen</div><div class="proof-detail">8 images · Spring 2026</div></div>
+        </div>
+
+      </div>
+      <div class="show-more">View all 12 contributors ↓</div>
+    </div>
+
+    <!-- ── COLLABS — neon glow per mode ── -->
+    <div class="section-content" id="sec-collabs">
+      <div class="section-heading">Collaborations · Spring 2026</div>
+      <div class="proof-grid-1">
+
+        <div class="collab-card community" onclick="toggleCollab(this)">
+          <div class="collab-check">✓</div>
+          <div class="collab-mode-label">Community</div>
+          <div class="collab-title">Neon Nighthawks</div>
+          <div class="collab-detail">Theme · random selection of 10 pieces for your edition</div>
+          <div class="collab-count">
+            <span class="collab-count-num">142</span>
+            <span class="collab-count-label">participants</span>
+          </div>
+        </div>
+
+        <div class="collab-card local" onclick="toggleCollab(this)">
+          <div class="collab-check">✓</div>
+          <div class="collab-mode-label">Local · Pensacola</div>
+          <div class="collab-title">Urban Relay</div>
+          <div class="collab-detail">Chain · Phase 2 · your piece plus local contributors</div>
+          <div class="collab-count">
+            <span class="collab-count-num">8</span>
+            <span class="collab-count-label">local participants</span>
+          </div>
+        </div>
+
+        <div class="collab-card private" onclick="toggleCollab(this)">
+          <div class="collab-check">✓</div>
+          <div class="collab-mode-label">Private</div>
+          <div class="collab-title">Four Seasons</div>
+          <div class="collab-detail">Chain · Phase 1 · all member contributions included</div>
+          <div class="collab-count">
+            <span class="collab-count-num">4</span>
+            <span class="collab-count-label">members</span>
+          </div>
+        </div>
+
+        <div class="collab-card community" onclick="toggleCollab(this)">
+          <div class="collab-check">✓</div>
+          <div class="collab-mode-label">Community</div>
+          <div class="collab-title">Bench Biography</div>
+          <div class="collab-detail">Narrative · random selection of 10 pieces for your edition</div>
+          <div class="collab-count">
+            <span class="collab-count-num">67</span>
+            <span class="collab-count-label">participants</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── COMMS — amber neon ── -->
+    <div class="section-content" id="sec-comms">
+      <div class="section-heading">Communications</div>
+      <div class="proof-grid-1">
+
+        <div class="comm-card" onclick="toggleComm(this)">
+          <div class="comm-check">✓</div>
+          <div class="comm-to-label">Contributors</div>
+          <div class="comm-card-title">Include a communications page</div>
+          <div class="comm-card-detail">Personal messages from contributors, addressed to you as curator. Auto-formatted. Up to 10 per page.</div>
+          <div class="comm-msg-count">
+            <span class="comm-msg-num">2</span>
+            <span class="comm-msg-label">messages this season</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="section-heading" style="margin-top:14px;">Messages received</div>
+      <div style="display:flex; flex-direction:column; gap:6px;">
+
+        <div class="comm-preview-card">
+          <div class="comm-preview-from">From Sarah Chen</div>
+          <div class="comm-preview-subject">Thoughts on my latest series</div>
+          <div class="comm-preview-date">Apr 14 · submitted</div>
+        </div>
+
+        <div class="comm-preview-card">
+          <div class="comm-preview-from">From Marcus Johnson</div>
+          <div class="comm-preview-subject">Collaboration opportunity</div>
+          <div class="comm-preview-date">Apr 18 · submitted</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ── ADS — green neon, price prominent ── -->
+    <div class="section-content" id="sec-ads">
+      <div class="section-heading">Campaigns · each reduces your price by $2</div>
+      <div class="proof-grid-1">
+
+        <div class="ad-card" onclick="toggleAd(this)">
+          <div class="ad-check">✓</div>
+          <div class="ad-price-row">
+            <div>
+              <div class="ad-price-label">Price reduction</div>
+              <div class="ad-price-num">$2</div>
+            </div>
+          </div>
+          <div class="ad-divider"></div>
+          <div class="ad-name">Artisan's Supply Co.</div>
+          <div class="ad-detail">Premium art supplies and workshops for creators</div>
+        </div>
+
+        <div class="ad-card" onclick="toggleAd(this)">
+          <div class="ad-check">✓</div>
+          <div class="ad-price-row">
+            <div>
+              <div class="ad-price-label">Price reduction</div>
+              <div class="ad-price-num">$2</div>
+            </div>
+          </div>
+          <div class="ad-divider"></div>
+          <div class="ad-name">The Reading Room</div>
+          <div class="ad-detail">Independent bookstore · curated collections & events</div>
+        </div>
+
+      </div>
+
+      <div class="ad-savings-note" id="savings-note">
+        <div class="ad-savings-label">Total savings with both campaigns</div>
+        <div class="ad-savings-val" id="savings-val">$4.00 off → $21.00</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ACTION BAR -->
+  <div class="action-bar">
+    <div class="action-price">
+      <div class="action-price-label">Your price this season</div>
+      <div class="action-price-val" id="action-price-val">$25.00</div>
+    </div>
+    <button class="action-reset" onclick="confirmReset()">Reset</button>
+    <button class="action-save" id="save-btn" onclick="pressSave()">Save</button>
+  </div>
+
+</div>
+
+<script>
+  const MAX_SLOTS = 20;
+  const BASE_PRICE = 25;
+  const AD_DISCOUNT = 2;
+
+  function switchSection(name) {
+    document.querySelectorAll('.s-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+    document.getElementById('stab-' + name).classList.add('active');
+    document.getElementById('sec-' + name).classList.add('active');
+  }
+
+  /* contributor proof cards */
+  function toggleProof(el) {
+    if (el.classList.contains('disabled')) return;
+    const wasSelected = el.classList.contains('selected');
+    const total = getSelected();
+    if (!wasSelected && total >= MAX_SLOTS) return;
+    el.classList.toggle('selected');
+    updateAll();
+  }
+
+  /* collab cards */
+  function toggleCollab(el) {
+    const wasSelected = el.classList.contains('selected');
+    const total = getSelected();
+    if (!wasSelected && total >= MAX_SLOTS) return;
+    el.classList.toggle('selected');
+    updateAll();
+  }
+
+  /* comm card */
+  function toggleComm(el) {
+    const wasSelected = el.classList.contains('selected');
+    const total = getSelected();
+    if (!wasSelected && total >= MAX_SLOTS) return;
+    el.classList.toggle('selected');
+    updateAll();
+  }
+
+  /* ad card */
+  function toggleAd(el) {
+    el.classList.toggle('selected');
+    updateAll();
+    // update savings note
+    const adCount = document.querySelectorAll('.ad-card.selected').length;
+    const savings = adCount * AD_DISCOUNT;
+    const final = Math.max(0, BASE_PRICE - savings);
+    const note = document.getElementById('savings-note');
+    const val = document.getElementById('savings-val');
+    if (adCount > 0) {
+      note.style.display = 'block';
+      val.textContent = '$' + savings.toFixed(2) + ' off → $' + final.toFixed(2);
+    } else {
+      note.style.display = 'none';
+    }
+  }
+
+  function getSelected() {
+    const proofs  = document.querySelectorAll('.proof-card.selected:not(.disabled)').length;
+    const collabs = document.querySelectorAll('.collab-card.selected').length;
+    const comms   = document.querySelectorAll('.comm-card.selected').length;
+    const ads     = document.querySelectorAll('.ad-card.selected').length;
+    return proofs + collabs + comms + ads;
+  }
+
+  function updateAll() {
+    const ads     = document.querySelectorAll('.ad-card.selected').length;
+    const total   = getSelected();
+    const remain  = MAX_SLOTS - total;
+    const price   = Math.max(0, BASE_PRICE - (ads * AD_DISCOUNT));
+    const priceStr = '$' + price.toFixed(2);
+
+    document.getElementById('stat-sel').textContent        = total;
+    document.getElementById('stat-rem').textContent        = remain;
+    document.getElementById('stat-price').textContent      = priceStr;
+    document.getElementById('action-price-val').textContent = priceStr;
+
+    const contribs = document.querySelectorAll('#sec-contributors .proof-card.selected').length;
+    const collabs  = document.querySelectorAll('.collab-card.selected').length;
+    const comms    = document.querySelectorAll('.comm-card.selected').length;
+
+    function setCount(id, n) {
+      const el = document.getElementById(id);
+      el.textContent = n;
+      el.classList.toggle('show', n > 0);
+    }
+
+    setCount('cnt-contributors', contribs);
+    setCount('cnt-collabs', collabs);
+    setCount('cnt-comms', comms);
+    setCount('cnt-ads', ads);
+  }
+
+  function filterCards(q) {
+    q = q.toLowerCase().trim();
+    [...document.querySelectorAll('.proof-card:not(.static), .collab-card, .comm-card, .ad-card')].forEach(card => {
+      card.style.display = (!q || card.textContent.toLowerCase().includes(q)) ? '' : 'none';
+    });
+  }
+
+  function confirmReset() {
+    if (!confirm('Reset all curation selections?')) return;
+    document.querySelectorAll('.proof-card.selected, .collab-card.selected, .comm-card.selected, .ad-card.selected').forEach(c => c.classList.remove('selected'));
+    document.getElementById('savings-note').style.display = 'none';
+    updateAll();
+  }
+
+  let saving = false;
+  function pressSave() {
+    if (saving) return;
+    saving = true;
+    const btn = document.getElementById('save-btn');
+    btn.classList.add('pressing');
+    setTimeout(() => {
+      btn.classList.remove('pressing');
+      btn.classList.add('releasing');
+      setTimeout(() => { btn.classList.remove('releasing'); saving = false; }, 220);
+    }, 160);
+  }
+
+  /* init — hide savings note until ads selected */
+  document.getElementById('savings-note').style.display = 'none';
+  updateAll();
+</script>
+</body>
+</html>
