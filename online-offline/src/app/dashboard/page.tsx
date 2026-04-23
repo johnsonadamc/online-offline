@@ -256,9 +256,21 @@ export default function Dashboard() {
             ...(collabsResult.community || []),
             ...(collabsResult.local || []),
           ];
+          const collabIds = combined.map((c) => (c as unknown as CollabData).id);
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          let submittedCollabIds: string[] = [];
+          if (currentUser && collabIds.length > 0) {
+            const { data: subData } = await supabase
+              .from('collab_submissions')
+              .select('collab_id')
+              .eq('contributor_id', currentUser.id)
+              .eq('status', 'submitted')
+              .in('collab_id', collabIds);
+            submittedCollabIds = subData?.map(s => s.collab_id) || [];
+          }
           setActiveCollabs(combined.map((c) => {
             const cd = c as unknown as CollabData;
-            const status = cd.status || cd.metadata?.status || 'draft';
+            const status = submittedCollabIds.includes(cd.id) ? 'submitted' : 'draft';
             return {
               id: cd.id,
               title: cd.title,
@@ -918,7 +930,7 @@ export default function Dashboard() {
                 <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--paper-4)' }}>Write to a curator</span>
                   <button
-                    onClick={() => router.push('/communicate')}
+                    onClick={() => router.push('/communicate/new')}
                     style={{
                       padding: '7px 14px', background: 'transparent',
                       border: '1px solid var(--rule-mid)', borderRadius: '2px',

@@ -23,6 +23,7 @@ interface Creator {
   tags: string[];
   lastPost: string;
   avatar: string;
+  identityBannerUrl?: string;
   previousQuarter: boolean;
   type: 'friend';
   icon: React.ElementType;
@@ -428,6 +429,7 @@ export default function CurationInterface() {
               tags: [],
               lastPost: '',
               avatar: profile.avatar_url || `/api/placeholder/400/400?text=${profile.first_name?.charAt(0) || ''}${profile.last_name?.charAt(0) || ''}`,
+              identityBannerUrl: profile.identity_banner_url || undefined,
               previousQuarter: false,
               type: 'friend' as const,
               icon: Camera,
@@ -719,10 +721,14 @@ export default function CurationInterface() {
                             <div style={{ position: 'absolute', top: '8px', right: '9px', zIndex: 10, fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? colors.neon : 'transparent', textShadow: isSelected ? `0 0 8px ${colors.glowRgba}` : 'none', transition: 'color 0.18s, text-shadow 0.18s', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))' }}>✓</div>
 
                             {/* Banner */}
-                            <div style={{ width: '100%', height: '72px', flexShrink: 0, background: colors.bannerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '28px', lineHeight: 1, opacity: 0.25, color: colors.neon, userSelect: 'none' }}>
-                                {colors.glyph}
-                              </span>
+                            <div style={{ width: '100%', height: '72px', flexShrink: 0, background: colors.bannerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                              {creator.identityBannerUrl ? (
+                                <img src={creator.identityBannerUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />
+                              ) : (
+                                <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '28px', lineHeight: 1, opacity: 0.25, color: colors.neon, userSelect: 'none' }}>
+                                  {colors.glyph}
+                                </span>
+                              )}
                             </div>
 
                             {/* Body */}

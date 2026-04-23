@@ -655,8 +655,8 @@ export default function ProfilePage() {
                     <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)', marginBottom: 2 }}>{profile.isPublic ? 'Public Profile' : 'Private Profile'}</div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.6 }}>{profile.isPublic ? 'Visible to everyone' : 'Approved users only'}</div>
                   </div>
-                  <div onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))} style={{ width: 40, height: 22, borderRadius: 11, background: profile.isPublic ? 'var(--neon-amber)' : 'var(--ground-raised)', border: '1px solid var(--rule-color)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s' }}>
-                    <div style={{ position: 'absolute', top: 2, left: profile.isPublic ? 20 : 2, width: 16, height: 16, borderRadius: '50%', background: profile.isPublic ? '#000' : 'var(--paper-secondary)', transition: 'left 0.2s' }} />
+                  <div onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))} style={{ width: 40, height: 22, borderRadius: 11, background: profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.12)', border: `1px solid ${profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.25)'}`, cursor: 'pointer', position: 'relative', transition: 'background 0.2s, border-color 0.2s', flexShrink: 0 }}>
+                    <div style={{ position: 'absolute', top: 2, left: profile.isPublic ? 20 : 2, width: 16, height: 16, borderRadius: '50%', background: profile.isPublic ? '#1a1408' : 'rgba(255,255,255,0.7)', transition: 'left 0.2s' }} />
                   </div>
                 </div>
 
