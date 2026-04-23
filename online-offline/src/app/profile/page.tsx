@@ -738,7 +738,190 @@ export default function ProfilePage() {
             </button>
           </div>
         ) : (
-          null
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {/* Find private profiles */}
+            <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
+                <Search size={12} />
+                Find Private Profiles
+              </div>
+              <div style={{ padding: 14 }}>
+                <div style={{ position: 'relative' }}>
+                  <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--paper-secondary)', opacity: 0.5 }} />
+                  <input
+                    placeholder="Search by name…"
+                    value={searchQuery}
+                    onChange={e => { setSearchQuery(e.target.value); searchProfiles(e.target.value); }}
+                    style={{ width: '100%', padding: '8px 10px 8px 30px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-primary)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-color)'; }}
+                  />
+                </div>
+                {searchResults.length > 0 && (
+                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {searchResults.map(p => (
+                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.1)', border: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
+                            {p.firstName.charAt(0)}{p.lastName.charAt(0)}
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{p.firstName} {p.lastName}</div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                              <Lock size={10} color="var(--paper-secondary)" />
+                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6 }}>Private profile</span>
+                            </div>
+                          </div>
+                        </div>
+                        {pendingRequestMap[p.id] ? (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', color: 'var(--neon-amber)', border: '1px solid rgba(245,169,63,0.3)', borderRadius: 2, padding: '3px 8px' }}>Pending</span>
+                        ) : (
+                          <button onClick={() => handleFollowRequest(p.id)} className="press-btn" style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                            Request Access
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Pending access requests */}
+            {followRequests.length > 0 && (
+              <div style={{ background: 'var(--lt-surface)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 2 }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#ef4444', opacity: 0.9 }}>
+                  <Bell size={12} />
+                  Access Requests
+                  <span style={{ background: '#ef4444', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, borderRadius: 99, padding: '1px 6px' }}>{followRequests.length}</span>
+                </div>
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {followRequests.map(req => (
+                    <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>
+                          {req.firstName.charAt(0)}{req.lastName.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{req.firstName} {req.lastName}</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6, marginTop: 2 }}>Requested {req.requestDate}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => handleApproveRequest(req.id)} style={{ padding: '5px 10px', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)', borderRadius: 2, color: '#10b981', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Approve</button>
+                        <button onClick={() => handleDenyRequest(req.id)} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-secondary)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Deny</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Private profiles you have access to */}
+            <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
+                <Shield size={12} />
+                Private Profiles You Have Access To
+              </div>
+              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {following.filter(f => f.isPrivate).length === 0 ? (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.5, margin: 0 }}>No private profiles yet.</p>
+                ) : (
+                  following.filter(f => f.isPrivate).map(f => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.08)', border: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
+                          {f.firstName.charAt(0)}{f.lastName.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{f.firstName} {f.lastName}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Lock size={10} color="var(--paper-secondary)" />
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6 }}>Access since {f.followingSince}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleUnfollow(f.id)} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-secondary)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* People who have access to your content */}
+            <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
+                <UserCheck size={12} />
+                People Who Have Access to Your Content
+              </div>
+              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {followers.length === 0 ? (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.5, margin: 0 }}>No one has access yet.</p>
+                ) : (
+                  followers.map(f => (
+                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.08)', border: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
+                          {f.firstName.charAt(0)}{f.lastName.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{f.firstName} {f.lastName}</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6, marginTop: 2 }}>Has access for {f.duration}</div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleBlockUser(f.id)} style={{ padding: '5px 10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 2, color: '#ef4444', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Block</button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Blocked users */}
+            {blockedUsers.length > 0 && (
+              <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#ef4444', opacity: 0.8 }}>
+                  <UserX size={12} />
+                  Blocked Users
+                </div>
+                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {blockedUsers.map(u => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>
+                          {u.firstName.charAt(0)}{u.lastName.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{u.firstName} {u.lastName}</div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6, marginTop: 2 }}>Blocked {u.blockedDate}</div>
+                        </div>
+                      </div>
+                      <button onClick={() => handleUnblockUser(u.id)} style={{ padding: '5px 10px', background: 'transparent', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-secondary)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Unblock</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* About permissions note */}
+            <div style={{ background: 'rgba(245,169,63,0.04)', border: '1px solid rgba(245,169,63,0.15)', borderRadius: 2, padding: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Lock size={12} color="var(--neon-amber)" />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>About Permissions</span>
+              </div>
+              <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {[
+                  'Public profiles are visible to everyone',
+                  'Private profiles require access requests',
+                  'You can only receive communications from users you have approved',
+                  'Blocking a user prevents them from requesting access',
+                ].map(line => (
+                  <li key={line} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-secondary)', opacity: 0.7 }}>{line}</li>
+                ))}
+              </ul>
+            </div>
+
+          </div>
         )}
       </div>
     </div>
