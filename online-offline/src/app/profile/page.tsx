@@ -97,3 +97,6 @@ export default function ProfilePage() {
     avatar: string;
     isPrivate: boolean;
   }>>([]);
+
+  return null;
+}
