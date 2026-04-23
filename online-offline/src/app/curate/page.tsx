@@ -651,7 +651,300 @@ export default function CurationInterface() {
           ))}
         </div>
 
-        {/* PART 2 ENDS HERE — Part 3 adds proof scroll + tab panels */}
+        {/* ── Proof scroll area ── */}
+        {(() => {
+          // Content-type → neon color map used by creator cards
+          const tc: Record<string, { neon: string; bannerBg: string; bgSel: string; borderSel: string; shadowSel: string; glowRgba: string; glyph: string }> = {
+            photo:   { neon: 'var(--neon-blue)',   bannerBg: 'linear-gradient(135deg,rgba(90,159,212,0.1) 0%,rgba(90,159,212,0.04) 100%)',   bgSel: 'rgba(90,159,212,0.06)',   borderSel: 'rgba(90,159,212,0.25)',   shadowSel: '-4px 0 14px -2px rgba(90,159,212,0.4),0 0 18px rgba(90,159,212,0.07)',  glowRgba: 'rgba(90,159,212,0.7)',   glyph: '○' },
+            art:     { neon: 'var(--neon-purple)', bannerBg: 'linear-gradient(135deg,rgba(168,136,232,0.1) 0%,rgba(168,136,232,0.04) 100%)', bgSel: 'rgba(168,136,232,0.06)', borderSel: 'rgba(168,136,232,0.25)', shadowSel: '-4px 0 14px -2px rgba(168,136,232,0.38)',                                    glowRgba: 'rgba(168,136,232,0.7)', glyph: '✦' },
+            poetry:  { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '✦' },
+            essay:   { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '∿' },
+            music:   { neon: 'var(--neon-green)',  bannerBg: 'linear-gradient(135deg,rgba(78,196,122,0.1) 0%,rgba(78,196,122,0.04) 100%)',   bgSel: 'rgba(78,196,122,0.06)',   borderSel: 'rgba(78,196,122,0.25)',   shadowSel: '-4px 0 14px -2px rgba(78,196,122,0.38)',                                     glowRgba: 'rgba(78,196,122,0.7)',   glyph: '♩' },
+          };
+          const getType = (t: string) => tc[t] || tc.photo;
+
+          return (
+            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 22px 80px', position: 'relative', zIndex: 10, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+
+              {/* ══ CONTRIBUTORS ══ */}
+              {activeSection === 'contributors' && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
+                    Contributors{currentPeriod ? ` · ${currentPeriod.season} ${currentPeriod.year}` : ''}
+                  </div>
+
+                  {filteredCreators.length === 0 ? (
+                    <div style={{ padding: '32px', textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--lt-text-3)' }}>
+                      No contributors found
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
+                      {filteredCreators.map(creator => {
+                        const isSelected = selectedCreators.includes(creator.id);
+                        const isPending = pendingRequestMap[creator.id];
+                        const colors = getType(creator.contentType);
+                        const displayName = creator.firstName
+                          ? `${creator.firstName.charAt(0)}. ${creator.lastName}`
+                          : creator.name;
+
+                        return (
+                          <div
+                            key={creator.id}
+                            onClick={() => !creator.isPrivate && toggleItem(creator.id, 'friend')}
+                            style={{
+                              background: isSelected ? colors.bgSel : 'var(--lt-card)',
+                              border: `1px solid ${isSelected ? colors.borderSel : 'var(--lt-card-bdr)'}`,
+                              borderLeft: isSelected ? `3px solid ${colors.neon}` : '1px solid var(--lt-card-bdr)',
+                              borderRadius: '1px',
+                              cursor: creator.isPrivate ? 'default' : 'pointer',
+                              position: 'relative',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              overflow: 'hidden',
+                              opacity: creator.isPrivate && !accessibleProfiles.includes(creator.id) ? 0.55 : 1,
+                              boxShadow: isSelected ? colors.shadowSel : 'none',
+                              transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
+                              WebkitTapHighlightColor: 'transparent',
+                            } as React.CSSProperties}
+                          >
+                            {/* ✓ check */}
+                            <div style={{ position: 'absolute', top: '8px', right: '9px', zIndex: 10, fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? colors.neon : 'transparent', textShadow: isSelected ? `0 0 8px ${colors.glowRgba}` : 'none', transition: 'color 0.18s, text-shadow 0.18s', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))' }}>✓</div>
+
+                            {/* Banner */}
+                            <div style={{ width: '100%', height: '72px', flexShrink: 0, background: colors.bannerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '28px', lineHeight: 1, opacity: 0.25, color: colors.neon, userSelect: 'none' }}>
+                                {colors.glyph}
+                              </span>
+                            </div>
+
+                            {/* Body */}
+                            <div style={{ padding: '9px 10px 10px', display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>
+                                {creator.creatorType}
+                              </div>
+                              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '18px' }}>
+                                {displayName}
+                              </div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.4, marginTop: '1px' }}>
+                                {creator.isPrivate ? 'Private profile' : currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : ''}
+                              </div>
+
+                              {creator.isPrivate && !accessibleProfiles.includes(creator.id) && !isPending && (
+                                <button
+                                  onClick={e => handleRequestFollow(creator.id, e)}
+                                  style={{ marginTop: '5px', padding: '5px 0', width: '100%', textAlign: 'center', background: 'rgba(90,159,212,0.12)', border: '1px solid rgba(90,159,212,0.24)', borderRadius: '1px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#7fbfe8', cursor: 'pointer' }}
+                                >
+                                  Request access
+                                </button>
+                              )}
+                              {creator.isPrivate && !accessibleProfiles.includes(creator.id) && isPending && (
+                                <div style={{ marginTop: '5px', padding: '5px 0', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>
+                                  Request pending
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Lock icon */}
+                            {creator.isPrivate && !accessibleProfiles.includes(creator.id) && (
+                              <div style={{ position: 'absolute', bottom: '8px', right: '9px', zIndex: 10 }}>
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-3)" strokeWidth="2">
+                                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ══ COLLABORATIONS ══ */}
+              {activeSection === 'collabs' && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
+                    Collaborations{currentPeriod ? ` · ${currentPeriod.season} ${currentPeriod.year}` : ''}
+                  </div>
+                  <IntegratedCollabsSection
+                    periodId={currentPeriod?.id || ''}
+                    selectedCollabs={selectedCollabs}
+                    toggleItem={(id) => toggleItem(id, 'collab')}
+                    remainingContent={remainingContent}
+                  />
+                </div>
+              )}
+
+              {/* ══ COMMUNICATIONS ══ */}
+              {activeSection === 'comms' && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
+                    Communications
+                  </div>
+
+                  {/* Toggle card */}
+                  {(() => {
+                    const isSelected = selectedCommunications.length > 0;
+                    const msgCount = communications.length;
+                    return (
+                      <div
+                        onClick={() => toggleItem('communications-page', 'communication')}
+                        style={{
+                          background: isSelected ? 'rgba(224,168,48,0.1)' : 'rgba(224,168,48,0.05)',
+                          border: `1px solid ${isSelected ? 'rgba(224,168,48,0.3)' : 'rgba(224,168,48,0.14)'}`,
+                          borderLeft: `3px solid var(--neon-amber)`,
+                          borderRadius: '1px',
+                          padding: '14px',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '5px',
+                          boxShadow: isSelected
+                            ? '-4px 0 18px -1px rgba(224,168,48,0.4),0 0 20px rgba(224,168,48,0.08),inset 0 0 28px rgba(224,168,48,0.05)'
+                            : '-4px 0 12px -2px rgba(224,168,48,0.22),inset 0 0 30px rgba(224,168,48,0.03)',
+                          marginBottom: '8px',
+                          transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
+                          WebkitTapHighlightColor: 'transparent',
+                        } as React.CSSProperties}
+                      >
+                        {/* ✓ check */}
+                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? 'var(--neon-green)' : 'transparent', textShadow: isSelected ? '0 0 8px var(--glow-green)' : 'none', transition: 'color 0.18s, text-shadow 0.18s' }}>✓</div>
+
+                        {/* "to Contributors" amber label */}
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 8px rgba(224,168,48,0.45)', display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '2px' }}>
+                          <span style={{ display: 'inline-block', width: '14px', height: '1px', background: 'var(--neon-amber)', opacity: 0.4, boxShadow: '0 0 4px rgba(224,168,48,0.4)' }} />
+                          Contributors
+                        </div>
+
+                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '20px' }}>
+                          Include a communications page
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.5, marginTop: '2px' }}>
+                          Personal messages from contributors, addressed to you as curator. Auto-formatted. Up to 10 per page.
+                        </div>
+
+                        {/* Message count */}
+                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--neon-amber)', lineHeight: 1, textShadow: '0 0 12px rgba(224,168,48,0.5)' }}>{msgCount}</span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>messages this season</span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Static message previews */}
+                  {communications.length > 0 && (
+                    <>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '14px 0 8px' }}>
+                        Messages received
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {communications.map(comm => (
+                          <div
+                            key={comm.id}
+                            style={{ background: 'rgba(224,168,48,0.03)', border: '1px solid rgba(224,168,48,0.1)', borderRadius: '1px', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: '3px' }}
+                          >
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.6 }}>
+                              From {comm.profiles.first_name} {comm.profiles.last_name}
+                            </div>
+                            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '13px', color: 'var(--lt-text-2)' }}>
+                              {comm.subject}
+                            </div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.06em', color: 'var(--lt-text-3)' }}>
+                              submitted
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* ══ ADS / CAMPAIGNS ══ */}
+              {activeSection === 'ads' && (
+                <div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
+                    Campaigns · each reduces your price by ${adDiscountAmount}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
+                    {ads.map(ad => {
+                      const isSelected = selectedAds.includes(ad.id);
+                      return (
+                        <div
+                          key={ad.id}
+                          onClick={() => toggleItem(ad.id, 'ad')}
+                          style={{
+                            background: isSelected ? 'rgba(78,196,122,0.09)' : 'rgba(78,196,122,0.04)',
+                            border: `1px solid ${isSelected ? 'rgba(78,196,122,0.28)' : 'rgba(78,196,122,0.12)'}`,
+                            borderRadius: '1px',
+                            padding: '14px',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 0,
+                            boxShadow: isSelected ? '0 0 20px rgba(78,196,122,0.08),inset 0 0 24px rgba(78,196,122,0.04)' : 'none',
+                            overflow: 'hidden',
+                            transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
+                            WebkitTapHighlightColor: 'transparent',
+                          } as React.CSSProperties}
+                        >
+                          {/* Green top-edge glow line */}
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'var(--neon-green)', boxShadow: isSelected ? '0 0 12px 2px rgba(78,196,122,0.55),0 0 30px 4px rgba(78,196,122,0.18)' : '0 0 8px 1px rgba(78,196,122,0.45),0 0 20px 2px rgba(78,196,122,0.15)', opacity: isSelected ? 1 : 0.6 }} />
+
+                          {/* ✓ check */}
+                          <div style={{ position: 'absolute', top: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? 'var(--neon-green)' : 'transparent', textShadow: isSelected ? '0 0 8px var(--glow-green)' : 'none', transition: 'color 0.18s, text-shadow 0.18s' }}>✓</div>
+
+                          {/* Price hero */}
+                          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '10px', paddingTop: '4px' }}>
+                            <div>
+                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(78,196,122,0.6)', marginBottom: '2px' }}>
+                                Price reduction
+                              </div>
+                              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', lineHeight: 1, color: 'var(--neon-green)', textShadow: '0 0 16px rgba(78,196,122,0.55),0 0 40px rgba(78,196,122,0.2)', letterSpacing: '-0.01em' }}>
+                                ${ad.discount}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Divider */}
+                          <div style={{ height: '1px', background: 'rgba(78,196,122,0.12)', marginBottom: '10px' }} />
+
+                          {/* Name + bio */}
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '20px', marginBottom: '3px' }}>
+                            {ad.name}
+                          </div>
+                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.4 }}>
+                            {ad.bio}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Savings note */}
+                  {selectedAds.length > 0 && (
+                    <div style={{ padding: '10px 12px', background: 'rgba(78,196,122,0.05)', border: '1px solid rgba(78,196,122,0.1)', borderRadius: '1px' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '3px' }}>
+                        Total savings
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', color: 'var(--neon-green)', textShadow: '0 0 10px rgba(78,196,122,0.4)' }}>
+                        ${selectedAds.length * adDiscountAmount} off your magazine
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          );
+        })()}
+
+        {/* PART 3 ENDS HERE — Part 4 adds action bar */}
       </div>
     </div>
   );
