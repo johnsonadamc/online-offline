@@ -174,5 +174,134 @@ export default function ProfilePage() {
     }
   };
 
+  const searchProfiles = async (query: string) => {
+    if (query.length < 1) { setSearchResults([]); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, is_public, avatar_url')
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+        .eq('is_public', false)
+        .neq('id', user.id)
+        .limit(10);
+      if (error) throw error;
+      setSearchResults((data || []).map(p => ({
+        id: p.id,
+        firstName: p.first_name || '',
+        lastName: p.last_name || '',
+        avatar: p.avatar_url || '',
+        isPrivate: true,
+      })));
+    } catch (error) {
+      console.error('Error searching profiles:', error);
+    }
+  };
+
+  const loadConnectionsData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: followingData, error: followingError } = await supabase
+        .from('profile_connections')
+        .select(`id, followed_id, status, created_at, profiles:followed_id (id, first_name, last_name, avatar_url, is_public)`)
+        .eq('follower_id', user.id)
+        .eq('status', 'approved')
+        .eq('relationship_type', 'follow');
+      if (followingError) throw followingError;
+      if (followingData) {
+        setFollowing(followingData.map(item => {
+          const p = Array.isArray(item.profiles) ? item.profiles[0] || {} : item.profiles || {};
+          return {
+            id: item.followed_id,
+            firstName: (p as {first_name?: string}).first_name || '',
+            lastName: (p as {last_name?: string}).last_name || '',
+            followingSince: new Date(item.created_at).toLocaleDateString(),
+            avatar: (p as {avatar_url?: string}).avatar_url || '',
+            isPrivate: !(p as {is_public?: boolean}).is_public,
+          };
+        }));
+      }
+
+      const { data: followerData, error: followerError } = await supabase
+        .from('profile_connections')
+        .select(`id, follower_id, status, created_at, profiles:follower_id (id, first_name, last_name, avatar_url)`)
+        .eq('followed_id', user.id)
+        .eq('status', 'approved')
+        .eq('relationship_type', 'follow');
+      if (followerError) throw followerError;
+      if (followerData) {
+        setFollowers(followerData.map(item => {
+          const p = Array.isArray(item.profiles) ? item.profiles[0] || {} : item.profiles || {};
+          return {
+            id: item.follower_id,
+            firstName: (p as {first_name?: string}).first_name || '',
+            lastName: (p as {last_name?: string}).last_name || '',
+            followingSince: new Date(item.created_at).toLocaleDateString(),
+            duration: calculateDuration(item.created_at),
+            avatar: (p as {avatar_url?: string}).avatar_url || '',
+          };
+        }));
+      }
+
+      const { data: blockedData, error: blockedError } = await supabase
+        .from('profile_connections')
+        .select(`id, followed_id, updated_at, profiles:followed_id (id, first_name, last_name, avatar_url)`)
+        .eq('follower_id', user.id)
+        .eq('status', 'blocked')
+        .eq('relationship_type', 'follow');
+      if (blockedError) throw blockedError;
+      if (blockedData) {
+        setBlockedUsers(blockedData.map(item => {
+          const p = Array.isArray(item.profiles) ? item.profiles[0] || {} : item.profiles || {};
+          return {
+            id: item.followed_id,
+            firstName: (p as {first_name?: string}).first_name || '',
+            lastName: (p as {last_name?: string}).last_name || '',
+            blockedDate: new Date(item.updated_at).toLocaleDateString(),
+            avatar: (p as {avatar_url?: string}).avatar_url || '',
+          };
+        }));
+      }
+    } catch (error) {
+      console.error('Error loading connections data:', error);
+    }
+  }, [supabase, calculateDuration]);
+
+  const loadFollowRequests = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('profile_connections')
+        .select(`id, follower_id, relationship_type, created_at, profiles:follower_id (id, first_name, last_name, avatar_url)`)
+        .eq('followed_id', user.id)
+        .eq('status', 'pending')
+        .eq('relationship_type', 'follow');
+      if (error) throw error;
+      setFollowRequests((data || []).map(req => {
+        const p = Array.isArray(req.profiles) ? req.profiles[0] || {} : req.profiles || {};
+        return {
+          id: req.id,
+          requesterId: req.follower_id,
+          firstName: (p as {first_name?: string}).first_name || '',
+          lastName: (p as {last_name?: string}).last_name || '',
+          requestDate: new Date(req.created_at).toLocaleDateString(),
+          avatar: (p as {avatar_url?: string}).avatar_url || '',
+        };
+      }));
+    } catch (error) {
+      console.error('Error loading follow requests:', error);
+    }
+  }, [supabase]);
+
+  useEffect(() => {
+    getProfile();
+    loadConnectionsData();
+    loadFollowRequests();
+  }, [getProfile, loadConnectionsData, loadFollowRequests]);
+
   return null;
 }
