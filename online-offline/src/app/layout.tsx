@@ -5,7 +5,7 @@ import RegistrationMarks from '@/components/layout/RegistrationMarks';
 
 const instrumentSans = Instrument_Sans({
   subsets: ['latin'],
-  weight: ['300', '400', '500'],
+  weight: ['400', '500'],
   style: ['normal', 'italic'],
   variable: '--font-sans',
   display: 'swap',
