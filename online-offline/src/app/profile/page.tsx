@@ -303,5 +303,144 @@ export default function ProfilePage() {
     loadFollowRequests();
   }, [getProfile, loadConnectionsData, loadFollowRequests]);
 
+  const updateProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user');
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, is_public: profile.isPublic, updated_at: new Date().toISOString() });
+      if (error) throw error;
+      showSuccess('Profile updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showError('Error updating profile');
+    }
+  };
+
+  const handleFollowRequest = async (profileId: string) => {
+    try {
+      const result = await sendFollowRequest(profileId);
+      if (result.success) {
+        setPendingRequestMap(prev => ({ ...prev, [profileId]: true }));
+        showSuccess(result.status === 'pending' ? 'Access request sent!' : 'Access granted to public profile.');
+        if (result.status === 'approved') loadConnectionsData();
+      } else {
+        showError(`Error: ${result.error || 'Failed to send request'}`);
+      }
+    } catch (error) {
+      console.error('Error sending access request:', error);
+      showError('An unexpected error occurred');
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    try {
+      const result = await approveFollowRequest(requestId);
+      if (result.success) {
+        await loadFollowRequests();
+        await loadConnectionsData();
+        showSuccess('Access request approved');
+      } else {
+        showError(`Error: ${result.error || 'Failed to approve request'}`);
+      }
+    } catch (error) {
+      console.error('Error approving access request:', error);
+      showError('Error approving request');
+    }
+  };
+
+  const handleDenyRequest = async (requestId: string) => {
+    try {
+      const result = await rejectFollowRequest(requestId);
+      if (result.success) {
+        await loadFollowRequests();
+        showSuccess('Access request denied');
+      } else {
+        showError(`Error: ${result.error || 'Failed to deny request'}`);
+      }
+    } catch (error) {
+      console.error('Error denying access request:', error);
+      showError('Error denying request');
+    }
+  };
+
+  const handleUnfollow = async (profileId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error: findError } = await supabase
+        .from('profile_connections')
+        .select('id')
+        .eq('follower_id', user.id)
+        .eq('followed_id', profileId)
+        .eq('relationship_type', 'follow')
+        .single();
+      if (findError) { showError('Error removing access: Connection not found'); return; }
+      const { error } = await supabase.from('profile_connections').delete().eq('id', data.id);
+      if (error) { showError('Error removing access'); return; }
+      await loadConnectionsData();
+      showSuccess('Successfully removed access');
+    } catch (error) {
+      console.error('Error removing access:', error);
+      showError('Error removing access');
+    }
+  };
+
+  const handleBlockUser = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: existingConn } = await supabase
+        .from('profile_connections')
+        .select('id')
+        .eq('follower_id', userId)
+        .eq('followed_id', user.id)
+        .eq('relationship_type', 'follow')
+        .maybeSingle();
+      if (existingConn) {
+        const { error } = await supabase
+          .from('profile_connections')
+          .update({ status: 'blocked', updated_at: new Date().toISOString() })
+          .eq('id', existingConn.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('profile_connections')
+          .insert({ follower_id: userId, followed_id: user.id, relationship_type: 'follow', status: 'blocked', created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        if (error) throw error;
+      }
+      await loadConnectionsData();
+      await loadFollowRequests();
+      showSuccess('User has been blocked');
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      showError('Error blocking user');
+    }
+  };
+
+  const handleUnblockUser = async (userId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error: findError } = await supabase
+        .from('profile_connections')
+        .select('id')
+        .eq('follower_id', userId)
+        .eq('followed_id', user.id)
+        .eq('status', 'blocked')
+        .eq('relationship_type', 'follow')
+        .single();
+      if (findError) { showError('Error unblocking: Block record not found'); return; }
+      const { error } = await supabase.from('profile_connections').delete().eq('id', data.id);
+      if (error) { showError('Error unblocking user'); return; }
+      await loadConnectionsData();
+      showSuccess('User has been unblocked');
+    } catch (error) {
+      console.error('Error unblocking user:', error);
+      showError('Error unblocking user');
+    }
+  };
+
   return null;
 }
