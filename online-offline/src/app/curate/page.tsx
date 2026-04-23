@@ -369,21 +369,29 @@ export default function CurationInterface() {
   // ── Price calculation ──────────────────────────────────────────────────────
   const calculatePrice = () => baseQuarterlyPrice - (selectedAds.length * adDiscountAmount);
 
-  // ── Filtered / sorted creator list ────────────────────────────────────────
-  const filteredCreators = creators
-    .filter(creator => {
-      if (creator.isPrivate && !accessibleProfiles.includes(creator.id)) return false;
-      return searchTerm === '' ||
-        creator.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        creator.bio.toLowerCase().includes(searchTerm.toLowerCase());
-    })
-    .sort((a, b) => {
-      const aSelected = selectedCreators.includes(a.id);
-      const bSelected = selectedCreators.includes(b.id);
-      if (aSelected && !bSelected) return -1;
-      if (!aSelected && bSelected) return 1;
-      return 0;
-    });
+  // ── Stable creator order — sorted once on load, never re-sorted on selection ─
+  // selectedCreators intentionally excluded from deps so selecting a tile
+  // does not reorder the grid (which would reset scroll position).
+  // The sort reflects selections restored from localStorage on mount.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const stableSortedCreators = React.useMemo(() => {
+    return [...creators]
+      .filter(c => !c.isPrivate || accessibleProfiles.includes(c.id))
+      .sort((a, b) => {
+        const aSelected = selectedCreators.includes(a.id);
+        const bSelected = selectedCreators.includes(b.id);
+        if (aSelected && !bSelected) return -1;
+        if (!aSelected && bSelected) return 1;
+        return 0;
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [creators, accessibleProfiles]);
+
+  const filteredCreators = stableSortedCreators.filter(c =>
+    searchTerm === '' ||
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    c.bio.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   // ── Data loading (unchanged) ───────────────────────────────────────────────
   useEffect(() => {

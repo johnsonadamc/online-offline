@@ -759,7 +759,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={collab.id}
-                        onClick={() => router.push(`/collabs/${collab.id}`)}
+                        onClick={() => router.push(`/collabs/${collab.id}/submit`)}
                         style={{
                           padding: '14px 0 14px 14px',
                           borderTop: '1px solid var(--rule)',
