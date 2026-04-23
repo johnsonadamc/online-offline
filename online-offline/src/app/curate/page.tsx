@@ -479,4 +479,190 @@ export default function CurationInterface() {
     }
   }, [loading, selectedCollabs.length]);
 
-  // PART 1 ENDS HERE
+  // ── Loading state ─────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.14em', color: 'var(--lt-text-3)' }}>
+          loading…
+        </p>
+      </div>
+    );
+  }
+
+  // ── Error state ────────────────────────────────────────────────────────────
+  if (error) {
+    return (
+      <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ maxWidth: '300px', textAlign: 'center', padding: '24px' }}>
+          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', marginBottom: '10px', opacity: 0.88 }}>
+            Error loading data
+          </div>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--lt-text-2)', marginBottom: '20px' }}>
+            {error}
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--lt-text-2)', padding: '9px 18px', background: 'transparent', border: '1px solid rgba(235,225,205,0.18)', borderRadius: '2px', cursor: 'pointer' }}
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main return ────────────────────────────────────────────────────────────
+  return (
+    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh' }}>
+      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Ambient glow */}
+        <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '390px', height: '220px', background: 'radial-gradient(ellipse at 50% 100%, rgba(210,190,150,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+        {/* Glass overlay */}
+        <div style={{ position: 'fixed', top: '130px', left: '50%', transform: 'translateX(-50%)', width: 'calc(390px - 32px)', bottom: '72px', background: 'rgba(230,215,185,0.018)', border: '1px solid rgba(230,215,185,0.05)', borderRadius: '2px', pointerEvents: 'none', zIndex: 1 }} />
+
+        {/* ── Header ── */}
+        <div style={{ flexShrink: 0, padding: '20px 22px 0', position: 'relative', zIndex: 10 }}>
+          {/* Row 1: back · wordmark · badge */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <Link
+              href="/dashboard"
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--lt-text-3)', textDecoration: 'none', transition: 'color 0.15s' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15,18 9,12 15,6" />
+              </svg>
+              Dashboard
+            </Link>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', letterSpacing: '0.04em', color: 'var(--lt-text-2)' }}>
+              online<span style={{ color: 'rgba(235,225,205,0.28)', margin: '0 1px' }}>//</span>offline
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(78,196,122,0.6)', textShadow: '0 0 8px rgba(78,196,122,0.22)' }}>
+              Curate
+            </div>
+          </div>
+
+          {/* Thick rule */}
+          <div style={{ height: '1px', background: 'var(--lt-text)', opacity: 0.6, boxShadow: '0 0 6px 1px rgba(235,225,205,0.2), 0 0 18px rgba(235,225,205,0.06)', marginBottom: '10px' }} />
+
+          {/* Row 2: season · dash · deadline */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--lt-text-2)', whiteSpace: 'nowrap' }}>
+              {currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : '—'}
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, var(--lt-rule), transparent)' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--lt-text-3)', whiteSpace: 'nowrap' }}>
+              {currentPeriod?.end_date ? (
+                <><strong style={{ color: 'var(--neon-accent)', fontWeight: 500, textShadow: '0 0 8px var(--glow-accent)' }}>{formatDeadline(currentPeriod.end_date)}</strong>{' remaining'}</>
+              ) : null}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Search ── */}
+        <div style={{ flexShrink: 0, padding: '0 22px 8px', position: 'relative', zIndex: 10 }}>
+          <div style={{ position: 'relative' }}>
+            <div style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-3)" strokeWidth="2">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <input
+              type="text"
+              placeholder="Search contributors, collabs, campaigns…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                background: 'rgba(235,225,205,0.05)',
+                border: '1px solid rgba(235,225,205,0.1)',
+                color: 'var(--lt-text)',
+                fontFamily: 'var(--font-sans)',
+                fontSize: '12px',
+                padding: '8px 12px 8px 34px',
+                borderRadius: '2px',
+                outline: 'none',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* ── Stats bar ── */}
+        <div style={{ flexShrink: 0, padding: '0 22px 0', display: 'flex', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Selected</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', lineHeight: 1 }}>{usedSlots}</div>
+          </div>
+          <div style={{ width: '1px', height: '28px', background: 'var(--lt-rule)', marginRight: '14px', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Remaining</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', lineHeight: 1, color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>{remainingContent}</div>
+          </div>
+          <div style={{ width: '1px', height: '28px', background: 'var(--lt-rule)', marginRight: '14px', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Slots</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', lineHeight: 1 }}>{maxContentPieces}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Your price</div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text-2)', lineHeight: 1 }}>${calculatePrice().toFixed(2)}</div>
+          </div>
+        </div>
+
+        {/* ── Section tabs ── */}
+        <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
+          {([
+            { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
+            { id: 'collabs' as const,      label: 'Collabs',      count: uniqueTemplateIds.size },
+            { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
+            { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
+          ]).map(({ id, label, count }) => (
+            <button
+              key={id}
+              onClick={() => setActiveSection(id)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '8px 0', marginRight: '18px',
+                fontFamily: 'var(--font-mono)', fontSize: '9px',
+                letterSpacing: '0.14em', textTransform: 'uppercase',
+                color: activeSection === id ? 'var(--lt-text)' : 'var(--lt-text-3)',
+                background: 'none', border: 'none',
+                borderBottom: activeSection === id ? '1px solid rgba(235,225,205,0.35)' : '1px solid transparent',
+                marginBottom: '-1px', cursor: 'pointer',
+                transition: 'color 0.2s',
+                whiteSpace: 'nowrap',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              {label}
+              {count > 0 && (
+                <span style={{
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  background: 'var(--neon-green)', color: '#0f0e0b',
+                  fontFamily: 'var(--font-mono)', fontSize: '7px', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  {count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* PART 2 ENDS HERE — Part 3 adds proof scroll + tab panels */}
+      </div>
+    </div>
+  );
+}
+
+function formatDeadline(endDate: string): string {
+  const diff = new Date(endDate).getTime() - Date.now();
+  if (diff <= 0) return '0d';
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  if (days > 1) return `${days}d`;
+  if (days === 1) return `${hours + 24}h`;
+  return `${hours}h`;
+}
