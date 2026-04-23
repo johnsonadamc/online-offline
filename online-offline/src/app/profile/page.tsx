@@ -50,6 +50,7 @@ interface ProfileState {
   lastName: string;
   profileTypes: string[];
   isPublic: boolean;
+  contentType: string;
   bankInfo: {
     accountNumber: string;
     routingNumber: string;
@@ -69,6 +70,7 @@ export default function ProfilePage() {
     lastName: '',
     profileTypes: [],
     isPublic: true,
+    contentType: 'photo',
     bankInfo: { accountNumber: '', routingNumber: '', accountType: 'checking' },
     curatorPaymentInfo: { cardNumber: '', expiryDate: '', cvv: '' },
   });
@@ -86,6 +88,11 @@ export default function ProfilePage() {
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+  const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClientComponentClient();
 
@@ -131,10 +138,12 @@ export default function ProfilePage() {
             lastName: data.last_name || '',
             profileTypes: data.profile_types?.map((pt: { type: string }) => pt.type) || [],
             isPublic: data.is_public ?? true,
+            contentType: data.content_type || 'photo',
             bankInfo: data.bank_info || { accountNumber: '', routingNumber: '', accountType: 'checking' },
             curatorPaymentInfo: data.curator_payment_info || { cardNumber: '', expiryDate: '', cvv: '' },
           });
           if (data.avatar_url) { setAvatarUrl(data.avatar_url); setAvatarPreview(data.avatar_url); }
+          if (data.identity_banner_url) { setBannerUrl(data.identity_banner_url); setBannerPreview(data.identity_banner_url); }
         }
       }
     } catch (error) {
@@ -171,6 +180,36 @@ export default function ProfilePage() {
       showError('Error uploading avatar');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const uploadBanner = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setUploadingBanner(true);
+      if (!event.target.files || event.target.files.length === 0) return;
+      const file = event.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `banner_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const objectUrl = URL.createObjectURL(file);
+      setBannerPreview(objectUrl);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user found');
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const newBannerUrl = publicUrlData.publicUrl;
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ identity_banner_url: newBannerUrl, updated_at: new Date().toISOString() })
+        .eq('id', user.id);
+      if (updateError) throw updateError;
+      setBannerUrl(newBannerUrl);
+      showSuccess('Banner updated successfully');
+    } catch (error) {
+      console.error('Error uploading banner:', error);
+      showError('Error uploading banner');
+    } finally {
+      setUploadingBanner(false);
     }
   };
 
@@ -309,7 +348,7 @@ export default function ProfilePage() {
       if (!user) throw new Error('No user');
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, is_public: profile.isPublic, updated_at: new Date().toISOString() });
+        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, identity_banner_url: bannerUrl, content_type: profile.contentType, is_public: profile.isPublic, updated_at: new Date().toISOString() });
       if (error) throw error;
       showSuccess('Profile updated successfully');
     } catch (error) {
@@ -540,6 +579,68 @@ export default function ProfilePage() {
                     />
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Creative identity banner */}
+            <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>Creative Identity Banner</div>
+              <div style={{ padding: 14 }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-secondary)', opacity: 0.7, margin: '0 0 12px' }}>
+                  Shown to curators when selecting contributors — not a preview of your submitted work. Use an image that represents your creative identity.
+                </p>
+                <div
+                  onClick={() => bannerInputRef.current?.click()}
+                  style={{ position: 'relative', width: '100%', height: 120, borderRadius: 2, border: '1px dashed var(--rule-color)', background: 'var(--ground-raised)', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {bannerPreview || bannerUrl ? (
+                    <img src={bannerPreview || bannerUrl || ''} alt="Identity banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ textAlign: 'center' }}>
+                      <Camera size={20} color="var(--paper-secondary)" style={{ opacity: 0.4, marginBottom: 6 }} />
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.5 }}>Click to upload</div>
+                    </div>
+                  )}
+                  {uploadingBanner && (
+                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 20, height: 20, border: '2px solid var(--neon-amber)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    </div>
+                  )}
+                </div>
+                <input type="file" ref={bannerInputRef} onChange={uploadBanner} accept="image/*" style={{ display: 'none' }} />
+              </div>
+            </div>
+
+            {/* Content type — drives proof card color on curate page */}
+            <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-color)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>Primary Creative Medium</div>
+              <div style={{ padding: 14 }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-secondary)', opacity: 0.7, margin: '0 0 12px' }}>
+                  Sets the color of your proof card on the curate page.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { value: 'photo',   label: 'Photography', color: 'rgba(90,159,212,0.8)',  bg: 'rgba(90,159,212,0.08)',  border: 'rgba(90,159,212,0.3)' },
+                    { value: 'art',     label: 'Art',         color: 'rgba(168,136,232,0.8)', bg: 'rgba(168,136,232,0.08)', border: 'rgba(168,136,232,0.3)' },
+                    { value: 'poetry',  label: 'Poetry',      color: 'rgba(224,168,48,0.9)',  bg: 'rgba(224,168,48,0.08)',  border: 'rgba(224,168,48,0.3)' },
+                    { value: 'essay',   label: 'Essay',       color: 'rgba(224,168,48,0.9)',  bg: 'rgba(224,168,48,0.08)',  border: 'rgba(224,168,48,0.3)' },
+                    { value: 'music',   label: 'Music',       color: 'rgba(78,196,122,0.8)',  bg: 'rgba(78,196,122,0.08)',  border: 'rgba(78,196,122,0.3)' },
+                  ].map(({ value, label, color, bg, border }) => {
+                    const active = profile.contentType === value;
+                    return (
+                      <button
+                        key={value}
+                        onClick={() => setProfile(prev => ({ ...prev, contentType: value }))}
+                        style={{ padding: '10px 12px', borderRadius: 2, border: `1px solid ${active ? border : 'var(--rule-color)'}`, background: active ? bg : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: active ? color : 'var(--paper-secondary)', textTransform: 'capitalize' }}>{label}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

@@ -412,7 +412,7 @@ export default function CurationInterface() {
         try {
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
-            .select('id, first_name, last_name, avatar_url, is_public, bio')
+            .select('id, first_name, last_name, avatar_url, identity_banner_url, content_type, is_public, bio')
             .order('first_name');
 
           if (!profilesError && profilesData) {
@@ -424,7 +424,7 @@ export default function CurationInterface() {
               lastName: profile.last_name || '',
               bio: profile.bio || '',
               creatorType: 'Contributor',
-              contentType: 'photo',
+              contentType: profile.content_type || 'photo',
               tags: [],
               lastPost: '',
               avatar: profile.avatar_url || `/api/placeholder/400/400?text=${profile.first_name?.charAt(0) || ''}${profile.last_name?.charAt(0) || ''}`,
