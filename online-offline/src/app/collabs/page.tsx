@@ -1,37 +1,19 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Users,
-  Clock, 
-  X,
-  Search,
-  Check,
-  ArrowLeft,
-  Globe,
-  MapPin,
-  Lock,
-  FileText,
-  AlertCircle,
-  Loader2
-} from 'lucide-react';
+import { Globe, MapPin, Lock, FileText, Loader2, X, Search, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
-// Define interfaces for type safety
 interface CollabTemplate {
   id: string;
   name: string;
   display_text: string;
   type: 'chain' | 'theme' | 'narrative' | string;
-  participant_count?: number;
   tags?: string[];
   phases?: number;
   duration?: string;
   instructions?: string;
-  internal_reference?: Record<string, unknown>;
-  requirements?: Record<string, unknown>;
-  connection_rules?: Record<string, unknown>;
   communityParticipantCount?: number;
   localParticipantCount?: number;
 }
@@ -51,10 +33,7 @@ interface CurrentPeriod {
 
 type ParticipationMode = 'community' | 'local' | 'private';
 
-type ErrorState = {
-  message: string;
-  isVisible: boolean;
-};
+type ErrorState = { message: string; isVisible: boolean };
 
 export default function CollabsLibrary() {
   const router = useRouter();
@@ -66,553 +45,253 @@ export default function CollabsLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
-  const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({
-    id: '',
-    season: 'Spring',
-    year: 2025
-  });
-  
-  // Sample users for search results - in production this would come from the database
+  const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({ id: '', season: 'Spring', year: 2025 });
+
   const searchResults: User[] = [
-    { id: '1', name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '/api/placeholder/32/32' },
-    { id: '2', name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '/api/placeholder/32/32' },
-    { id: '3', name: 'Maria Garcia', bio: 'Visual Artist | Mixed Media', avatar: '/api/placeholder/32/32' },
-    { id: '4', name: 'James Liu', bio: 'Street Photographer | Documentary', avatar: '/api/placeholder/32/32' },
-    { id: '5', name: 'Maya Patel', bio: 'Illustrator | Digital Art', avatar: '/api/placeholder/32/32' }
+    { id: '1', name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '' },
+    { id: '2', name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '' },
+    { id: '3', name: 'Maria Garcia', bio: 'Visual Artist | Mixed Media', avatar: '' },
+    { id: '4', name: 'James Liu', bio: 'Street Photographer | Documentary', avatar: '' },
+    { id: '5', name: 'Maya Patel', bio: 'Illustrator | Digital Art', avatar: '' },
   ];
 
   const showError = (message: string) => {
     setError({ message, isVisible: true });
-    setTimeout(() => {
-      setError(prev => ({ ...prev, isVisible: false }));
-    }, 5000);
+    setTimeout(() => setError(prev => ({ ...prev, isVisible: false })), 5000);
   };
-  
-  // Use callback to prevent recreation on every render
+
   const loadData = useCallback(async () => {
     const supabase = createClientComponentClient();
     setLoading(true);
-    
     try {
-      // 1. Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("Auth error:", JSON.stringify(userError));
-        throw new Error(userError.message || "Authentication error");
-      }
-      
-      if (!user) {
-        router.push('/auth/signin');
-        return;
-      }
+      if (userError) throw new Error(userError.message);
+      if (!user) { router.push('/auth/signin'); return; }
 
-      // 2. Get the current active period
       const { data: activePeriod, error: periodError } = await supabase
-        .from('periods')
-        .select('id, name, season, year')
-        .eq('is_active', true)
-        .order('end_date', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (periodError) {
-        console.error("Period error:", JSON.stringify(periodError));
-        throw new Error(`Failed to fetch active period: ${periodError.message}`);
-      }
-      
-      if (!activePeriod) {
-        throw new Error('No active period found');
-      }
-      
-      setCurrentPeriod({
-        id: activePeriod.id,
-        season: activePeriod.season,
-        year: activePeriod.year
-      });
+        .from('periods').select('id, name, season, year').eq('is_active', true)
+        .order('end_date', { ascending: false }).limit(1).single();
+      if (periodError) throw new Error(`Failed to fetch active period: ${periodError.message}`);
+      if (!activePeriod) throw new Error('No active period found');
+      setCurrentPeriod({ id: activePeriod.id, season: activePeriod.season, year: activePeriod.year });
 
-      // 3. Get all the user's active collaborations
       const { data: activeParticipations, error: participationsError } = await supabase
-        .from('collab_participants')
-        .select('collab_id')
-        .eq('profile_id', user.id)
-        .eq('status', 'active');
-      
-      if (participationsError) {
-        console.error("Participations error:", JSON.stringify(participationsError));
-        throw new Error(`Failed to fetch active participations: ${participationsError.message}`);
-      }
-      
-      // Get the collab IDs
+        .from('collab_participants').select('collab_id').eq('profile_id', user.id).eq('status', 'active');
+      if (participationsError) throw new Error(`Failed to fetch participations: ${participationsError.message}`);
+
       const activeCollabIds = activeParticipations?.map(p => p.collab_id) || [];
-      
-      // Get metadata for these collabs to extract template IDs
       let activeTemplateIds: string[] = [];
-      
+
       if (activeCollabIds.length > 0) {
         const { data: collabs, error: collabsError } = await supabase
-          .from('collabs')
-          .select('metadata')
-          .in('id', activeCollabIds);
-        
-        if (collabsError) {
-          console.error("Collabs error:", JSON.stringify(collabsError));
-          throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
-        }
-        
-        if (collabs && collabs.length > 0) {
+          .from('collabs').select('metadata').in('id', activeCollabIds);
+        if (collabsError) throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
+        if (collabs) {
           activeTemplateIds = collabs
-            .map(collab => {
-              if (collab.metadata && typeof collab.metadata === 'object' && 'template_id' in collab.metadata) {
-                return collab.metadata.template_id as string;
-              }
-              return null;
-            })
+            .map(c => (c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata) ? c.metadata.template_id as string : null)
             .filter((id): id is string => id !== null);
         }
       }
 
-      // 4. Get all templates for this period
       const { data: periodTemplates, error: periodTemplatesError } = await supabase
-        .from('period_templates')
-        .select('template_id')
-        .eq('period_id', activePeriod.id);
-      
-      if (periodTemplatesError) {
-        console.error("Period templates error:", JSON.stringify(periodTemplatesError));
-        throw new Error(`Failed to fetch period templates: ${periodTemplatesError.message}`);
-      }
-      
+        .from('period_templates').select('template_id').eq('period_id', activePeriod.id);
+      if (periodTemplatesError) throw new Error(`Failed to fetch period templates: ${periodTemplatesError.message}`);
       const periodTemplateIds = periodTemplates?.map(pt => pt.template_id) || [];
-      
-      // 5. Get full details of all templates for this period
-      if (periodTemplateIds.length === 0) {
-        setAvailablePrompts([]);
-        setLoading(false);
-        return;
-      }
-      
+      if (periodTemplateIds.length === 0) { setAvailablePrompts([]); setLoading(false); return; }
+
       const { data: allTemplates, error: templatesError } = await supabase
-        .from('collab_templates')
-        .select('*')
-        .in('id', periodTemplateIds);
-      
-      if (templatesError) {
-        console.error("Templates error:", JSON.stringify(templatesError));
-        throw new Error(`Failed to fetch templates: ${templatesError.message}`);
-      }
-      
-      if (!allTemplates) {
-        throw new Error('No templates found');
-      }
-      
-      // Filter out templates that the user has already joined
-      const filteredTemplates = allTemplates.filter(template => 
-        !activeTemplateIds.includes(template.id)
-      );
-      
-      // Default type to 'theme' if not set
-      const processedTemplates = filteredTemplates.map(template => ({
-        ...template,
-        type: template.type || 'theme'
-      }));
-      
-      // 6. For each template, get the participant counts for community and local
-      const templatesWithCounts = await Promise.all(
-        processedTemplates.map(async (template) => {
-          try {
-            // Get all collabs for this period
-            const { data: collabsData, error: collabsError } = await supabase
-              .from('collabs')
-              .select('id, participation_mode, location, metadata')
-              .eq('period_id', activePeriod.id);
-              
-            if (collabsError) {
-              console.error("Collabs fetch error:", JSON.stringify(collabsError));
-              template.communityParticipantCount = 0;
-              template.localParticipantCount = 0;
-              return template;
-            }
-            
-            if (!collabsData || collabsData.length === 0) {
-              template.communityParticipantCount = 0;
-              template.localParticipantCount = 0;
-              return template;
-            }
-            
-            // Filter to find collabs with this template ID
-            const matchingCollabs = collabsData.filter(collab => {
-              if (!collab.metadata || typeof collab.metadata !== 'object') return false;
-              return 'template_id' in collab.metadata && collab.metadata.template_id === template.id;
-            });
-            
-            if (matchingCollabs.length === 0) {
-              template.communityParticipantCount = 0;
-              template.localParticipantCount = 0;
-              return template;
-            }
-            
-            // Get IDs by mode
-            const communityIds = matchingCollabs
-              .filter(collab => collab.participation_mode === 'community' || collab.participation_mode === 'local')
-              .map(collab => collab.id);
-              
-            const localIds = matchingCollabs
-              .filter(collab => collab.participation_mode === 'local')
-              .map(collab => collab.id);
-            
-            // Get participant counts
-            if (communityIds.length > 0) {
-              const { count, error: countError } = await supabase
-                .from('collab_participants')
-                .select('*', { count: 'exact', head: true })
-                .in('collab_id', communityIds)
-                .eq('status', 'active');
-                
-              if (countError) {
-                console.error("Community count error:", JSON.stringify(countError));
-                template.communityParticipantCount = 0;
-              } else {
-                template.communityParticipantCount = count || 0;
-              }
-            } else {
-              template.communityParticipantCount = 0;
-            }
-            
-            // Get local participants count
-            if (localIds.length > 0) {
-              const { count, error: countError } = await supabase
-                .from('collab_participants')
-                .select('*', { count: 'exact', head: true })
-                .in('collab_id', localIds)
-                .eq('status', 'active');
-                
-              if (countError) {
-                console.error("Local count error:", JSON.stringify(countError));
-                template.localParticipantCount = 0;
-              } else {
-                template.localParticipantCount = count || 0;
-              }
-            } else {
-              template.localParticipantCount = 0;
-            }
-            
-            return template;
-          } catch (err) {
-            console.error("Template count error:", err);
-            template.communityParticipantCount = 0;
-            template.localParticipantCount = 0;
-            return template;
+        .from('collab_templates').select('*').in('id', periodTemplateIds);
+      if (templatesError) throw new Error(`Failed to fetch templates: ${templatesError.message}`);
+      if (!allTemplates) throw new Error('No templates found');
+
+      const filteredTemplates = allTemplates
+        .filter(t => !activeTemplateIds.includes(t.id))
+        .map(t => ({ ...t, type: t.type || 'theme' }));
+
+      const templatesWithCounts = await Promise.all(filteredTemplates.map(async (template) => {
+        try {
+          const { data: collabsData } = await supabase
+            .from('collabs').select('id, participation_mode, location, metadata').eq('period_id', activePeriod.id);
+          if (!collabsData || collabsData.length === 0) {
+            return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
           }
-        })
-      );
-      
+          const matchingCollabs = collabsData.filter(c =>
+            c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata && c.metadata.template_id === template.id
+          );
+          if (matchingCollabs.length === 0) return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
+
+          const communityIds = matchingCollabs.filter(c => c.participation_mode === 'community' || c.participation_mode === 'local').map(c => c.id);
+          const localIds = matchingCollabs.filter(c => c.participation_mode === 'local').map(c => c.id);
+
+          const { count: communityCount } = communityIds.length > 0
+            ? await supabase.from('collab_participants').select('*', { count: 'exact', head: true }).in('collab_id', communityIds).eq('status', 'active')
+            : { count: 0 };
+          const { count: localCount } = localIds.length > 0
+            ? await supabase.from('collab_participants').select('*', { count: 'exact', head: true }).in('collab_id', localIds).eq('status', 'active')
+            : { count: 0 };
+
+          return { ...template, communityParticipantCount: communityCount || 0, localParticipantCount: localCount || 0 };
+        } catch {
+          return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
+        }
+      }));
+
       setAvailablePrompts(templatesWithCounts);
     } catch (err) {
-      console.error("Load data error:", err);
-      showError(err instanceof Error ? err.message : "Failed to load collaboration data");
+      showError(err instanceof Error ? err.message : 'Failed to load collaboration data');
     } finally {
       setLoading(false);
     }
   }, [router]);
 
-  useEffect(() => {
-    loadData();
-    // loadData is included in the dependency array as it's wrapped in useCallback
-  }, [loadData]);
+  useEffect(() => { loadData(); }, [loadData]);
 
   const handleJoinClick = async (collabId: string, title: string, mode: ParticipationMode) => {
     try {
       if (mode === 'private') {
-        // For private mode, open the invite dialog
         setSelectedCollabId(collabId);
         setSelectedCollabTitle(title);
         setShowInviteDialog(true);
         return;
       }
-      
-      // Find the template in available prompts
       const template = availablePrompts.find(p => p.id === collabId);
-      if (!template) {
-        showError('Error: Template not found');
-        return;
-      }
-      
-      // Handle joining directly with Supabase
+      if (!template) { showError('Error: Template not found'); return; }
       const supabase = createClientComponentClient();
-      
-      // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("User error:", JSON.stringify(userError));
-        throw new Error(userError.message || "Authentication error");
-      }
-      
-      if (!user) {
-        showError('You must be logged in to join a collaboration');
-        return;
-      }
-      
-      // First, create the collab
+      if (userError) throw new Error(userError.message);
+      if (!user) { showError('You must be logged in to join a collaboration'); return; }
+
       const { data: collab, error: collabError } = await supabase
         .from('collabs')
-        .insert({
-          title: template.name,
-          description: template.display_text,
-          type: template.type || 'theme',
-          is_private: false,
-          participation_mode: mode,
-          location: mode === 'local' ? "San Francisco" : null,
-          created_by: user.id,
-          total_phases: template.phases || null,
-          current_phase: 1,
-          metadata: {
-            template_id: template.id,
-            participation_mode: mode,
-            location: mode === 'local' ? "San Francisco" : null
-          }
-        })
-        .select()
-        .single();
-      
-      if (collabError) {
-        console.error("Collab create error:", JSON.stringify(collabError));
-        throw new Error(`Could not create collaboration: ${collabError.message}`);
-      }
-      
-      // Now add the user as a participant
+        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null } })
+        .select().single();
+      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+
       const { error: participantError } = await supabase
         .from('collab_participants')
-        .insert({
-          profile_id: user.id,
-          collab_id: collab.id,
-          role: 'member',
-          status: 'active',
-          participation_mode: mode,
-          location: mode === 'local' ? "San Francisco" : null
-        });
-      
-      if (participantError) {
-        console.error("Participant error:", JSON.stringify(participantError));
-        throw new Error(`Could not join collaboration: ${participantError.message}`);
-      }
-      
-      // Update UI immediately
+        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null });
+      if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
+
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
-      
-      // Success message and redirect
-      alert("You have successfully joined the " + title + " collaboration in " + mode + " mode.");
+      alert(`You have successfully joined the ${title} collaboration in ${mode} mode.`);
       router.push('/dashboard');
     } catch (err) {
-      showError(err instanceof Error ? err.message : "Could not join the collaboration");
+      showError(err instanceof Error ? err.message : 'Could not join the collaboration');
     }
   };
 
   const createPrivateCollab = async () => {
     try {
       const supabase = createClientComponentClient();
-      
-      // Get the current user
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("User error:", JSON.stringify(userError));
-        throw new Error(userError.message || "Authentication error");
-      }
-      
-      if (!user) {
-        showError('You must be logged in to create a collaboration');
-        return;
-      }
-      
-      // Get template info
+      if (userError) throw new Error(userError.message);
+      if (!user) { showError('You must be logged in'); return; }
+
       const template = availablePrompts.find(t => t.id === selectedCollabId);
-      if (!template) {
-        showError('Template not found');
-        return;
-      }
-      
-      // Create the private collab with explicit data
+      if (!template) { showError('Template not found'); return; }
+
       const { data: collab, error: collabError } = await supabase
         .from('collabs')
-        .insert({
-          title: template.name,
-          description: template.display_text,
-          type: template.type || 'theme',
-          is_private: true,
-          participation_mode: 'private',
-          location: null,
-          created_by: user.id,
-          total_phases: template.phases || null,
-          current_phase: 1,
-          metadata: {
-            template_id: template.id,
-            participation_mode: 'private',
-            location: null
-          }
-        })
-        .select()
-        .single();
-      
-      if (collabError) {
-        console.error("Collab error:", JSON.stringify(collabError));
-        throw new Error(`Could not create private collaboration: ${collabError.message}`);
-      }
-      
-      // Add the current user as organizer
+        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: true, participation_mode: 'private', location: null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'private', location: null } })
+        .select().single();
+      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+
       const { error: organizerError } = await supabase
         .from('collab_participants')
-        .insert({
-          profile_id: user.id,
-          collab_id: collab.id,
-          role: 'organizer',
-          status: 'active',
-          participation_mode: 'private',
-          location: null
-        });
-      
-      if (organizerError) {
-        console.error("Organizer error:", JSON.stringify(organizerError));
-        throw new Error(`Could not add you as organizer: ${organizerError.message}`);
-      }
-      
-      // Add selected users as members (invited)
+        .insert({ profile_id: user.id, collab_id: collab.id, role: 'organizer', status: 'active', participation_mode: 'private', location: null });
+      if (organizerError) throw new Error(`Could not add you as organizer: ${organizerError.message}`);
+
       if (selectedUsers.length > 0) {
-        const invites = selectedUsers.map(selectedUser => ({
-          profile_id: selectedUser.id,
-          collab_id: collab.id,
-          role: 'member',
-          status: 'invited',
-          participation_mode: 'private',
-          location: null
-        }));
-        
-        const { error: inviteError } = await supabase
-          .from('collab_participants')
-          .insert(invites);
-        
-        if (inviteError) {
-          // Log the error but don't fail the whole operation
-          console.error("Invite error:", JSON.stringify(inviteError));
-        }
+        await supabase.from('collab_participants').insert(
+          selectedUsers.map(u => ({ profile_id: u.id, collab_id: collab.id, role: 'member', status: 'invited', participation_mode: 'private', location: null }))
+        );
       }
-      
-      // Update UI immediately
+
       setAvailablePrompts(prev => prev.filter(c => c.id !== selectedCollabId));
       setShowInviteDialog(false);
-      
-      // Success message and redirect
-      alert("You have successfully created a private collaboration with " + selectedUsers.length + " invited participants.");
+      alert(`You have successfully created a private collaboration with ${selectedUsers.length} invited participants.`);
       router.push('/dashboard');
     } catch (err) {
-      showError(err instanceof Error ? err.message : "Could not create private collaboration");
+      showError(err instanceof Error ? err.message : 'Could not create private collaboration');
     }
   };
 
   const toggleUser = (user: User) => {
-    setSelectedUsers(prev => {
-      if (prev.find(u => u.id === user.id)) {
-        return prev.filter(u => u.id !== user.id);
-      } else {
-        return [...prev, user];
-      }
-    });
+    setSelectedUsers(prev =>
+      prev.find(u => u.id === user.id) ? prev.filter(u => u.id !== user.id) : [...prev, user]
+    );
   };
 
-  // Render a collab card with updated styling to match dashboard
+  const typeStyle: Record<string, { color: string; bg: string; border: string }> = {
+    chain:     { color: 'rgba(129,140,248,0.9)', bg: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.25)' },
+    theme:     { color: 'rgba(245,169,63,0.9)',  bg: 'rgba(245,169,63,0.08)',  border: 'rgba(245,169,63,0.25)'  },
+    narrative: { color: 'rgba(52,211,153,0.9)',  bg: 'rgba(52,211,153,0.08)',  border: 'rgba(52,211,153,0.25)'  },
+  };
+
   const CollabCard = ({ collab }: { collab: CollabTemplate }) => {
-    // Use a default type if none exists
-    const displayType = collab.type || 'theme';
-    
-    // Get community and local participant counts safely
-    const communityCount = collab.communityParticipantCount || 0;
-    const localCount = collab.localParticipantCount || 0;
-    
+    const t = typeStyle[collab.type] || typeStyle.theme;
     return (
-      <div className="border border-gray-100 rounded-md shadow-sm hover:shadow-md transition-all bg-white hover:border-gray-200">
-        <div className="p-4">
-          {/* Header with title only (no type badge) */}
-          <div className="mb-3">
-            <h3 className="text-base font-medium line-clamp-2">{collab.name}</h3>
+      <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+        {/* Type stripe */}
+        <div style={{ height: 2, background: t.color, borderRadius: '2px 2px 0 0', opacity: 0.7 }} />
+        <div style={{ padding: 14 }}>
+          {/* Title + type badge */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--paper-primary)', margin: 0, lineHeight: 1.3 }}>{collab.name}</h3>
+            <span style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.color, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 2, padding: '2px 7px' }}>{collab.type}</span>
           </div>
-          
+
           {/* Description */}
-          <p className="text-sm text-gray-600 line-clamp-3 mb-4">
-            {collab.display_text}
-          </p>
-          
-          {/* Instructions with updated styling */}
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', opacity: 0.75, lineHeight: 1.5, margin: '0 0 12px' }}>{collab.display_text}</p>
+
+          {/* Instructions */}
           {collab.instructions && (
-            <div className="mb-4">
-              <div className="bg-blue-50 p-4 rounded-sm border-l-4 border-blue-500 shadow-sm">
-                <h3 className="font-medium text-blue-800 mb-2 flex items-center text-sm">
-                  <FileText className="h-4 w-4 mr-1.5" />
-                  INSTRUCTIONS
-                </h3>
-                <div className="text-sm text-gray-700 whitespace-pre-line">
-                  {collab.instructions}
-                </div>
+            <div style={{ background: 'rgba(245,169,63,0.05)', border: '1px solid rgba(245,169,63,0.2)', borderLeft: '3px solid var(--neon-amber)', borderRadius: 2, padding: '10px 12px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <FileText size={11} color="var(--neon-amber)" />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)' }}>Instructions</span>
               </div>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-secondary)', opacity: 0.8, margin: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{collab.instructions}</p>
             </div>
           )}
-          
+
           {/* Tags */}
           {collab.tags && collab.tags.length > 0 && (
-            <div className="mb-4">
-              <div className="flex flex-wrap gap-1">
-                {collab.tags.slice(0, 3).map((tag: string, index: number) => (
-                  <span 
-                    key={index}
-                    className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-sm text-xs"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
+              {collab.tags.slice(0, 3).map((tag, i) => (
+                <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--paper-secondary)', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2, padding: '2px 7px', opacity: 0.7 }}>{tag}</span>
+              ))}
             </div>
           )}
 
-          {/* Participant stats - inline modern approach */}
-          <div className="flex items-center gap-4 mb-4 text-xs text-gray-600">
-            <div className="flex items-center gap-1.5">
-              <Globe size={14} className="text-blue-500" />
-              <span><strong>{communityCount}</strong> community</span>
+          {/* Participant counts */}
+          <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <Globe size={12} color="rgba(90,159,212,0.8)" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.7 }}><strong style={{ color: 'rgba(90,159,212,0.9)' }}>{collab.communityParticipantCount || 0}</strong> community</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <MapPin size={14} className="text-green-500" />
-              <span><strong>{localCount}</strong> local</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <MapPin size={12} color="rgba(52,211,153,0.8)" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.7 }}><strong style={{ color: 'rgba(52,211,153,0.9)' }}>{collab.localParticipantCount || 0}</strong> local</span>
             </div>
           </div>
 
-          {/* Chain phases info */}
-          {displayType === 'chain' && collab.phases && (
-            <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
-              <Clock size={14} className="flex-shrink-0" />
-              <span>{collab.phases} phases {collab.duration ? `over ${collab.duration}` : ''}</span>
-            </div>
-          )}
-
-          {/* Action buttons - Modern, lighter approach */}
-          <div className="grid grid-cols-3 gap-2 mt-4">
-            <button 
-              className="bg-blue-50 text-blue-600 border border-blue-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-blue-100 transition-colors text-xs"
-              onClick={() => handleJoinClick(collab.id, collab.name, 'community')}
-            >
-              <Globe size={14} />
-              Community
-            </button>
-            <button 
-              className="bg-green-50 text-green-600 border border-green-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-green-100 transition-colors text-xs"
-              onClick={() => handleJoinClick(collab.id, collab.name, 'local')}
-            >
-              <MapPin size={14} />
-              Local
-            </button>
-            <button 
-              className="bg-purple-50 text-purple-600 border border-purple-100 px-2 py-1.5 rounded-sm flex items-center justify-center gap-1 hover:bg-purple-100 transition-colors text-xs"
-              onClick={() => handleJoinClick(collab.id, collab.name, 'private')}
-            >
-              <Lock size={14} />
-              Private
-            </button>
+          {/* Join buttons */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+            {([
+              { mode: 'community' as const, label: 'Community', Icon: Globe,  color: 'rgba(90,159,212,0.85)',  bg: 'rgba(90,159,212,0.08)',  border: 'rgba(90,159,212,0.25)'  },
+              { mode: 'local'     as const, label: 'Local',     Icon: MapPin, color: 'rgba(52,211,153,0.85)',  bg: 'rgba(52,211,153,0.08)',  border: 'rgba(52,211,153,0.25)'  },
+              { mode: 'private'   as const, label: 'Private',   Icon: Lock,   color: 'rgba(167,139,250,0.85)', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.25)' },
+            ]).map(({ mode, label, Icon, color, bg, border }) => (
+              <button
+                key={mode}
+                onClick={() => handleJoinClick(collab.id, collab.name, mode)}
+                style={{ padding: '8px 4px', background: bg, border: `1px solid ${border}`, borderRadius: 2, color, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.07em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+              >
+                <Icon size={11} />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -620,164 +299,133 @@ export default function CollabsLibrary() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <div className="mb-4">
-        <Link 
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Dashboard</span>
-        </Link>
-      </div>
+    <div style={{ minHeight: '100vh', background: 'var(--ground-base)', fontFamily: 'var(--font-sans)' }}>
+      {/* Ambient glow */}
+      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,169,63,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
 
-      <h1 className="text-xl md:text-2xl font-medium mb-4">
-        {currentPeriod.season} {currentPeriod.year} Collab Prompts
-      </h1>
-      
-      <div className="mb-6">
-        <p className="text-sm text-gray-600">
-          Join collaboration templates to create or participate in creative projects with other contributors.
-        </p>
-      </div>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 640, margin: '0 auto', padding: 16 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', textDecoration: 'none', opacity: 0.7 }}>← Dashboard</Link>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper-primary)', letterSpacing: '-0.01em' }}>online//offline</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(245,169,63,0.1)', border: '1px solid rgba(245,169,63,0.25)', borderRadius: 2, padding: '3px 8px' }}>Collabs</span>
+        </div>
+        <div style={{ height: 1, background: 'var(--rule-color)', opacity: 0.3, marginBottom: 20 }} />
 
-      {/* Error display */}
-      {error.isVisible && (
-        <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-500 text-red-700 flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-          <p className="text-sm">{error.message}</p>
+        {/* Season + subtitle */}
+        <div style={{ marginBottom: 20 }}>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400, color: 'var(--paper-primary)', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
+            {currentPeriod.season} {currentPeriod.year} Collab Prompts
+          </h1>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', opacity: 0.6, margin: 0 }}>
+            Join a template to participate in this quarter's creative collaborations.
+          </p>
         </div>
-      )}
 
-      {loading ? (
-        <div className="p-8 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500 mr-3" />
-          <span className="text-gray-600">Loading collaboration prompts...</span>
-        </div>
-      ) : availablePrompts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {availablePrompts.map(collab => (
-            <CollabCard key={collab.id} collab={collab} />
-          ))}
-        </div>
-      ) : (
-        <div className="p-8 text-center bg-gray-50 border border-gray-100 rounded-sm">
-          <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 rounded-sm flex items-center justify-center">
-            <Users size={20} className="text-gray-400" />
+        {/* Error */}
+        {error.isVisible && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>{error.message}</span>
           </div>
-          <p className="text-gray-600 mb-4">You have joined all available collaboration prompts for this period.</p>
-          <button 
-            onClick={loadData}
-            className="py-2.5 px-4 rounded-sm text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-          >
-            Refresh List
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* User Invite Modal Dialog */}
+        {/* Loading */}
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 12 }}>
+            <Loader2 size={20} color="var(--neon-amber)" style={{ animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.6 }}>Loading prompts…</span>
+          </div>
+        ) : availablePrompts.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {availablePrompts.map(collab => <CollabCard key={collab.id} collab={collab} />)}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.5, marginBottom: 16 }}>You have joined all available prompts for this period.</div>
+            <button onClick={loadData} className="press-btn" style={{ padding: '10px 20px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Refresh</button>
+          </div>
+        )}
+      </div>
+
+      {/* Invite modal */}
       {showInviteDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-sm max-w-lg w-full mx-auto">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-medium flex items-center gap-2">
-                <Lock size={18} />
-                Start Private Collab: {selectedCollabTitle}
-              </h2>
-              <button 
-                onClick={() => setShowInviteDialog(false)}
-                className="p-1 rounded-full hover:bg-gray-100"
-                aria-label="Close"
-              >
-                <X size={18} />
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2, width: '100%', maxWidth: 480 }}>
+            {/* Modal header */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Lock size={13} color="rgba(167,139,250,0.9)" />
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(167,139,250,0.9)' }}>Private Collab: {selectedCollabTitle}</span>
+              </div>
+              <button onClick={() => setShowInviteDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-secondary)', opacity: 0.6, padding: 2 }}>
+                <X size={16} />
               </button>
             </div>
-            
-            <div className="p-4">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                  <input
-                    type="text"
-                    placeholder="Search online//offline contributors..."
-                    className="w-full pl-10 pr-4 py-2 border rounded-sm"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    aria-label="Search contributors"
-                  />
-                </div>
 
-                {selectedUsers.length > 0 && (
-                  <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-sm">
-                    {selectedUsers.map(user => (
-                      <div 
-                        key={user.id}
-                        className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-sm border"
-                      >
-                        {/* Using a text avatar instead of img for Next.js optimization */}
-                        <span className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-xs overflow-hidden">
-                          {user.name.charAt(0)}
-                        </span>
-                        <span className="text-sm">{user.name}</span>
-                        <button 
-                          onClick={() => toggleUser(user)}
-                          className="text-gray-400 hover:text-gray-600"
-                          aria-label={"Remove " + user.name}
-                        >
-                          <X size={14} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="border rounded-sm overflow-hidden divide-y max-h-64 overflow-y-auto">
-                  {searchResults
-                    .filter(user => 
-                      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      user.bio.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map(user => {
-                      const isSelected = selectedUsers.find(u => u.id === user.id);
-                      return (
-                        <div 
-                          key={user.id}
-                          className={`p-3 flex items-center justify-between hover:bg-gray-50 cursor-pointer
-                            ${isSelected ? 'bg-blue-50' : ''}`}
-                          onClick={() => toggleUser(user)}
-                        >
-                          <div className="flex items-center gap-3">
-                            {/* Using a text avatar instead of img for Next.js optimization */}
-                            <span className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium overflow-hidden">
-                              {user.name.charAt(0)}
-                            </span>
-                            <div>
-                              <div className="font-medium">{user.name}</div>
-                              <div className="text-sm text-gray-600">{user.bio}</div>
-                            </div>
-                          </div>
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                            isSelected ? 'bg-blue-500 text-white' : 'border'
-                          }`}>
-                            {isSelected && <Check size={14} />}
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Search */}
+              <div style={{ position: 'relative' }}>
+                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--paper-secondary)', opacity: 0.5 }} />
+                <input
+                  type="text"
+                  placeholder="Search contributors…"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-primary)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-color)'; }}
+                />
               </div>
 
-              <div className="flex justify-end gap-3 mt-6">
-                <button 
-                  onClick={() => setShowInviteDialog(false)}
-                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-sm"
-                >
-                  Cancel
-                </button>
-                <button 
-                  disabled={selectedUsers.length === 0}
-                  className={`px-4 py-2 rounded-sm ${selectedUsers.length === 0 ? 'bg-blue-300 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+              {/* Selected chips */}
+              {selectedUsers.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                  {selectedUsers.map(u => (
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 2, padding: '3px 8px' }}>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(167,139,250,0.9)' }}>{u.name}</span>
+                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(167,139,250,0.7)', padding: 0, display: 'flex' }}><X size={11} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Results list */}
+              <div style={{ border: '1px solid var(--rule-color)', borderRadius: 2, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
+                {searchResults
+                  .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.bio.toLowerCase().includes(searchTerm.toLowerCase()))
+                  .map(u => {
+                    const isSelected = !!selectedUsers.find(s => s.id === u.id);
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => toggleUser(u)}
+                        style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid var(--rule-color)', background: isSelected ? 'rgba(167,139,250,0.06)' : 'transparent' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 2, background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)' }}>
+                            {u.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{u.name}</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6 }}>{u.bio}</div>
+                          </div>
+                        </div>
+                        <div style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${isSelected ? 'rgba(167,139,250,0.6)' : 'var(--rule-color)'}`, background: isSelected ? 'rgba(167,139,250,0.2)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {isSelected && <Check size={10} color="rgba(167,139,250,0.9)" />}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Modal actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
+                <button onClick={() => setShowInviteDialog(false)} className="press-btn" style={{ padding: '9px 16px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Cancel</button>
+                <button
                   onClick={createPrivateCollab}
+                  disabled={selectedUsers.length === 0}
+                  className="press-btn-green"
+                  style={{ padding: '9px 16px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: selectedUsers.length === 0 ? 0.4 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
                 >
                   Send Invites ({selectedUsers.length})
                 </button>
