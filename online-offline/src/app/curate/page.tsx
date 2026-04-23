@@ -944,7 +944,58 @@ export default function CurationInterface() {
           );
         })()}
 
-        {/* PART 3 ENDS HERE — Part 4 adds action bar */}
+        {/* ── Action bar ── */}
+        <div style={{
+          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '390px', maxWidth: '100vw',
+          padding: '12px 22px',
+          background: 'rgba(15,14,11,0.96)',
+          borderTop: '1px solid var(--lt-rule)',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          zIndex: 200,
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+        } as React.CSSProperties}>
+
+          {/* Price */}
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '2px' }}>
+              Your price
+            </div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--lt-text)', lineHeight: 1 }}>
+              ${calculatePrice().toFixed(2)}
+            </div>
+          </div>
+
+          {/* Reset */}
+          <button
+            onClick={handleReset}
+            style={{
+              padding: '9px 14px',
+              background: 'transparent',
+              border: '1px solid rgba(235,225,205,0.12)',
+              borderRadius: '2px',
+              fontFamily: 'var(--font-mono)', fontSize: '8px',
+              letterSpacing: '0.14em', textTransform: 'uppercase',
+              color: 'var(--lt-text-3)',
+              cursor: 'pointer',
+              transition: 'border-color 0.2s, color 0.2s',
+              WebkitTapHighlightColor: 'transparent',
+            } as React.CSSProperties}
+          >
+            Reset
+          </button>
+
+          {/* Save — press-btn-green mechanic */}
+          <button
+            onClick={pressSave}
+            disabled={savingSelections}
+            className={`press-btn-green${savePress === 'pressing' ? ' pressing' : ''}${savePress === 'releasing' ? ' releasing' : ''}`}
+          >
+            {savingSelections ? 'Saving…' : 'Save selections'}
+          </button>
+
+        </div>
       </div>
     </div>
   );
