@@ -4,13 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  ArrowLeft, Upload, X, Save, Send, 
-  CheckCircle, AlertCircle, Info, FileText, 
-  Eye, Maximize2
-} from 'lucide-react';
+import { ArrowLeft, Upload, X, Save, Send, CheckCircle, AlertCircle, FileText, Eye, Maximize2, Info } from 'lucide-react';
 import { getCollabById } from '@/lib/supabase/collabs';
 
 interface CollabDetails {
@@ -39,19 +33,15 @@ interface CollabSubmission {
   updated_at?: string;
 }
 
-interface TimeLeft {
-  days: number;
-  hours: number;
-}
+interface TimeLeft { days: number; hours: number; }
 
-// Wrapper component to provide Suspense boundary
 export default function CollabSubmissionPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading collaboration details...</p>
+      <div style={{ minHeight: '100vh', background: 'var(--ground-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 36, height: 36, border: '2px solid var(--neon-amber)', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.6 }}>Loading…</p>
         </div>
       </div>
     }>
@@ -60,14 +50,12 @@ export default function CollabSubmissionPage() {
   );
 }
 
-// Main component with existing functionality
 function CollabSubmissionContent() {
   const router = useRouter();
   const params = useParams();
   const supabase = createClientComponentClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Loading and UI state
+
   const [loading, setLoading] = useState(true);
   const [showInstructionsPanel, setShowInstructionsPanel] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -75,640 +63,360 @@ function CollabSubmissionContent() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  
-  // Time left
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({ days: 0, hours: 0 });
-  
-  // Collaboration data
+
   const [collabDetails, setCollabDetails] = useState<CollabDetails>({
     id: params.id as string,
     title: '',
     description: '',
     prompt_text: '',
-    is_private: false
+    is_private: false,
   });
-  
-  // Submission data
+
   const [submission, setSubmission] = useState<CollabSubmission>({
     collab_id: params.id as string,
     contributor_id: '',
     title: '',
     caption: '',
-    status: 'draft'
+    status: 'draft',
   });
-  
-  // Media handling
+
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  
+
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
         setError(null);
         const collabId = params.id as string;
-        
-        // Get the current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          router.push('/auth/signin');
-          return;
-        }
 
-        // Set the contributor ID
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { router.push('/auth/signin'); return; }
         setSubmission(prev => ({ ...prev, contributor_id: user.id }));
-        
-        // Fetch collab details using the existing getCollabById function
+
         const collabResult = await getCollabById(collabId);
-        
         if (!collabResult.success || !collabResult.collab) {
           setError(`Failed to load collaboration details: ${collabResult.error}`);
           return;
         }
-        
-        // If the collab has a template_id in metadata, try to fetch the template
-        let instructionsText = collabResult.collab.prompt_text || "";
-        
+
+        let instructionsText = collabResult.collab.prompt_text || '';
         if (collabResult.collab.metadata?.template_id) {
-          // Try to get template details with instructions
           const { data: templateData } = await supabase
-            .from('collab_templates')
-            .select('*')
-            .eq('id', collabResult.collab.metadata.template_id)
-            .single();
-            
-          if (templateData?.instructions) {
-            instructionsText = templateData.instructions;
-          }
+            .from('collab_templates').select('*').eq('id', collabResult.collab.metadata.template_id).single();
+          if (templateData?.instructions) instructionsText = templateData.instructions;
         }
-        
-        // Get current period
-        const { data: periodData } = await supabase
-          .from('periods')
-          .select('*')
-          .eq('is_active', true)
-          .single();
-          
-        // Calculate time left
+
+        const { data: periodData } = await supabase.from('periods').select('*').eq('is_active', true).single();
         if (periodData) {
           const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
           const pstEndDate = new Date(periodData.end_date);
           pstEndDate.setTime(pstEndDate.getTime() + pstEndDate.getTimezoneOffset() * 60 * 1000);
           const pstEndDateTime = new Date(pstEndDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-
-          const difference = pstEndDateTime.getTime() - pstNow.getTime();
-          const daysLeft = Math.floor(difference / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          
-          setTimeLeft({ days: daysLeft, hours });
+          const diff = pstEndDateTime.getTime() - pstNow.getTime();
+          setTimeLeft({ days: Math.floor(diff / (1000 * 60 * 60 * 24)), hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) });
         }
-        
-        // Get participant count
+
         const { count: participantCount } = await supabase
-          .from('collab_participants')
-          .select('*', { count: 'exact', head: true })
-          .eq('collab_id', collabId)
-          .eq('status', 'active');
-        
-        // Set collab details with instructions from any available source
+          .from('collab_participants').select('*', { count: 'exact', head: true }).eq('collab_id', collabId).eq('status', 'active');
+
         setCollabDetails({
           id: collabResult.collab.id,
           title: collabResult.collab.title,
           type: collabResult.collab.type,
-          description: collabResult.collab.description || "Collaborate with other creators on this project.",
-          prompt_text: collabResult.collab.prompt_text || "",
+          description: collabResult.collab.description || 'Collaborate with other creators on this project.',
+          prompt_text: collabResult.collab.prompt_text || '',
           instructions: instructionsText,
           is_private: Boolean(collabResult.collab.is_private),
           metadata: collabResult.collab.metadata,
           participant_count: participantCount || 0,
           participation_mode: (collabResult.collab.metadata?.participation_mode as 'community' | 'local' | 'private') || 'community',
-          location: collabResult.collab.metadata?.location as string | null
+          location: collabResult.collab.metadata?.location as string | null,
         });
-        
-        // Check for existing submission for this user and collab
-        const { data: existingSubmissionData, error: submissionError } = await supabase
-          .from('collab_submissions')
-          .select('*')
-          .eq('collab_id', collabId)
-          .eq('contributor_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-          
-        if (submissionError) {
-          console.error("Error fetching existing submissions:", submissionError);
+
+        const { data: existingData } = await supabase
+          .from('collab_submissions').select('*').eq('collab_id', collabId).eq('contributor_id', user.id)
+          .order('created_at', { ascending: false }).limit(1);
+        const existing = existingData?.[0];
+        if (existing) {
+          setSubmission({ id: existing.id, collab_id: existing.collab_id, contributor_id: existing.contributor_id, title: existing.title || '', caption: existing.caption || '', media_url: existing.media_url || '', status: existing.status || 'draft', created_at: existing.created_at, updated_at: existing.updated_at });
+          if (existing.media_url) setPreviewUrl(existing.media_url);
         }
-        
-        const existingSubmission = existingSubmissionData?.[0];
-          
-        if (existingSubmission) {
-          // Update the submission state with the saved data
-          setSubmission({
-            id: existingSubmission.id,
-            collab_id: existingSubmission.collab_id,
-            contributor_id: existingSubmission.contributor_id,
-            title: existingSubmission.title || '',
-            caption: existingSubmission.caption || '', // Using caption field from database
-            media_url: existingSubmission.media_url || '',
-            status: existingSubmission.status || 'draft',
-            created_at: existingSubmission.created_at,
-            updated_at: existingSubmission.updated_at
-          });
-          
-          // Make sure to set the preview URL for the image
-          if (existingSubmission.media_url) {
-            setPreviewUrl(existingSubmission.media_url);
-          }
-        }
-      } catch (error) {
-        console.error('Error in fetchData:', error);
+      } catch {
         setError('Failed to load data');
       } finally {
         setLoading(false);
       }
     }
-    
     fetchData();
   }, [params.id, router, supabase]);
-  
+
   useEffect(() => {
-    // Cleanup function to revoke object URLs when component unmounts
-    return () => {
-      if (previewUrl && previewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(previewUrl);
-      }
-    };
+    return () => { if (previewUrl && previewUrl.startsWith('blob:')) URL.revokeObjectURL(previewUrl); };
   }, [previewUrl]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
     setMediaFile(file);
-    
-    // Create a preview URL
-    const url = URL.createObjectURL(file);
-    setPreviewUrl(url);
+    setPreviewUrl(URL.createObjectURL(file));
   };
-  
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-  
+
+  const triggerFileInput = () => fileInputRef.current?.click();
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setSubmission(prev => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSubmit = async (shouldSubmit: boolean) => {
     try {
       const newStatus = shouldSubmit ? 'submitted' : 'draft';
       setSaving(true);
       setSubmitting(shouldSubmit);
       setError(null);
-      
-      // Basic validation
-      if (!submission.title.trim()) {
-        setError("Please provide a title for your submission");
-        setSaving(false);
-        setSubmitting(false);
-        return;
-      }
-      
-      // Create the submission data with field names matching your database schema
-      const submissionData = {
-        collab_id: submission.collab_id,
-        contributor_id: submission.contributor_id,
-        title: submission.title,
-        caption: submission.caption, // Using the correct field name
-        media_url: submission.media_url || '', 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      };
-      
-      // Handle file upload if there's a new file
+      if (!submission.title.trim()) { setError('Please provide a title for your submission'); setSaving(false); setSubmitting(false); return; }
+
+      const submissionData = { collab_id: submission.collab_id, contributor_id: submission.contributor_id, title: submission.title, caption: submission.caption, media_url: submission.media_url || '', status: newStatus, updated_at: new Date().toISOString() };
+
       if (mediaFile) {
-        try {
-          const fileExt = mediaFile.name.split('.').pop();
-          const fileName = `${Date.now()}.${fileExt}`;
-          const filePath = `${submission.collab_id}/${submission.contributor_id}/${fileName}`;
-          
-          // Attempt to upload the file
-          const { error: uploadError } = await supabase.storage
-            .from('collab-media')
-            .upload(filePath, mediaFile, {
-              cacheControl: '3600',
-              upsert: true
-            });
-            
-          if (uploadError) {
-            throw new Error(`Upload failed: ${uploadError.message}`);
-          }
-          
-          // Get the public URL
-          const { data: { publicUrl } } = supabase.storage
-            .from('collab-media')
-            .getPublicUrl(filePath);
-            
-          submissionData.media_url = publicUrl; // Update here
-        } catch (uploadError) {
-          setError(`File upload error: ${uploadError instanceof Error ? uploadError.message : 'Unknown error'}`);
-          setSaving(false);
-          setSubmitting(false);
-          return;
-        }
+        const fileExt = mediaFile.name.split('.').pop();
+        const filePath = `${submission.collab_id}/${submission.contributor_id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage.from('collab-media').upload(filePath, mediaFile, { cacheControl: '3600', upsert: true });
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+        const { data: { publicUrl } } = supabase.storage.from('collab-media').getPublicUrl(filePath);
+        submissionData.media_url = publicUrl;
       }
-      
-      // Save to the database
+
       let result;
       if (submission.id) {
-        // Update existing record
-        // Use the field names exactly as they appear in your database schema
-        const { error } = await supabase
-          .from('collab_submissions')
-          .update({
-            title: submissionData.title,
-            media_url: submissionData.media_url,
-            status: submissionData.status,
-            contributor_id: submissionData.contributor_id,
-            collab_id: submissionData.collab_id,
-            updated_at: submissionData.updated_at,
-            // Use "caption" field based on your schema
-            caption: submissionData.caption
-          })
-          .eq('id', submission.id);
-          
+        const { error } = await supabase.from('collab_submissions').update({ title: submissionData.title, caption: submissionData.caption, media_url: submissionData.media_url, status: submissionData.status, contributor_id: submissionData.contributor_id, collab_id: submissionData.collab_id, updated_at: submissionData.updated_at }).eq('id', submission.id);
         result = { error, data: null };
       } else {
-        // Create new record
-        const { error, data } = await supabase
-          .from('collab_submissions')
-          .insert({
-            title: submissionData.title,
-            media_url: submissionData.media_url,
-            status: submissionData.status,
-            contributor_id: submissionData.contributor_id,
-            collab_id: submissionData.collab_id,
-            created_at: new Date().toISOString(),
-            updated_at: submissionData.updated_at,
-            // Use "caption" field based on your schema
-            caption: submissionData.caption
-          })
-          .select();
-          
+        const { error, data } = await supabase.from('collab_submissions').insert({ ...submissionData, created_at: new Date().toISOString() }).select();
         result = { error, data };
       }
-      
-      if (result.error) {
-        throw new Error(`Failed to save submission: ${result.error.message}`);
-      }
-      
-      // If this was a new submission, update the local ID
-      // Explicitly handle the case where result.data might be null
+      if (result.error) throw new Error(`Failed to save: ${result.error.message}`);
+
       const resultData = result.data || [];
       if (!submission.id && resultData.length > 0 && resultData[0]?.id) {
-        setSubmission(prev => ({ 
-          ...prev, 
-          id: resultData[0].id,
-          status: newStatus,
-          media_url: submissionData.media_url
-        }));
+        setSubmission(prev => ({ ...prev, id: resultData[0].id, status: newStatus, media_url: submissionData.media_url }));
       } else {
-        setSubmission(prev => ({ 
-          ...prev, 
-          status: newStatus,
-          media_url: submissionData.media_url
-        }));
+        setSubmission(prev => ({ ...prev, status: newStatus, media_url: submissionData.media_url }));
       }
-      
-      setSuccessMessage(shouldSubmit 
-        ? 'Your submission has been sent for publication!' 
-        : 'Your draft has been saved.');
-        
-      // Navigate back to dashboard after successful submission
-      if (shouldSubmit) {
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
-      }
-    } catch (error) {
-      console.error('Error submitting:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+
+      setSuccessMessage(shouldSubmit ? 'Submission sent!' : 'Draft saved.');
+      if (shouldSubmit) setTimeout(() => router.push('/dashboard'), 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setSaving(false);
       setSubmitting(false);
     }
   };
-  
+
   const handleRevertToEdit = async () => {
     try {
       setSaving(true);
       setError(null);
-      
-      const { error } = await supabase
-        .from('collab_submissions')
-        .update({ 
-          status: 'draft',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', submission.id);
-        
-      if (error) {
-        throw new Error(`Failed to revert submission: ${error.message}`);
-      }
-      
+      const { error } = await supabase.from('collab_submissions').update({ status: 'draft', updated_at: new Date().toISOString() }).eq('id', submission.id);
+      if (error) throw new Error(`Failed to revert: ${error.message}`);
       setSubmission(prev => ({ ...prev, status: 'draft' }));
-      setSuccessMessage('Your submission has been reverted to draft.');
-    } catch (error) {
-      console.error('Error reverting:', error);
-      setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+      setSuccessMessage('Reverted to draft.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setSaving(false);
     }
   };
-  
-  // Determine participation mode badge color
+
   const getModeColor = (mode?: string) => {
     switch (mode) {
-      case 'community':
-        return 'bg-green-100 text-green-600';
-      case 'local':
-        return 'bg-amber-100 text-amber-600';
-      case 'private':
-        return 'bg-indigo-100 text-indigo-600';
-      default:
-        return 'bg-gray-100 text-gray-600';
+      case 'community': return { color: 'rgba(52,211,153,0.9)',  bg: 'rgba(52,211,153,0.1)',  border: 'rgba(52,211,153,0.3)'  };
+      case 'local':     return { color: 'rgba(245,169,63,0.9)',  bg: 'rgba(245,169,63,0.1)',  border: 'rgba(245,169,63,0.3)'  };
+      case 'private':   return { color: 'rgba(167,139,250,0.9)', bg: 'rgba(167,139,250,0.1)', border: 'rgba(167,139,250,0.3)' };
+      default:          return { color: 'var(--paper-secondary)', bg: 'var(--ground-raised)',  border: 'var(--rule-color)'     };
     }
   };
-  
+
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading collaboration details...</p>
+      <div style={{ minHeight: '100vh', background: 'var(--ground-base)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ width: 36, height: 36, border: '2px solid var(--neon-amber)', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 12px', animation: 'spin 0.8s linear infinite' }} />
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.6 }}>Loading collaboration…</p>
         </div>
       </div>
     );
   }
-  
-  if (!collabDetails) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-bold text-center mb-4">Collaboration Not Found</h2>
-            <p className="text-gray-600 mb-6">
-              We could not find the collaboration you are looking for. It may have been removed or you may not have access.
-            </p>
-            <Link href="/dashboard">
-              <Button className="w-full">Return to Dashboard</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  
+
+  const modeColors = getModeColor(collabDetails.participation_mode);
+
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-white text-gray-900 md:border-x md:border-gray-200 md:min-h-0">
-      {/* Fixed Header */}
-      <div className="px-4 py-3 flex items-center justify-between z-20 bg-white border-b border-gray-200 sticky top-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
+    <div style={{ minHeight: '100vh', background: 'var(--ground-base)', fontFamily: 'var(--font-sans)', display: 'flex', flexDirection: 'column', maxWidth: 480, margin: '0 auto' }}>
+      {/* Ambient glow */}
+      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,169,63,0.04) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+
+      {/* Sticky header */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'var(--ground-base)', borderBottom: '1px solid var(--rule-color)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Link href="/dashboard" style={{ color: 'var(--paper-secondary)', display: 'flex', opacity: 0.7 }}>
+            <ArrowLeft size={18} />
           </Link>
-          <div className="flex flex-col">
-            <h1 className="text-md font-semibold text-gray-900 truncate max-w-[170px]">
+          <div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 500, color: 'var(--paper-primary)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {collabDetails.title}
-            </h1>
-            <div className={`text-xs flex items-center ${
-              submission.status === 'draft'
-                ? 'text-gray-600'
-                : 'text-green-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full mr-1 ${
-                submission.status === 'draft' ? 'bg-gray-500' : 'bg-green-500'
-              }`}></div>
-              {submission.status === 'draft' ? 'Draft' : 'Submitted'} • {timeLeft.days}d {timeLeft.hours}h left
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <div style={{ width: 6, height: 6, borderRadius: '50%', background: submission.status === 'draft' ? 'var(--paper-secondary)' : '#10b981' }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', color: submission.status === 'draft' ? 'var(--paper-secondary)' : '#10b981', opacity: submission.status === 'draft' ? 0.6 : 1 }}>
+                {submission.status === 'draft' ? 'Draft' : 'Submitted'} · {timeLeft.days}d {timeLeft.hours}h left
+              </span>
             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {collabDetails.participation_mode && (
-            <div className="flex items-center">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${getModeColor(collabDetails.participation_mode)}`}>
-                {collabDetails.participation_mode.charAt(0).toUpperCase() + collabDetails.participation_mode.slice(1)}
-              </span>
-              
-              {/* Display city right after the "Local" tag if available */}
-              {collabDetails.participation_mode === 'local' && collabDetails.location && (
-                <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full ml-1">
-                  {collabDetails.location}
-                </span>
-              )}
-            </div>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: modeColors.color, background: modeColors.bg, border: `1px solid ${modeColors.border}`, borderRadius: 2, padding: '3px 7px' }}>
+              {collabDetails.participation_mode}
+              {collabDetails.participation_mode === 'local' && collabDetails.location ? ` · ${collabDetails.location}` : ''}
+            </span>
           )}
-          
           <button
             onClick={() => setShowInstructionsPanel(!showInstructionsPanel)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 relative"
-            aria-label="View instructions"
+            style={{ position: 'relative', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: showInstructionsPanel ? 'rgba(245,169,63,0.1)' : 'transparent', border: `1px solid ${showInstructionsPanel ? 'rgba(245,169,63,0.3)' : 'var(--rule-color)'}`, borderRadius: 2, cursor: 'pointer', color: showInstructionsPanel ? 'var(--neon-amber)' : 'var(--paper-secondary)' }}
           >
-            <FileText className="h-5 w-5 text-gray-600" />
+            <FileText size={14} />
             {!showInstructionsPanel && (
-              <span className="absolute top-0 right-0 w-2 h-2 bg-blue-500 rounded-full"></span>
+              <div style={{ position: 'absolute', top: -3, right: -3, width: 7, height: 7, borderRadius: '50%', background: 'var(--neon-amber)' }} />
             )}
           </button>
         </div>
       </div>
-      
-      {/* Instructions Panel - Expandable */}
+
+      {/* Instructions panel */}
       {showInstructionsPanel && (
-        <div className="bg-white border-b border-gray-200 px-4 py-4 animate-in slide-in-from-top duration-300">
-          {/* Collaboration Description */}
-          <div className="mb-4">
-            <h2 className="text-lg font-medium text-gray-900 mb-2">
-              {collabDetails.description}
-            </h2>
-          </div>
-          
-          {/* Instructions - Prominently Displayed */}
-          <div className="mb-2">
-            <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500 shadow-sm">
-              <h3 className="font-medium text-blue-800 mb-2 flex items-center text-base">
-                <FileText className="h-5 w-5 mr-1.5" />
-                INSTRUCTIONS
-              </h3>
-              <div className="text-sm text-gray-700 whitespace-pre-line">
-                {collabDetails.instructions || collabDetails.prompt_text || "No specific instructions provided for this collaboration."}
-              </div>
+        <div style={{ position: 'relative', zIndex: 10, background: 'var(--lt-surface)', borderBottom: '1px solid var(--rule-color)', padding: 16 }}>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--paper-primary)', marginBottom: 12 }}>{collabDetails.description}</div>
+          <div style={{ background: 'rgba(245,169,63,0.05)', border: '1px solid rgba(245,169,63,0.2)', borderLeft: '3px solid var(--neon-amber)', borderRadius: 2, padding: '12px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+              <FileText size={12} color="var(--neon-amber)" />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)' }}>Instructions</span>
             </div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', opacity: 0.8, margin: 0, whiteSpace: 'pre-line', lineHeight: 1.6 }}>
+              {collabDetails.instructions || collabDetails.prompt_text || 'No specific instructions provided.'}
+            </p>
           </div>
         </div>
       )}
-      
-      {/* Prompt Instructions Floating Button - Only visible when panel is closed */}
+
+      {/* Floating instructions button when panel closed */}
       {!showInstructionsPanel && (
-        <button 
-          className="fixed bottom-20 right-4 z-10 bg-blue-600 text-white rounded-full p-3 shadow-lg flex items-center justify-center"
-          onClick={() => setShowInstructionsPanel(true)}
-        >
-          <Eye className="h-5 w-5" />
-        </button>
-      )}
-      
-{/* Main Image Area */}
-<div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : ''}">
-  <div className="h-full flex-1 flex items-center justify-center p-4">
-    {/* Image display */}
-    {(previewUrl || submission.media_url) ? (
-  <div className="relative w-full h-full flex items-center justify-center">
-    <div className="relative max-w-full max-h-full">
-      <Image
-        src={previewUrl || submission.media_url || ''}
-        alt={submission.title || "Submission preview"}
-        width={500}
-        height={500}
-        className="rounded-lg shadow-md object-contain"
-        style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto' }}
-        unoptimized={previewUrl?.startsWith('blob:') || false}
-      />
-    </div>
-        
-        {/* Fullscreen toggle button */}
         <button
-          type="button"
-          onClick={() => setIsFullscreen(!isFullscreen)}
-          className="absolute bottom-2 right-2 p-1.5 bg-black/20 backdrop-blur-sm shadow rounded-full hover:bg-black/30 transition-colors"
+          onClick={() => setShowInstructionsPanel(true)}
+          style={{ position: 'fixed', bottom: 88, right: 16, zIndex: 10, width: 44, height: 44, borderRadius: '50%', background: 'var(--neon-amber)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 16px rgba(245,169,63,0.4)' }}
         >
-          <Maximize2 className="h-5 w-5 text-white" />
+          <Eye size={18} color="#000" />
         </button>
-        
-        {/* Remove button - only when not submitted */}
-        {submission.status === 'draft' && (
-          <button
-            type="button"
-            onClick={() => {
-              setPreviewUrl(null);
-              setMediaFile(null);
-              setSubmission(prev => ({ ...prev, media_url: '' }));
-            }}
-            className="absolute top-2 right-2 p-1.5 bg-white/90 shadow rounded-full hover:bg-gray-100 transition-colors"
-          >
-            <X className="h-4 w-4 text-gray-600" />
-          </button>
-        )}
-      </div>
-    ) : (
-      <div 
-        className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center cursor-pointer"
-        onClick={submission.status !== 'submitted' ? triggerFileInput : undefined}
-      >
-        <input
-          ref={fileInputRef}
-          id="media"
-          type="file"
-          className="hidden"
-          onChange={handleFileChange}
-          disabled={submission.status === 'submitted'}
-          accept="image/*"
-        />
-        <Upload className="h-12 w-12 text-gray-400 mb-3" />
-        <div className="text-sm text-gray-600 mb-3 font-medium">
-          {submission.status === 'submitted' 
-            ? 'No image uploaded with this submission'
-            : 'Click to upload an image'
-          }
-        </div>
-        {submission.status !== 'submitted' && (
-          <p className="text-xs text-gray-500">
-            Supported formats: JPG, PNG, GIF, WebP up to 10MB
-          </p>
-        )}
-      </div>
-    )}
-  </div>
-</div>
-      
-      {/* Form Inputs */}
-      <div className="bg-white border-t border-gray-200 animate-in slide-in-from-bottom duration-200">
-        {/* Title and Caption - Always Visible */}
-        <div className="p-4">
-          <input
-            name="title"
-            value={submission.title}
-            onChange={handleInputChange}
-            className="w-full text-xl font-medium bg-transparent border-none p-0 mb-2 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
-            placeholder="Add title"
-            disabled={submission.status === 'submitted'}
-          />
-          
-          <textarea
-            name="caption"
-            value={submission.caption}
-            onChange={handleInputChange}
-            className="w-full bg-transparent border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-600 resize-none"
-            placeholder="Add caption"
-            rows={3}
-            disabled={submission.status === 'submitted'}
-          />
-        </div>
-      </div>
-      
-      {/* Status Messages */}
-      {(error || successMessage) && (
-        <div className={`px-4 py-3 ${
-          error ? 'bg-red-50 border border-red-200 text-red-700' : 'bg-green-50 border border-green-200 text-green-700'
-        } rounded relative mb-2 mx-4 flex items-center`}>
-          <div className="flex items-center">
-            {error ? (
-              <AlertCircle size={20} className="mr-2" />
-            ) : (
-              <CheckCircle size={20} className="mr-2" />
+      )}
+
+      {/* Image area */}
+      <div style={{ position: 'relative', zIndex: 1, flex: 1, background: 'var(--ground-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 280, ...(isFullscreen ? { position: 'fixed', inset: 0, zIndex: 50, minHeight: 'unset' } : {}) }}>
+        {previewUrl || submission.media_url ? (
+          <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <Image
+              src={previewUrl || submission.media_url || ''}
+              alt={submission.title || 'Submission preview'}
+              width={500} height={500}
+              style={{ maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain', borderRadius: 2 }}
+              unoptimized={previewUrl?.startsWith('blob:') || false}
+            />
+            <button onClick={() => setIsFullscreen(!isFullscreen)} style={{ position: 'absolute', bottom: 24, right: 24, width: 32, height: 32, borderRadius: 2, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+              <Maximize2 size={14} />
+            </button>
+            {submission.status === 'draft' && (
+              <button onClick={() => { setPreviewUrl(null); setMediaFile(null); setSubmission(prev => ({ ...prev, media_url: '' })); }} style={{ position: 'absolute', top: 24, right: 24, width: 28, height: 28, borderRadius: 2, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                <X size={13} />
+              </button>
             )}
-            <span>{error || successMessage}</span>
           </div>
+        ) : (
+          <div
+            onClick={submission.status !== 'submitted' ? triggerFileInput : undefined}
+            style={{ width: '100%', height: '100%', minHeight: 280, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: submission.status !== 'submitted' ? 'pointer' : 'default', border: '1px dashed var(--rule-color)', borderRadius: 2, margin: 16, gap: 10 }}
+          >
+            <input ref={fileInputRef} type="file" onChange={handleFileChange} accept="image/*" disabled={submission.status === 'submitted'} style={{ display: 'none' }} />
+            <Upload size={28} color="var(--paper-secondary)" style={{ opacity: 0.35 }} />
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.5 }}>
+              {submission.status === 'submitted' ? 'No image uploaded' : 'Click to upload an image'}
+            </div>
+            {submission.status !== 'submitted' && (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.35 }}>JPG, PNG, GIF, WebP · up to 10MB</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Form */}
+      <div style={{ position: 'relative', zIndex: 1, background: 'var(--lt-surface)', borderTop: '1px solid var(--rule-color)', padding: '14px 16px' }}>
+        <input
+          name="title"
+          value={submission.title}
+          onChange={handleInputChange}
+          placeholder="Add title"
+          disabled={submission.status === 'submitted'}
+          style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-sans)', fontSize: 18, fontWeight: 500, color: 'var(--paper-primary)', marginBottom: 8, boxSizing: 'border-box' }}
+        />
+        <textarea
+          name="caption"
+          value={submission.caption}
+          onChange={handleInputChange}
+          placeholder="Add caption"
+          rows={3}
+          disabled={submission.status === 'submitted'}
+          style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', resize: 'none', boxSizing: 'border-box', lineHeight: 1.5 }}
+        />
+      </div>
+
+      {/* Status messages */}
+      {(error || successMessage) && (
+        <div style={{ position: 'relative', zIndex: 1, margin: '0 16px 8px', padding: '10px 14px', background: error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', border: `1px solid ${error ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`, borderRadius: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {error ? <AlertCircle size={14} color="#ef4444" /> : <CheckCircle size={14} color="#10b981" />}
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: error ? '#ef4444' : '#10b981' }}>{error || successMessage}</span>
         </div>
       )}
-      
-      {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3 flex gap-3 sticky bottom-0 shadow-md">
+
+      {/* Action bar */}
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 20, background: 'var(--ground-base)', borderTop: '1px solid var(--rule-color)', padding: '12px 16px', display: 'flex', gap: 8 }}>
         {submission.status === 'submitted' ? (
           <button
-            type="button"
-            className="w-full py-2.5 px-4 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
             onClick={handleRevertToEdit}
             disabled={saving}
+            style={{ flex: 1, padding: '11px', background: 'rgba(245,169,63,0.08)', border: '1px solid rgba(245,169,63,0.25)', borderRadius: 2, color: 'var(--neon-amber)', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: saving ? 0.5 : 1 }}
           >
-            <Info className="h-4 w-4" />
+            <Info size={13} />
             Revert to Draft
           </button>
         ) : (
           <>
             <button
-              type="button"
-              className="flex-1 py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
               onClick={() => handleSubmit(false)}
               disabled={saving || submitting}
+              className="press-btn"
+              style={{ flex: 1, padding: '11px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: (saving || submitting) ? 0.5 : 1 }}
             >
-              <Save className="h-4 w-4" />
-              {saving && !submitting 
-                ? 'Saving...' 
-                : 'Save Draft'
-              }
+              <Save size={13} />
+              {saving && !submitting ? 'Saving…' : 'Save Draft'}
             </button>
-            
             <button
-              type="button"
-              className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
               onClick={() => handleSubmit(true)}
               disabled={saving || submitting || !submission.title || (!previewUrl && !submission.media_url)}
+              className="press-btn-green"
+              style={{ flex: 1, padding: '11px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, opacity: (saving || submitting || !submission.title || (!previewUrl && !submission.media_url)) ? 0.4 : 1 }}
             >
-              <Send className="h-4 w-4" />
-              {submitting ? 'Submitting...' : 'Submit'}
+              <Send size={13} />
+              {submitting ? 'Submitting…' : 'Submit'}
             </button>
           </>
         )}
