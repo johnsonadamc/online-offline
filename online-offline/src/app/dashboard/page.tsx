@@ -103,7 +103,6 @@ export default function Dashboard() {
   const supabase = createClientComponentClient();
 
   // ── Existing state (unchanged) ──────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'contribute' | 'curate'>('contribute');
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({ action: '', id: '' });
   const [deleteCommId, setDeleteCommId] = useState('');
@@ -619,32 +618,41 @@ export default function Dashboard() {
 
         {/* ── Tab bar ── */}
         <div style={{ display: 'flex', padding: '0 26px', borderBottom: '1px solid var(--rule)', marginTop: '14px', position: 'relative', zIndex: 10 }}>
-          {(['contribute', 'curate'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '12px 0', marginRight: '26px',
-                fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
-                letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: activeTab === tab ? 'var(--paper)' : 'var(--paper-5)',
-                opacity: activeTab === tab ? 0.88 : 1,
-                background: 'none', border: 'none',
-                borderBottom: activeTab === tab ? '1px solid var(--paper)' : '1px solid transparent',
-                marginBottom: '-1px', cursor: 'pointer',
-                textShadow: activeTab === tab ? '0 0 12px var(--glow-paper)' : 'none',
-                transition: 'color 0.2s, text-shadow 0.2s',
-              }}
-            >
-              {tab === 'contribute' ? 'Contribute' : 'Curate'}
-            </button>
-          ))}
+          <button
+            style={{
+              padding: '12px 0', marginRight: '26px',
+              fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--paper)', opacity: 0.88,
+              background: 'none', border: 'none',
+              borderBottom: '1px solid var(--paper)',
+              marginBottom: '-1px', cursor: 'default',
+              textShadow: '0 0 12px var(--glow-paper)',
+            }}
+          >
+            Contribute
+          </button>
+          <button
+            onClick={() => router.push('/curate')}
+            style={{
+              padding: '12px 0', marginRight: '26px',
+              fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
+              letterSpacing: '0.1em', textTransform: 'uppercase',
+              color: 'var(--paper-5)',
+              background: 'none', border: 'none',
+              borderBottom: '1px solid transparent',
+              marginBottom: '-1px', cursor: 'pointer',
+              transition: 'color 0.2s',
+            }}
+          >
+            Curate
+          </button>
         </div>
 
         {/* ══════════════════════════════════════
             CONTRIBUTE TAB
         ══════════════════════════════════════ */}
-        {activeTab === 'contribute' && (
+        {(
           <div style={{ padding: '16px 26px 80px', position: 'relative', zIndex: 10 }}>
 
             {/* ── Content section ── */}
@@ -929,96 +937,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════
-            CURATE TAB
-        ══════════════════════════════════════ */}
-        {activeTab === 'curate' && (
-          <div style={{ position: 'relative', minHeight: 'calc(100vh - 120px)' }}>
-            {/* Ambient glow layer */}
-            <div style={{
-              position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
-              background: 'radial-gradient(ellipse 80% 40% at 50% 0%, rgba(78,196,122,0.04) 0%, transparent 70%)',
-            }} />
 
-            <div style={{ position: 'relative', zIndex: 1, padding: '20px 26px 100px' }}>
-              {/* Light-table header */}
-              <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid var(--lt-rule)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '13px', color: 'var(--lt-text-2)', letterSpacing: '0.02em' }}>
-                    Curation mode
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>
-                    ● active
-                  </div>
-                </div>
-                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--lt-text-3)' }}>
-                  {currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : '—'} · Select what goes in your magazine
-                </div>
-              </div>
-
-              {/* Open curate call-to-action */}
-              <button
-                onClick={() => router.push('/curate')}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '20px', marginBottom: '12px',
-                  background: 'rgba(78,196,122,0.07)',
-                  border: '1px solid rgba(78,196,122,0.2)',
-                  borderRadius: '2px', cursor: 'pointer',
-                  boxShadow: '0 0 24px rgba(78,196,122,0.05)',
-                  transition: 'background 0.2s, border-color 0.2s',
-                  WebkitTapHighlightColor: 'transparent',
-                }}
-              >
-                <div style={{ textAlign: 'left' }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', marginBottom: '4px', opacity: 0.88 }}>
-                    Open curation table
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--lt-text-3)' }}>
-                    Browse contributors, collabs, and campaigns
-                  </div>
-                </div>
-                <svg width="18" height="18" viewBox="0 0 24 24" style={{ flexShrink: 0, opacity: 0.5 }}>
-                  <polyline points="9,18 15,12 9,6" stroke="var(--neon-green)" strokeWidth="2" fill="none" />
-                </svg>
-              </button>
-
-              {/* Quick stats */}
-              <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
-                gap: '1px', background: 'var(--lt-rule)',
-                border: '1px solid var(--lt-rule)', borderRadius: '2px',
-                overflow: 'hidden', marginBottom: '20px',
-              }}>
-                {[
-                  { label: 'Contributors', val: '—' },
-                  { label: 'Collabs', val: '—' },
-                  { label: 'Est. pages', val: '—' },
-                ].map(({ label, val }) => (
-                  <div key={label} style={{ background: 'var(--lt-card)', padding: '12px 10px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '5px' }}>{label}</div>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--lt-text)', opacity: 0.75 }}>{val}</div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Season deadline reminder */}
-              {currentPeriod?.end_date && (
-                <div style={{ padding: '14px', background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: '2px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '2px', height: '32px', background: 'var(--neon-amber)', boxShadow: '0 0 6px var(--glow-amber)', flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginBottom: '3px' }}>
-                      Deadline
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--lt-text-2)' }}>
-                      <CountdownTimer endDate={currentPeriod.end_date} /> remaining to finalize selections
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
       </div>
     </div>
