@@ -913,7 +913,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
               {/* Expanded mode rows */}
               {isExpanded && (
-                <div style={{ borderTop: `1px solid var(--rule-color)`, display: 'flex', flexDirection: 'column', gap: 1, background: 'var(--ground-raised)', padding: '6px 8px', gap: '6px' }}>
+                <div style={{ borderTop: '1px solid var(--lt-rule)', display: 'flex', flexDirection: 'column', gap: '6px', background: 'var(--lt-bg)', padding: '6px 8px' }}>
 
                   {/* Community row */}
                   {(() => {
