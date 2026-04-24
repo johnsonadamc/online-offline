@@ -386,8 +386,11 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
             <div key={template.id}>
               {idx > 0 && <div style={{ height: 1, background: 'var(--lt-rule)', margin: '4px 0 0' }} />}
 
-              {/* ── name row ── */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 4px 0', userSelect: 'none' }}>
+              {/* ── name row — full row is clickable ── */}
+              <div
+                onClick={() => toggleDesc(template.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 4px 0', cursor: 'pointer', userSelect: 'none' }}
+              >
                 <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--lt-text-2)', flex: 1 }}>
                   {template.name}
                 </span>
@@ -396,23 +399,6 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                     ★ you contribute
                   </span>
                 )}
-                <button
-                  onClick={e => { e.stopPropagation(); toggleDesc(template.id); }}
-                  style={{
-                    width: 16, height: 16, borderRadius: '50%', padding: 0, cursor: 'pointer',
-                    border: `1px solid ${isDescOpen ? 'var(--neon-amber)' : 'var(--lt-card-bdr)'}`,
-                    background: isDescOpen ? 'rgba(224,168,48,0.08)' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    transition: 'border-color 0.15s, background 0.15s',
-                  }}
-                  title="About this collab"
-                >
-                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                    <circle cx="4" cy="4" r="3.5" stroke={isDescOpen ? 'var(--neon-amber)' : 'var(--lt-text-3)'} strokeWidth="0.8" />
-                    <line x1="4" y1="3.2" x2="4" y2="5.8" stroke={isDescOpen ? 'var(--neon-amber)' : 'var(--lt-text-3)'} strokeWidth="0.9" strokeLinecap="round" />
-                    <circle cx="4" cy="2.2" r="0.5" fill={isDescOpen ? 'var(--neon-amber)' : 'var(--lt-text-3)'} />
-                  </svg>
-                </button>
               </div>
 
               {/* ── description panel ── */}
@@ -456,9 +442,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                   <circle cx="11" cy="9" r="1.8" stroke="var(--neon-blue)" strokeWidth="1" />
                 </svg>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-blue)', textShadow: '0 0 6px var(--glow-blue)', width: 76, flexShrink: 0 }}>Community</span>
-                <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text-3)', fontWeight: 300 }}>
-                  Open to all
-                  {hasJoinedComm && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginLeft: 6 }}>★</span>}
+                <span style={{ flex: 1 }}>
+                  {hasJoinedComm && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★</span>}
                 </span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
                   {communityParticipantCounts[template.id] || 0}
@@ -568,9 +553,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                       <path d="M5 6V4.5a2 2 0 0 1 4 0V6" stroke="var(--neon-purple)" strokeWidth="1" />
                     </svg>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)', width: 76, flexShrink: 0 }}>Private</span>
-                    <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text-3)', fontWeight: 300 }}>
-                      Invited only
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginLeft: 6 }}>★ yours</span>
+                    <span style={{ flex: 1 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★ yours</span>
                     </span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
                       {privCount || ''}
