@@ -402,10 +402,14 @@ export default function CurationInterface() {
         setCreators([]);
         setAds([]);
 
+        let activePeriodId: string | null = null;
         try {
           const periodData = await getCurrentPeriod();
           const extracted = extractPeriodData(periodData);
-          if (extracted) setCurrentPeriod(extracted);
+          if (extracted) {
+            setCurrentPeriod(extracted);
+            activePeriodId = extracted.id;
+          }
         } catch (err) {
           console.error('Error fetching period data:', err);
         }
@@ -442,10 +446,31 @@ export default function CurationInterface() {
           console.error('Error fetching profiles:', err);
         }
 
-        setAds([
-          { id: 'ad1', name: "Artisan's Supply Co.", bio: 'Premium art supplies and workshops for creators', lastPost: 'Featured: New Sustainable Paint Collection', avatar: '/api/placeholder/400/400?text=AS', type: 'ad', discount: 2 },
-          { id: 'ad2', name: 'The Reading Room', bio: 'Independent bookstore with curated collections & events', avatar: '/api/placeholder/400/400?text=RR', lastPost: 'Event: Monthly Poetry Reading Night', type: 'ad', discount: 2 },
-        ]);
+        try {
+          const campaignQuery = supabase
+            .from('campaigns')
+            .select('id, name, bio, last_post, avatar_url, discount')
+            .eq('is_active', true);
+          const { data: campaignData, error: campaignError } = await (
+            activePeriodId ? campaignQuery.eq('period_id', activePeriodId) : campaignQuery
+          );
+          if (!campaignError && campaignData && campaignData.length > 0) {
+            setAds(campaignData.map(c => ({
+              id: c.id,
+              name: c.name || '',
+              bio: c.bio || '',
+              lastPost: c.last_post || '',
+              avatar: c.avatar_url || `/api/placeholder/400/400?text=${(c.name || 'AD').substring(0, 2).toUpperCase()}`,
+              type: 'ad' as const,
+              discount: typeof c.discount === 'number' ? c.discount : 2,
+            })));
+          } else {
+            setAds([]);
+          }
+        } catch (err) {
+          console.error('Error fetching campaigns:', err);
+          setAds([]);
+        }
 
         setCommunications([
           { id: 'comm1', subject: 'Thoughts on my latest series', sender_id: 'user1', profiles: { first_name: 'Sarah', last_name: 'Chen', avatar_url: '/api/placeholder/400/400?text=SC' } },
