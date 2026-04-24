@@ -289,3 +289,35 @@ PDF sent to print fulfillment service (Mixam or similar)
 - **Contributors**: Submit content, join/participate in collaborations, send communications to curators
 - **Curators**: Select content for their personalized printed magazine, manage which creators/collabs/comms appear
 - Users can be both. Currently single developer testing both roles, no real users yet.
+
+## Current Status (as of April 24, 2026)
+
+### Completed
+- Full dark neon UI redesign across all main pages
+- globals.css with full CSS variable system
+- Fonts: Instrument Serif, Instrument Sans, Courier Prime
+- Grain overlay and registration marks in layout.tsx
+- dashboard/page.tsx — fully redesigned
+- curate/page.tsx — fully redesigned  
+- profile/page.tsx — fully redesigned, includes identity_banner_url and content_type
+- collabs/page.tsx — fully redesigned
+- collabs/[id]/submit/page.tsx — fully redesigned
+- IntegratedCollabsSection.tsx — partially redesigned
+- New DB columns: identity_banner_url and content_type on profiles table
+
+### Remaining Issues
+
+1. **Collabs tab in curate** — needs rethinking. Should show ALL collab templates 
+   for the period (not just joined ones), with contributed collabs starred. 
+   Local collabs should allow city selection for ANY city, not just the user's city.
+   Should mirror the visual style of the dashboard Collaborations section.
+
+2. **Ads save error** — mock ad IDs ("ad1", "ad2") are not real UUIDs. Either load 
+   real campaigns from DB or handle mock data gracefully in saveCuratorSelections.
+
+3. **communicate/new page** — hasn't been redesigned yet, still shows old UI.
+
+4. **City dropdown in curate collabs** — transparent/overlapping, needs fix.
+
+5. **IntegratedCollabsSection** — logic needs updating to show all period collabs,
+   not just joined ones, with joined ones highlighted/suggested.
