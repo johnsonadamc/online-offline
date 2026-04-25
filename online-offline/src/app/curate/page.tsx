@@ -173,33 +173,13 @@ export default function CurationInterface() {
   }, []);
 
   // ── Computed values ────────────────────────────────────────────────────────
-  // Each entry is a (mode, templateId) slot key:
-  //   community_<templateId>  — one slot for the community version
-  //   local_<templateId>      — one slot for local (any city; city swaps don't add slots)
-  //   private_<templateId>    — one slot for the private version
-  // Different modes for the same template count separately; multiple local-city
-  // picks for the same template collapse to one.
-  const uniqueCollabSlots = new Set<string>();
-  selectedCollabs.forEach(id => {
-    if (!id || id.trim() === '') return;
-    if (id.startsWith('local_')) {
-      // local_<templateId>_<City_Name> — strip city, keep mode+template key
-      const rest = id.slice('local_'.length);
-      const sep = rest.indexOf('_');
-      const templateId = sep !== -1 ? rest.slice(0, sep) : rest;
-      uniqueCollabSlots.add(`local_${templateId}`);
-    } else if (id.startsWith('community_')) {
-      // Already unique per template+mode
-      uniqueCollabSlots.add(id);
-    } else {
-      // Private collab real UUID — key as private_<templateId>
-      const templateId = privateCollabTemplateMap[id];
-      uniqueCollabSlots.add(templateId ? `private_${templateId}` : `private_${id}`);
-    }
-  });
+  // Collab count = number of items in selectedCollabs.
+  // toggleItem prevents duplicate IDs, so selectedCollabs is already a unique list.
+  // This matches the "Added to magazine" footer which renders one row per entry.
+  const collabSlotCount = selectedCollabs.filter(id => id.trim() !== '').length;
 
   const usedSlots = selectedCreators.length + selectedAds.length +
-    selectedCommunications.length + uniqueCollabSlots.size;
+    selectedCommunications.length + collabSlotCount;
   const remainingContent = maxContentPieces - usedSlots;
 
   // ── Data helpers (unchanged) ───────────────────────────────────────────────
@@ -663,7 +643,7 @@ export default function CurationInterface() {
         <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
           {([
             { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
-            { id: 'collabs' as const,      label: 'Collabs',      count: uniqueCollabSlots.size },
+            { id: 'collabs' as const,      label: 'Collabs',      count: collabSlotCount },
             { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
             { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
           ]).map(({ id, label, count }) => (
