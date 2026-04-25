@@ -142,17 +142,21 @@ export default function CollabsLibrary() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const searchProfiles = async (term: string) => {
-    if (!term.trim()) { setProfileResults([]); return; }
     const supabase = createClientComponentClient();
     try {
-      const { data, error: searchError } = await supabase
+      let query = supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url, is_public, bio')
-        .or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`)
-        .limit(10);
+        .eq('is_public', true);
+      if (term.trim()) {
+        query = query.or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`).limit(10);
+      } else {
+        query = query.order('first_name', { ascending: true }).limit(20);
+      }
+      const { data, error: searchError } = await query;
       if (searchError) { showError('Search failed: ' + searchError.message); return; }
       setProfileResults(
-        ((data || []).filter((p: any) => p.is_public === true)).map((p: any) => ({
+        (data || []).map((p: any) => ({
           id: p.id,
           name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim(),
           bio: p.bio || '',
@@ -165,6 +169,7 @@ export default function CollabsLibrary() {
   };
 
   useEffect(() => { searchProfiles(searchTerm); }, [searchTerm]);
+  useEffect(() => { if (showInviteDialog) searchProfiles(''); }, [showInviteDialog]);
 
   const handleJoinClick = async (collabId: string, title: string, mode: ParticipationMode) => {
     try {
@@ -466,18 +471,14 @@ export default function CollabsLibrary() {
                         key={u.id}
                         onClick={() => toggleUser(u)}
                         style={{
-                          padding: '14px 14px',
-                          borderTop: '1px solid var(--rule)',
+                          padding: '12px 14px',
+                          borderBottom: '1px solid var(--rule)',
                           cursor: 'pointer',
                           background: isSelected ? 'rgba(168,136,232,0.05)' : 'transparent',
                           borderLeft: isSelected ? '2px solid var(--neon-purple)' : '2px solid transparent',
                           boxShadow: isSelected ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>to</span>
-                          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(168,136,232,0.25), transparent)' }} />
-                        </div>
                         <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: 3 }}>{u.name}</div>
                         {u.bio && <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: 12, color: 'var(--paper-4)' }}>{u.bio.length > 60 ? u.bio.slice(0, 60) + '…' : u.bio}</div>}
                       </div>
