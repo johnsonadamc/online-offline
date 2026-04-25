@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Globe, MapPin, Lock, FileText, Loader2, X, Search, Check } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
@@ -231,27 +230,27 @@ export default function CollabsLibrary() {
   const CollabCard = ({ collab }: { collab: CollabTemplate }) => {
     const t = typeStyle[collab.type] || typeStyle.theme;
     return (
-      <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+      <div style={{ background: 'var(--ground-2)', border: '1px solid var(--rule-mid)', borderRadius: 2 }}>
         {/* Type stripe */}
         <div style={{ height: 2, background: t.color, borderRadius: '2px 2px 0 0', opacity: 0.7 }} />
         <div style={{ padding: 14 }}>
           {/* Title + type badge */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--paper-primary)', margin: 0, lineHeight: 1.3 }}>{collab.name}</h3>
+            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--paper)', margin: 0, lineHeight: 1.3 }}>{collab.name}</h3>
             <span style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.color, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 2, padding: '2px 7px' }}>{collab.type}</span>
           </div>
 
           {/* Description */}
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', opacity: 0.75, lineHeight: 1.5, margin: '0 0 12px' }}>{collab.display_text}</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-3)', opacity: 0.75, lineHeight: 1.5, margin: '0 0 12px' }}>{collab.display_text}</p>
 
           {/* Instructions */}
           {collab.instructions && (
             <div style={{ background: 'rgba(245,169,63,0.05)', border: '1px solid rgba(245,169,63,0.2)', borderLeft: '3px solid var(--neon-amber)', borderRadius: 2, padding: '10px 12px', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                <FileText size={11} color="var(--neon-amber)" />
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ color: 'var(--neon-amber)', flexShrink: 0 }}><rect x="1.5" y="0.5" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M3.5 3.5h4M3.5 5.5h4M3.5 7.5h2.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)' }}>Instructions</span>
               </div>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-secondary)', opacity: 0.8, margin: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{collab.instructions}</p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-3)', opacity: 0.8, margin: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{collab.instructions}</p>
             </div>
           )}
 
@@ -259,7 +258,7 @@ export default function CollabsLibrary() {
           {collab.tags && collab.tags.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 12 }}>
               {collab.tags.slice(0, 3).map((tag, i) => (
-                <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--paper-secondary)', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2, padding: '2px 7px', opacity: 0.7 }}>{tag}</span>
+                <span key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--paper-3)', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, padding: '2px 7px', opacity: 0.7 }}>{tag}</span>
               ))}
             </div>
           )}
@@ -267,28 +266,37 @@ export default function CollabsLibrary() {
           {/* Participant counts */}
           <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <Globe size={12} color="rgba(90,159,212,0.8)" />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.7 }}><strong style={{ color: 'rgba(90,159,212,0.9)' }}>{collab.communityParticipantCount || 0}</strong> community</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'rgba(90,159,212,0.8)', flexShrink: 0 }}><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/><ellipse cx="6" cy="6" rx="2.5" ry="5" stroke="currentColor" strokeWidth="1"/><path d="M1 6h10" stroke="currentColor" strokeWidth="1"/></svg>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.7 }}><strong style={{ color: 'rgba(90,159,212,0.9)' }}>{collab.communityParticipantCount || 0}</strong> community</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <MapPin size={12} color="rgba(52,211,153,0.8)" />
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)', opacity: 0.7 }}><strong style={{ color: 'rgba(52,211,153,0.9)' }}>{collab.localParticipantCount || 0}</strong> local</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'rgba(52,211,153,0.8)', flexShrink: 0 }}><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.7 }}><strong style={{ color: 'rgba(52,211,153,0.9)' }}>{collab.localParticipantCount || 0}</strong> local</span>
             </div>
           </div>
 
           {/* Join buttons */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {([
-              { mode: 'community' as const, label: 'Community', Icon: Globe,  color: 'rgba(90,159,212,0.85)',  bg: 'rgba(90,159,212,0.08)',  border: 'rgba(90,159,212,0.25)'  },
-              { mode: 'local'     as const, label: 'Local',     Icon: MapPin, color: 'rgba(52,211,153,0.85)',  bg: 'rgba(52,211,153,0.08)',  border: 'rgba(52,211,153,0.25)'  },
-              { mode: 'private'   as const, label: 'Private',   Icon: Lock,   color: 'rgba(167,139,250,0.85)', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.25)' },
-            ]).map(({ mode, label, Icon, color, bg, border }) => (
+              {
+                mode: 'community' as const, label: 'Community', color: 'rgba(90,159,212,0.85)', bg: 'rgba(90,159,212,0.08)', border: 'rgba(90,159,212,0.25)',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/><ellipse cx="6" cy="6" rx="2.5" ry="5" stroke="currentColor" strokeWidth="1"/><path d="M1 6h10" stroke="currentColor" strokeWidth="1"/></svg>,
+              },
+              {
+                mode: 'local' as const, label: 'Local', color: 'rgba(52,211,153,0.85)', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.25)',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>,
+              },
+              {
+                mode: 'private' as const, label: 'Private', color: 'rgba(167,139,250,0.85)', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.25)',
+                icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="2" y="5.5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M4 5.5V3.5C4 2.4 4.9 1.5 6 1.5C7.1 1.5 8 2.4 8 3.5V5.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>,
+              },
+            ] as { mode: ParticipationMode; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[]).map(({ mode, label, icon, color, bg, border }) => (
               <button
                 key={mode}
                 onClick={() => handleJoinClick(collab.id, collab.name, mode)}
                 style={{ padding: '8px 4px', background: bg, border: `1px solid ${border}`, borderRadius: 2, color, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.07em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
               >
-                <Icon size={11} />
+                {icon}
                 {label}
               </button>
             ))}
@@ -299,25 +307,25 @@ export default function CollabsLibrary() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--ground-base)', fontFamily: 'var(--font-sans)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--ground)', fontFamily: 'var(--font-sans)' }}>
       {/* Ambient glow */}
       <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,169,63,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
 
       <div style={{ position: 'relative', zIndex: 1, maxWidth: 640, margin: '0 auto', padding: 16 }}>
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', textDecoration: 'none', opacity: 0.7 }}>← Dashboard</Link>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper-primary)', letterSpacing: '-0.01em' }}>online//offline</span>
+          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-3)', textDecoration: 'none', opacity: 0.7 }}>← Dashboard</Link>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper)', letterSpacing: '-0.01em' }}>online//offline</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(245,169,63,0.1)', border: '1px solid rgba(245,169,63,0.25)', borderRadius: 2, padding: '3px 8px' }}>Collabs</span>
         </div>
-        <div style={{ height: 1, background: 'var(--rule-color)', opacity: 0.3, marginBottom: 20 }} />
+        <div style={{ height: 1, background: 'var(--rule-mid)', opacity: 0.3, marginBottom: 20 }} />
 
         {/* Season + subtitle */}
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400, color: 'var(--paper-primary)', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
+          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400, color: 'var(--paper)', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
             {currentPeriod.season} {currentPeriod.year} Collab Prompts
           </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-secondary)', opacity: 0.6, margin: 0 }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-3)', opacity: 0.6, margin: 0 }}>
             Join a template to participate in this quarter's creative collaborations.
           </p>
         </div>
@@ -331,9 +339,8 @@ export default function CollabsLibrary() {
 
         {/* Loading */}
         {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0', gap: 12 }}>
-            <Loader2 size={20} color="var(--neon-amber)" style={{ animation: 'spin 0.8s linear infinite' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.6 }}>Loading prompts…</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
           </div>
         ) : availablePrompts.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -341,7 +348,7 @@ export default function CollabsLibrary() {
           </div>
         ) : (
           <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-secondary)', opacity: 0.5, marginBottom: 16 }}>You have joined all available prompts for this period.</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-3)', opacity: 0.5, marginBottom: 16 }}>You have joined all available prompts for this period.</div>
             <button onClick={loadData} className="press-btn" style={{ padding: '10px 20px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Refresh</button>
           </div>
         )}
@@ -350,47 +357,47 @@ export default function CollabsLibrary() {
       {/* Invite modal */}
       {showInviteDialog && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: 'var(--lt-surface)', border: '1px solid var(--rule-color)', borderRadius: 2, width: '100%', maxWidth: 480 }}>
+          <div style={{ background: 'var(--ground-2)', border: '1px solid var(--rule-mid)', borderRadius: 2, width: '100%', maxWidth: 480 }}>
             {/* Modal header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Lock size={13} color="rgba(167,139,250,0.9)" />
+                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ color: 'var(--neon-purple)', flexShrink: 0 }}><rect x="2" y="5.5" width="9" height="7" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M4 5.5V3.5C4 2.1 5.1 1 6.5 1C7.9 1 9 2.1 9 3.5V5.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(167,139,250,0.9)' }}>Private Collab: {selectedCollabTitle}</span>
               </div>
-              <button onClick={() => setShowInviteDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-secondary)', opacity: 0.6, padding: 2 }}>
-                <X size={16} />
+              <button onClick={() => setShowInviteDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-3)', opacity: 0.6, padding: 2 }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
               </button>
             </div>
 
             <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Search */}
               <div style={{ position: 'relative' }}>
-                <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--paper-secondary)', opacity: 0.5 }} />
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--paper-3)', opacity: 0.5, pointerEvents: 'none' }}><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1"/><path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
                 <input
                   type="text"
                   placeholder="Search contributors…"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2, color: 'var(--paper-primary)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
                   onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-color)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
                 />
               </div>
 
               {/* Selected chips */}
               {selectedUsers.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', borderRadius: 2 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2 }}>
                   {selectedUsers.map(u => (
                     <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 2, padding: '3px 8px' }}>
                       <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(167,139,250,0.9)' }}>{u.name}</span>
-                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(167,139,250,0.7)', padding: 0, display: 'flex' }}><X size={11} /></button>
+                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(167,139,250,0.7)', padding: 0, display: 'flex', lineHeight: 0 }}><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M3 3L8 8M8 3L3 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg></button>
                     </div>
                   ))}
                 </div>
               )}
 
               {/* Results list */}
-              <div style={{ border: '1px solid var(--rule-color)', borderRadius: 2, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
+              <div style={{ border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
                 {searchResults
                   .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.bio.toLowerCase().includes(searchTerm.toLowerCase()))
                   .map(u => {
@@ -399,19 +406,19 @@ export default function CollabsLibrary() {
                       <div
                         key={u.id}
                         onClick={() => toggleUser(u)}
-                        style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid var(--rule-color)', background: isSelected ? 'rgba(167,139,250,0.06)' : 'transparent' }}
+                        style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid var(--rule-mid)', background: isSelected ? 'rgba(167,139,250,0.06)' : 'transparent' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 2, background: 'var(--ground-raised)', border: '1px solid var(--rule-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-secondary)' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: 2, background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)' }}>
                             {u.name.charAt(0)}
                           </div>
                           <div>
-                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)' }}>{u.name}</div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-secondary)', opacity: 0.6 }}>{u.bio}</div>
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{u.name}</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6 }}>{u.bio}</div>
                           </div>
                         </div>
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${isSelected ? 'rgba(167,139,250,0.6)' : 'var(--rule-color)'}`, background: isSelected ? 'rgba(167,139,250,0.2)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isSelected && <Check size={10} color="rgba(167,139,250,0.9)" />}
+                        <div style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${isSelected ? 'rgba(167,139,250,0.6)' : 'var(--rule-mid)'}`, background: isSelected ? 'rgba(167,139,250,0.2)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {isSelected && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="rgba(167,139,250,0.9)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
                       </div>
                     );
