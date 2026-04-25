@@ -13,7 +13,6 @@ interface Profile {
   last_name: string;
   avatar_url?: string;
   bio?: string;
-  city?: string;
 }
 
 type PressState = 'rest' | 'pressing' | 'releasing';
@@ -105,7 +104,7 @@ export default function CommunicateEditorPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, is_public, bio, city')
+        .select('id, first_name, last_name, avatar_url, is_public, bio')
         .or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`)
         .limit(10);
       if (error) { setError('Search failed: ' + error.message); return; }
@@ -349,9 +348,9 @@ export default function CommunicateEditorPage() {
                           <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
                             {p.first_name} {p.last_name}
                           </div>
-                          {(p.city || p.bio) && (
+                          {p.bio && (
                             <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>
-                              {p.city || (p.bio && p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio)}
+                              {p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio}
                             </div>
                           )}
                         </div>
