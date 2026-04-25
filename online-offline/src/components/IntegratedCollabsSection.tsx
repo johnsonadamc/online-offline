@@ -9,6 +9,7 @@ interface CollabData {
   type: 'chain' | 'theme' | 'narrative';
   participation_mode: 'community' | 'local' | 'private';
   location?: string | null;
+  participantCity?: string | null;
   description?: string;
   participant_count: number;
   is_joined?: boolean;
@@ -213,8 +214,9 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                   (collab.metadata && typeof collab.metadata === 'object' && (collab.metadata as Record<string,unknown>).location
                     ? String((collab.metadata as Record<string,unknown>).location) : null);
                 return { id: collab.id, title: collab.title, type: collab.type as CollabData['type'],
-                  participation_mode: mode, location: loc, description: collab.description || '',
-                  participant_count: 0, is_joined: true, template_id: collab.template_id };
+                  participation_mode: mode, location: loc, participantCity: pr?.city ?? null,
+                  description: collab.description || '', participant_count: 0, is_joined: true,
+                  template_id: collab.template_id };
               });
               for (const c of userJoined) {
                 const { count } = await supabase.from('collab_participants')
@@ -289,11 +291,13 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     `local_${templateId}_${cityLabel(city).replace(/\s+/g, '_')}`;
 
   const isCityMine = (templateId: string, city: City): boolean =>
-    joinedCollabs.some(c =>
-      c.template_id === templateId &&
-      c.participation_mode === 'local' &&
-      !!(c.location && c.location.toLowerCase().startsWith(city.name.toLowerCase()))
-    );
+    joinedCollabs.some(c => {
+      if (c.template_id !== templateId || c.participation_mode !== 'local') return false;
+      // Prefer the explicit city field from collab_participants; fall back to location
+      const ref = (c.participantCity || c.location || '').toLowerCase().split(',')[0]?.trim() ?? '';
+      const target = city.name.toLowerCase();
+      return ref !== '' && (ref === target || ref.startsWith(target) || target.startsWith(ref));
+    });
 
   const getSelectionLabel = (id: string): string => {
     if (id.startsWith('community_')) {
@@ -554,7 +558,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                     </svg>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)', width: 76, flexShrink: 0 }}>Private</span>
                     <span style={{ flex: 1 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★ yours</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★</span>
                     </span>
                     <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
                       {privCount || ''}
