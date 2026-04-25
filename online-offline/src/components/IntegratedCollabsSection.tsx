@@ -292,11 +292,37 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
   const isCityMine = (templateId: string, city: City): boolean =>
     joinedCollabs.some(c => {
-      if (c.template_id !== templateId || c.participation_mode !== 'local') return false;
-      // Prefer the explicit city field from collab_participants; fall back to location
-      const ref = (c.participantCity || c.location || '').toLowerCase().split(',')[0]?.trim() ?? '';
+      if (c.participation_mode !== 'local') return false;
+
+      // Match template by ID first, then fall back to title-contains (same logic as userHasJoinedLocal)
+      const template = templates.find(t => t.id === templateId);
+      const templateMatch =
+        c.template_id === templateId ||
+        (template && c.title.toLowerCase().includes(template.name.toLowerCase()));
+      if (!templateMatch) return false;
+
       const target = city.name.toLowerCase();
-      return ref !== '' && (ref === target || ref.startsWith(target) || target.startsWith(ref));
+
+      // 1. Explicit participant city field (collab_participants.city)
+      if (c.participantCity) {
+        const ref = c.participantCity.toLowerCase().split(',')[0]?.trim() ?? '';
+        if (ref && (ref === target || ref.startsWith(target) || target.startsWith(ref))) return true;
+      }
+
+      // 2. Collab location field (collabs.location or participant location)
+      if (c.location) {
+        const ref = c.location.toLowerCase().split(',')[0]?.trim() ?? '';
+        if (ref && (ref === target || ref.startsWith(target) || target.startsWith(ref))) return true;
+      }
+
+      // 3. Parse from title — local collabs are named "[Template Name] - [City]"
+      const dashIdx = c.title.lastIndexOf(' - ');
+      if (dashIdx !== -1) {
+        const cityFromTitle = c.title.slice(dashIdx + 3).trim().toLowerCase();
+        if (cityFromTitle && (cityFromTitle === target || cityFromTitle.startsWith(target) || target.startsWith(cityFromTitle))) return true;
+      }
+
+      return false;
     });
 
   const getSelectionLabel = (id: string): string => {
