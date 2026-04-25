@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>online//offline — Collab Submit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground:      #252119;
+    --ground-2:    #2e2a20;
+    --ground-3:    #373229;
+    --ground-4:    #413c31;
+    --ground-5:    #4c4639;
+    --paper:       #f0ebe2;
+    --paper-2:     #d8d2c8;
+    --paper-3:     #b0a898;
+    --paper-4:     #857d72;
+    --paper-5:     #554d44;
+    --neon-accent: #e05a28;
+    --neon-blue:   #5a9fd4;
+    --neon-green:  #4ec47a;
+    --neon-amber:  #e0a830;
+    --neon-purple: #a888e8;
+    --glow-accent: rgba(224,90,40,0.4);
+    --glow-blue:   rgba(90,159,212,0.4);
+    --glow-green:  rgba(78,196,122,0.4);
+    --glow-amber:  rgba(224,168,48,0.4);
+    --glow-purple: rgba(168,136,232,0.35);
+    --glow-paper:  rgba(240,235,226,0.15);
+    --rule:        rgba(240,235,226,0.08);
+    --rule-mid:    rgba(240,235,226,0.14);
+    --rule-strong: rgba(240,235,226,0.24);
+    --font-serif:  'Instrument Serif', Georgia, serif;
+    --font-sans:   'Instrument Sans', system-ui, sans-serif;
+    --font-mono:   'Courier Prime', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ground);
+    font-family: var(--font-sans);
+    color: var(--paper);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .grain {
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+    background-size: 200px; mix-blend-mode: overlay; opacity: 0.7;
+  }
+
+  .reg { position: fixed; bottom: 14px; opacity: 0.18; pointer-events: none; z-index: 998; }
+  .reg.left { left: 14px; }
+  .reg.right { right: 14px; }
+
+  .page {
+    width: 100%; max-width: 390px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── demo bar ── */
+  .demo-bar {
+    background: rgba(224,90,40,0.06);
+    border-bottom: 1px solid rgba(224,90,40,0.15);
+    padding: 8px 22px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--paper-5);
+    display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+  }
+  .demo-bar span { color: var(--paper-4); }
+  .demo-btn {
+    padding: 3px 8px; background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; cursor: pointer; color: var(--paper-4);
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .demo-btn:hover { color: var(--paper-2); }
+  .demo-btn.on { color: var(--neon-accent); border-color: rgba(224,90,40,0.4); }
+
+  /* ── header ── */
+  .header {
+    padding: 20px 22px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--ground);
+  }
+  .back-link {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--paper-4); cursor: pointer;
+  }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+
+  /* mode badge */
+  .mode-badge {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 2px;
+    border: 1px solid currentColor;
+  }
+  .mode-badge.community {
+    color: var(--neon-blue);
+    background: rgba(90,159,212,0.08);
+    border-color: rgba(90,159,212,0.3);
+    text-shadow: 0 0 6px var(--glow-blue);
+  }
+  .mode-badge.local {
+    color: var(--neon-green);
+    background: rgba(78,196,122,0.08);
+    border-color: rgba(78,196,122,0.3);
+    text-shadow: 0 0 6px var(--glow-green);
+  }
+  .mode-badge.private {
+    color: var(--neon-purple);
+    background: rgba(168,136,232,0.08);
+    border-color: rgba(168,136,232,0.3);
+    text-shadow: 0 0 6px var(--glow-purple);
+  }
+
+  .deadline-chip {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--neon-accent); text-shadow: 0 0 6px var(--glow-accent);
+  }
+
+  /* thick rule */
+  .thick-rule {
+    height: 1px; margin: 11px 22px 0;
+    background: var(--paper); opacity: 0.8;
+    box-shadow: 0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08);
+  }
+
+  /* ── collab identity block ── */
+  .collab-identity {
+    padding: 16px 22px 0;
+  }
+  .collab-title {
+    font-family: var(--font-serif); font-size: 22px;
+    color: var(--paper); opacity: 0.9; line-height: 1.15;
+    margin-bottom: 5px;
+  }
+  .collab-description {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 13px; color: var(--paper-3); line-height: 1.5;
+  }
+
+  /* prompt strip */
+  .prompt-strip {
+    margin: 14px 22px 0;
+    padding: 10px 12px;
+    border-left: 2px solid var(--neon-amber);
+    box-shadow: -3px 0 10px -2px var(--glow-amber);
+    background: rgba(224,168,48,0.04);
+    border-radius: 0 2px 2px 0;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .prompt-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--neon-amber);
+    text-shadow: 0 0 6px var(--glow-amber);
+  }
+  .prompt-text {
+    font-family: var(--font-serif); font-style: italic;
+    font-size: 14px; color: var(--paper-2); line-height: 1.45;
+  }
+
+  .section-rule { height: 1px; margin: 14px 22px 0; background: var(--rule-mid); }
+
+  /* ── image area ── */
+  .image-area { margin: 14px 22px 0; }
+
+  .main-viewer {
+    width: 100%; aspect-ratio: 4/3;
+    background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; overflow: hidden; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .upload-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; width: 100%; height: 100%; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .upload-zone:hover { background: rgba(224,90,40,0.04); }
+  .upload-icon {
+    width: 40px; height: 40px;
+    border: 1px solid var(--rule-mid); border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ground-4);
+  }
+  .upload-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--paper-4);
+  }
+  .upload-hint {
+    font-family: var(--font-sans); font-size: 11px; color: var(--paper-5); font-weight: 300;
+  }
+
+  .slot-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .slot-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(15,14,11,0.65) 0%, transparent 50%);
+    pointer-events: none; display: none;
+  }
+  .slot-remove {
+    position: absolute; top: 8px; right: 8px;
+    width: 26px; height: 26px;
+    background: rgba(15,14,11,0.7); border: 1px solid var(--rule-mid);
+    border-radius: 2px; display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--paper-3);
+    transition: background 0.12s, color 0.12s;
+  }
+  .slot-remove:hover { background: rgba(224,90,40,0.3); color: var(--paper); }
+
+  /* fullscreen toggle */
+  .fullscreen-btn {
+    position: absolute; bottom: 8px; right: 8px;
+    width: 26px; height: 26px;
+    background: rgba(15,14,11,0.7); border: 1px solid var(--rule-mid);
+    border-radius: 2px; display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--paper-4);
+    transition: background 0.12s, color 0.12s;
+  }
+  .fullscreen-btn:hover { color: var(--paper-2); }
+
+  /* ── per-image metadata ── */
+  .meta-area { margin: 14px 22px 0; }
+
+  .img-title {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: var(--font-serif); font-size: 18px;
+    color: var(--paper-2); line-height: 1.2;
+    caret-color: var(--neon-accent);
+  }
+  .img-title::placeholder { color: var(--paper-5); opacity: 1; }
+
+  .meta-rule-sm { height: 1px; background: var(--rule); margin: 8px 0; }
+  .meta-rule    { height: 1px; background: var(--rule); margin: 10px 0; }
+
+  .caption-wrap { position: relative; }
+  .caption-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 300;
+    color: var(--paper-4); resize: none; line-height: 1.55;
+    caret-color: var(--neon-accent); min-height: 42px;
+    padding-bottom: 18px;
+  }
+  .caption-input::placeholder { color: var(--paper-5); }
+  .char-count {
+    position: absolute; bottom: 0; right: 0;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+    color: var(--paper-5); pointer-events: none;
+    transition: color 0.15s;
+  }
+  .char-count.warn { color: var(--neon-accent); text-shadow: 0 0 4px var(--glow-accent); }
+
+  /* status pill */
+  .status-pill {
+    font-family: var(--font-serif); font-style: italic; font-size: 11px;
+    color: var(--paper-4);
+  }
+  .status-pill.submitted { color: var(--neon-accent); text-shadow: 0 0 8px var(--glow-accent); }
+  .status-pill.saved { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+
+  /* ── action bar ── */
+  .action-bar {
+    position: sticky; bottom: 0; z-index: 20;
+    margin-top: auto;
+    padding: 12px 22px 28px;
+    background: var(--ground); border-top: 1px solid var(--rule);
+    display: flex; gap: 8px; align-items: center;
+  }
+
+  .press-btn {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; border-radius: 2px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--rule-mid); border-bottom: 2px solid var(--ground-4);
+    box-shadow: 0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4);
+    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+    user-select: none; padding: 9px 16px;
+  }
+  .press-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 transparent, 0 1px 3px rgba(0,0,0,0.6);
+    transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  }
+
+  .save-btn { background: var(--ground-3); color: var(--paper-3); }
+  .save-btn:hover { color: var(--paper-2); }
+
+  .submit-btn {
+    flex: 1;
+    background: rgba(224,90,40,0.1);
+    border-color: rgba(224,90,40,0.35); border-bottom-color: rgba(224,90,40,0.5);
+    box-shadow: 0 2px 0 rgba(224,90,40,0.3), 0 3px 6px rgba(0,0,0,0.4);
+    color: var(--neon-accent); text-shadow: 0 0 6px var(--glow-accent);
+  }
+  .submit-btn:hover { background: rgba(224,90,40,0.16); }
+
+  /* revert button */
+  .revert-btn {
+    flex: 1;
+    background: rgba(224,168,48,0.06);
+    border-color: rgba(224,168,48,0.25); border-bottom-color: rgba(224,168,48,0.4);
+    box-shadow: 0 2px 0 rgba(224,168,48,0.2), 0 3px 6px rgba(0,0,0,0.4);
+    color: var(--neon-amber); text-shadow: 0 0 6px var(--glow-amber);
+  }
+  .revert-btn:hover { background: rgba(224,168,48,0.1); }
+
+  .scroll-body { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<svg class="reg left"  width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="none" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="8" y1="0" x2="8" y2="16" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="0" y1="8" x2="16" y2="8" stroke="var(--paper-4)" stroke-width="0.8"/></svg>
+<svg class="reg right" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="none" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="8" y1="0" x2="8" y2="16" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="0" y1="8" x2="16" y2="8" stroke="var(--paper-4)" stroke-width="0.8"/></svg>
+
+<div class="page">
+
+  <!-- demo controls -->
+  <div class="demo-bar">
+    <span>Mockup →</span>
+    <button class="demo-btn on" id="dMode" onclick="cycleMode()">Mode: community</button>
+    <button class="demo-btn"    id="dImg"  onclick="toggleImage()">Image: off</button>
+    <button class="demo-btn"    id="dStat" onclick="cycleStatus()">Status: draft</button>
+  </div>
+
+  <!-- header -->
+  <div class="header">
+    <div class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15,18 9,12 15,6"/></svg>
+      Dashboard
+    </div>
+    <div class="header-right">
+      <span class="status-pill" id="statusPill">draft</span>
+      <span class="mode-badge community" id="modeBadge">Community</span>
+      <span class="deadline-chip">42d</span>
+    </div>
+  </div>
+
+  <div class="thick-rule"></div>
+
+  <!-- scroll body -->
+  <div class="scroll-body">
+
+    <!-- collab identity -->
+    <div class="collab-identity">
+      <div class="collab-title">Neon Nighthawks</div>
+      <div class="collab-description">After-hours light and the people who inhabit it. Diners, laundromats, gas stations — the lit edges of a sleeping city.</div>
+    </div>
+
+    <!-- prompt strip -->
+    <div class="prompt-strip">
+      <div class="prompt-label">Prompt</div>
+      <div class="prompt-text">Find the light that shouldn't still be on.</div>
+    </div>
+
+    <div class="section-rule"></div>
+
+    <!-- image viewer -->
+    <div class="image-area">
+      <div class="main-viewer" id="mainViewer">
+
+        <!-- empty state -->
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--paper-4)" stroke-width="1.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <div class="upload-label">Add image</div>
+          <div class="upload-hint">tap to upload</div>
+        </div>
+
+        <!-- filled state -->
+        <img class="slot-img" id="mainImg"
+          src='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="%231a1a2e"/><text x="200" y="155" font-family="Georgia" font-style="italic" font-size="16" fill="%23334" text-anchor="middle">your image</text></svg>'
+          alt="">
+        <div class="slot-overlay" id="mainOverlay"></div>
+        <div class="slot-remove" id="mainRemove" onclick="toggleImage()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </div>
+        <div class="fullscreen-btn" id="fullscreenBtn">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15,3 21,3 21,9"/><polyline points="9,21 3,21 3,15"/>
+            <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- per-image metadata — same as regular submit -->
+    <div class="meta-area" id="metaArea">
+      <input class="img-title" placeholder="Image title" />
+      <div class="meta-rule-sm"></div>
+      <div class="caption-wrap">
+        <textarea class="caption-input" placeholder="Add a caption…" rows="2"
+          oninput="updateCharCount(this)"></textarea>
+        <div class="char-count" id="charCount">0</div>
+      </div>
+    </div>
+
+  </div><!-- end scroll-body -->
+
+  <!-- action bar -->
+  <div class="action-bar" id="actionBar">
+    <!-- populated by JS based on status -->
+  </div>
+
+</div>
+
+<script>
+  const modes = ['community', 'local', 'private'];
+  const modeLabels = { community: 'Community', local: 'Local · Pensacola', private: 'Private' };
+  const statuses = ['draft', 'submitted'];
+
+  let modeIdx = 0;
+  let hasImage = false;
+  let statusIdx = 0;
+
+  const demoImg = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#1a1220"/><text x="200" y="150" font-family="Georgia" font-style="italic" font-size="15" fill="#4a3a5a" text-anchor="middle">your image</text></svg>');
+
+  function cycleMode() {
+    modeIdx = (modeIdx + 1) % modes.length;
+    const m = modes[modeIdx];
+    const badge = document.getElementById('modeBadge');
+    badge.className = 'mode-badge ' + m;
+    badge.textContent = modeLabels[m];
+    document.getElementById('dMode').textContent = 'Mode: ' + m;
+  }
+
+  function toggleImage() {
+    hasImage = !hasImage;
+    render();
+    document.getElementById('dImg').textContent = 'Image: ' + (hasImage ? 'on' : 'off');
+    document.getElementById('dImg').className = 'demo-btn' + (hasImage ? ' on' : '');
+  }
+
+  function cycleStatus() {
+    statusIdx = (statusIdx + 1) % statuses.length;
+    render();
+    const s = statuses[statusIdx];
+    document.getElementById('dStat').textContent = 'Status: ' + s;
+    document.getElementById('dStat').className = 'demo-btn' + (s !== 'draft' ? ' on' : '');
+  }
+
+  function updateCharCount(ta) {
+    const count = document.getElementById('charCount');
+    const len = ta.value.length;
+    count.textContent = len;
+    count.className = 'char-count' + (len > 200 ? ' warn' : '');
+  }
+
+  function render() {
+    const status = statuses[statusIdx];
+    const isSubmitted = status === 'submitted';
+
+    // image viewer
+    const uploadZone  = document.getElementById('uploadZone');
+    const mainImg     = document.getElementById('mainImg');
+    const mainOverlay = document.getElementById('mainOverlay');
+    const mainRemove  = document.getElementById('mainRemove');
+    const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+    if (hasImage) {
+      uploadZone.style.display  = 'none';
+      mainImg.style.display     = 'block';
+      mainImg.src               = demoImg;
+      mainOverlay.style.display = 'block';
+      mainRemove.style.display  = isSubmitted ? 'none' : 'flex';
+      fullscreenBtn.style.display = 'flex';
+    } else {
+      uploadZone.style.display    = 'flex';
+      mainImg.style.display       = 'none';
+      mainOverlay.style.display   = 'none';
+      mainRemove.style.display    = 'none';
+      fullscreenBtn.style.display = 'none';
+    }
+
+    // status pill
+    const pill = document.getElementById('statusPill');
+    pill.textContent = isSubmitted ? 'submitted' : 'draft';
+    pill.className = 'status-pill' + (isSubmitted ? ' submitted' : '');
+
+    // meta area
+    const meta = document.getElementById('metaArea');
+    meta.style.opacity = hasImage ? '1' : '0.4';
+
+    // action bar
+    const bar = document.getElementById('actionBar');
+    if (isSubmitted) {
+      bar.innerHTML = `
+        <button class="press-btn revert-btn" style="flex:1">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="1,4 1,10 7,10"/><path d="M3.51,15a9,9,0,1,0,.49-4.5"/></svg>
+          Revert to draft
+        </button>`;
+    } else {
+      bar.innerHTML = `
+        <button class="press-btn save-btn">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
+          Save
+        </button>
+        <button class="press-btn submit-btn">
+          Submit
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/></svg>
+        </button>`;
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
