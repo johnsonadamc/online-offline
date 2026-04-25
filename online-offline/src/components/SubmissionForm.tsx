@@ -2,22 +2,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { uploadMedia } from '@/lib/supabase/storage';
-import { 
-  Upload, X, Camera, Maximize2, Plus, ArrowLeft,
-  ChevronDown, ChevronUp, Tag, Info, Save, Send
-} from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import Image from 'next/image';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Entry {
-  id: string | number; // Allow both string and number IDs
+  id: string | number;
   title: string;
   caption: string;
   selectedTags: string[];
   imageUrl: string | null;
-  permanentUrl?: string | null; // Add this to store the permanent URL
+  permanentUrl?: string | null;
   isFeature: boolean;
   isFullSpread: boolean;
   isUploading?: boolean;
@@ -30,7 +27,7 @@ interface ContentTag {
 }
 
 interface ContentEntry {
-  id: string | number; // Allow both string and number IDs
+  id: string | number;
   title: string;
   caption: string;
   media_url: string | null;
@@ -39,1124 +36,420 @@ interface ContentEntry {
   content_tags: ContentTag[];
 }
 
-// Helper function to generate a unique ID (a simple implementation)
-const generateUniqueId = (): string => {
-  return `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
+type PressState = 'rest' | 'pressing' | 'releasing';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+const generateUniqueId = (): string =>
+  `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+const MAX_ENTRIES = 8;
+
+const themes = [
+  'Photography', 'Music', 'Art', 'Family', 'Nature', 'Travel', 'Food', 'Sports',
+  'Architecture', 'Fashion', 'Technology', 'Literature', 'Dance', 'Film',
+  'Street Life', 'Wildlife', 'Abstract', 'Portrait', 'Landscape', 'Urban',
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SubmissionForm() {
   const supabase = createClientComponentClient();
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draft');
-  
-  // Core state variables from original implementation
+
+  // ── core state ───────────────────────────────────────────────────────────────
   const [submissionType, setSubmissionType] = useState<'regular' | 'fullSpread'>('regular');
-  const [status, setStatus] = useState<'draft' | 'submitted'>('draft');
-  const [saveStatus, setSaveStatus] = useState<'saving' | 'saved' | 'error' | ''>('');
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0 });
-  const [currentPeriod, setCurrentPeriod] = useState({
-    quarter: '',
-    season: ''
-  });
-  const [entries, setEntries] = useState<Entry[]>([{
-    id: generateUniqueId(), // Use our generator for initial entry
-    title: '',
-    caption: '',
-    selectedTags: [],
-    imageUrl: null,
-    isFeature: false,
-    isFullSpread: false
+  const [status, setStatus]               = useState<'draft' | 'submitted'>('draft');
+  const [saveStatus, setSaveStatus]       = useState<'saving' | 'saved' | 'error' | ''>('');
+  const [timeLeft, setTimeLeft]           = useState({ days: 0, hours: 0 });
+  const [currentPeriod, setCurrentPeriod] = useState({ quarter: '', season: '' });
+  const [pageTitle, setPageTitle]         = useState('');
+  const [entries, setEntries]             = useState<Entry[]>([{
+    id: generateUniqueId(),
+    title: '', caption: '', selectedTags: [],
+    imageUrl: null, isFeature: false, isFullSpread: false,
   }]);
-  
-  // New state variables for enhanced UI
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [showDetails, setShowDetails] = useState(false);
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [showTagsPanel, setShowTagsPanel] = useState(false);
+
+  // ── UI state ─────────────────────────────────────────────────────────────────
+  const [currentSlide, setCurrentSlide]         = useState(0);
   const [showImageControls, setShowImageControls] = useState(false);
-  const [pageTitle, setPageTitle] = useState('');
-  
-  // Maximum number of entries allowed (increased to 8)
-  const MAX_ENTRIES = 8;
+  const [showTagsPanel, setShowTagsPanel]         = useState(false);
+  const [savePress, setSavePress]                 = useState<PressState>('rest');
+  const [submitPress, setSubmitPress]             = useState<PressState>('rest');
 
-  // Available themes/tags
-  const themes = [
-    'Photography', 'Music', 'Art', 'Family', 'Nature', 'Travel', 'Food', 'Sports',
-    'Architecture', 'Fashion', 'Technology', 'Literature', 'Dance', 'Film',
-    'Street Life', 'Wildlife', 'Abstract', 'Portrait', 'Landscape', 'Urban'
-  ];
-
-  // Cleanup blob URLs when component unmounts or entries change
+  // ── blob cleanup ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Keep track of blob URLs to clean up
-    const blobUrls: string[] = [];
-    
-    entries.forEach(entry => {
-      if (entry.imageUrl && entry.imageUrl.startsWith('blob:')) {
-        blobUrls.push(entry.imageUrl);
-      }
-    });
-    
-    // Clean up function to revoke object URLs
-    return () => {
-      blobUrls.forEach(url => {
-        if (url.startsWith('blob:')) {
-          URL.revokeObjectURL(url);
-        }
-      });
-    };
+    const blobUrls = entries
+      .filter(e => e.imageUrl?.startsWith('blob:'))
+      .map(e => e.imageUrl as string);
+    return () => { blobUrls.forEach(u => URL.revokeObjectURL(u)); };
   }, [entries]);
 
-  // Load draft from database (maintaining original functionality)
+  // ── load draft ───────────────────────────────────────────────────────────────
   useEffect(() => {
+    if (!draftId) return;
     const loadDraft = async () => {
-      if (!draftId) return;
-  
       try {
         const { data, error } = await supabase
           .from('content')
-          .select(`
-            *,
-            content_entries (
-              *,
-              content_tags (
-                *
-              )
-            )
-          `)
+          .select('*, content_entries(*, content_tags(*))')
           .eq('id', draftId)
           .single();
-  
-        if (error) {
-          console.error('Error loading draft:', error);
-          return;
+        if (error || !data) { console.error('Error loading draft:', error); return; }
+        setSubmissionType(data.type);
+        setStatus(data.status);
+        if (data.page_title) setPageTitle(data.page_title);
+        if (data.content_entries?.length > 0) {
+          setEntries(data.content_entries.map((entry: ContentEntry) => ({
+            id: entry.id,
+            title: entry.title || '',
+            caption: entry.caption || '',
+            selectedTags: entry.content_tags?.map((t: ContentTag) => t.tag) || [],
+            imageUrl: entry.media_url,
+            isFeature: entry.is_feature || false,
+            isFullSpread: entry.is_full_spread || false,
+            fileType: 'stored',
+          })));
+          setCurrentSlide(0);
         }
-  
-        if (data) {
-          setSubmissionType(data.type);
-          setStatus(data.status);
-          
-          // Add support for page title from database
-          if (data.page_title) {
-            setPageTitle(data.page_title);
-          }
-          
-          // Map database entries to our state format
-          if (data.content_entries && data.content_entries.length > 0) {
-            // Keep the original ID from the database
-            setEntries(data.content_entries.map((entry: ContentEntry) => ({
-              id: entry.id, // Keep original ID, whether string or number
-              title: entry.title || '',
-              caption: entry.caption || '',
-              selectedTags: entry.content_tags?.map(tag => tag.tag) || [],
-              imageUrl: entry.media_url,
-              isFeature: entry.is_feature || false,
-              isFullSpread: entry.is_full_spread || false,
-              fileType: 'stored' // Mark as stored URL (not blob)
-            })));
-            
-            // Set current slide to the first entry
-            setCurrentSlide(0);
-          }
-        }
-      } catch (loadError) {
-        console.error('Unexpected error loading draft:', loadError);
-      }
+      } catch (err) { console.error('Unexpected error loading draft:', err); }
     };
-  
     loadDraft();
   }, [draftId, supabase]);
 
-  // Load period data (maintaining original functionality)
+  // ── load period ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const loadPeriod = async () => {
       try {
         const { period, error } = await getCurrentPeriod();
-        if (error) {
-          console.error('Error fetching current period:', error);
-          return;
-        }
-        
-        if (period) {
-          // Get current PST date and time
-          const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-          
-          // Get period end date in PST
-          const pstEndDate = new Date(period.end_date);
-          pstEndDate.setTime(pstEndDate.getTime() + pstEndDate.getTimezoneOffset() * 60 * 1000);
-          const pstEndDateTime = new Date(pstEndDate.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-
-          // Calculate difference
-          const difference = pstEndDateTime.getTime() - pstNow.getTime();
-          const daysLeft = Math.floor(difference / (1000 * 60 * 60 * 24));
-          const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          
-          setCurrentPeriod({
-            quarter: `${period.season} ${period.year}`,
-            season: period.season.toLowerCase()
-          });
-    
-          setTimeLeft({ days: daysLeft, hours });
-        }
-      } catch (periodError) {
-        console.error('Unexpected error loading period:', periodError);
-      }
+        if (error || !period) { console.error('Error fetching period:', error); return; }
+        const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+        const pstEnd = new Date(period.end_date);
+        pstEnd.setTime(pstEnd.getTime() + pstEnd.getTimezoneOffset() * 60000);
+        const pstEndDT = new Date(pstEnd.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+        const diff = pstEndDT.getTime() - pstNow.getTime();
+        setCurrentPeriod({ quarter: `${period.season} ${period.year}`, season: period.season.toLowerCase() });
+        setTimeLeft({
+          days: Math.floor(diff / 86400000),
+          hours: Math.floor((diff % 86400000) / 3600000),
+        });
+      } catch (err) { console.error('Unexpected error loading period:', err); }
     };
-    
     loadPeriod();
-    const timer = setInterval(loadPeriod, 1000 * 60 * 60);
-    return () => clearInterval(timer);
+    const t = setInterval(loadPeriod, 3600000);
+    return () => clearInterval(t);
   }, []);
 
- // Image upload functionality with smoother transition
- const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  try {
-    // Create a blob URL for immediate preview
-    const previewUrl = URL.createObjectURL(file);
-    
-    // Force a different state update approach to ensure re-rendering
-    const updatedEntries = entries.map(entry => 
-      entry.id === entryId 
-        ? { 
-            ...entry, 
-            imageUrl: previewUrl, 
-            isUploading: true, 
-            fileType: 'blob' 
-          } 
-        : entry
-    );
-    
-    // Set state with the new array
-    setEntries(updatedEntries);
-    
-    // Force the current slide to be visible
-    const entryIndex = updatedEntries.findIndex(entry => entry.id === entryId);
-    if (entryIndex !== -1) {
-      setCurrentSlide(entryIndex);
+  // ── image upload ─────────────────────────────────────────────────────────────
+  const handleImageChange = async (entryId: string | number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const previewUrl = URL.createObjectURL(file);
+      const updated = entries.map(en =>
+        en.id === entryId ? { ...en, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } : en
+      );
+      setEntries(updated);
+      const idx = updated.findIndex(en => en.id === entryId);
+      if (idx !== -1) setCurrentSlide(idx);
+      const { url } = await uploadMedia(file);
+      setEntries(prev => [...prev.map(en =>
+        en.id === entryId ? { ...en, permanentUrl: url, isUploading: false } : en
+      )]);
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      alert('Error uploading image. Please try again.');
+      setEntries(prev => prev.map(en =>
+        en.id === entryId ? { ...en, imageUrl: null, permanentUrl: null, isUploading: false, fileType: null } : en
+      ));
     }
+  };
 
-    // Upload the file
-    const { url } = await uploadMedia(file);
-
-    // Update with permanent URL
-    setEntries(prevEntries => {
-      const newEntries = prevEntries.map(entry => {
-        if (entry.id === entryId) {
-          return { 
-            ...entry, 
-            permanentUrl: url,
-            isUploading: false,
-          };
-        }
-        return entry;
-      });
-      return [...newEntries]; // Return a new array to ensure re-render
-    });
-  } catch (error) {
-    console.error('Error uploading image:', error);
-    alert('Error uploading image. Please try again.');
-    
-    // Reset the entry to no image and not uploading
-    setEntries(prevEntries => prevEntries.map(entry => 
-      entry.id === entryId 
-        ? { ...entry, imageUrl: null, permanentUrl: null, isUploading: false, fileType: null } 
-        : entry
-    ));
-  }
-};
-
-  // Image removal functionality - now completely removes the entry
+  // ── remove image / entry ─────────────────────────────────────────────────────
   const handleRemoveImage = (entryId: string | number) => {
-    setEntries(prevEntries => {
-      // First, find the index of the entry to be removed
-      const entryIndex = prevEntries.findIndex(entry => entry.id === entryId);
-      
-      // If entry not found, return unchanged
-      if (entryIndex === -1) return prevEntries;
-      
-      // Get the entry to clean up any blob URLs
-      const entryToRemove = prevEntries[entryIndex];
-      
-      // If it's a blob URL, revoke it to prevent memory leaks
-      if (entryToRemove.imageUrl && entryToRemove.fileType === 'blob' && 
-          entryToRemove.imageUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(entryToRemove.imageUrl);
-      }
-      
-      // Create a new array without the removed entry (actually removing it)
-      const filteredEntries = prevEntries.filter(entry => entry.id !== entryId);
-      
-      // If this would leave us with no entries, add one empty entry
-      if (filteredEntries.length === 0) {
-        filteredEntries.push({
-          id: generateUniqueId(),
-          title: '',
-          caption: '',
-          selectedTags: [],
-          imageUrl: null,
-          isFeature: false,
-          isFullSpread: false
-        });
-      }
-      
-      // If we removed the current slide, adjust the current slide index
-      if (entryIndex <= currentSlide && currentSlide > 0) {
-        // We need to set this outside the state update function for immediate effect
-        setTimeout(() => setCurrentSlide(current => Math.max(0, current - 1)), 0);
-      }
-      
-      // Return the filtered array
-      return filteredEntries;
+    setEntries(prev => {
+      const idx = prev.findIndex(en => en.id === entryId);
+      if (idx === -1) return prev;
+      const en = prev[idx];
+      if (en.imageUrl?.startsWith('blob:') && en.fileType === 'blob') URL.revokeObjectURL(en.imageUrl);
+      const filtered = prev.filter(en => en.id !== entryId);
+      if (filtered.length === 0) filtered.push({ id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false });
+      if (idx <= currentSlide && currentSlide > 0) setTimeout(() => setCurrentSlide(c => Math.max(0, c - 1)), 0);
+      return filtered;
     });
   };
 
-// Save draft functionality - modified to use permanentUrl if available
-const handleSaveDraft = async () => {
-  console.log('Saving draft with ID, status, and page title:', draftId, status, pageTitle);
-  setSaveStatus('saving');
-  
-  try {
-    // Prepare entries for saving - use permanentUrl if available
-    const entriesToSave = entries.map(entry => ({
-      ...entry,
-      // Use permanentUrl for saving if available, otherwise use imageUrl
-      imageUrl: entry.permanentUrl || entry.imageUrl
-    }));
-    
-    // Modified to include page_title in save parameters
-    const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle);
-    
-    if (result.success) {
-      setSaveStatus('saved');
-      setTimeout(() => setSaveStatus(''), 2000);
-    } else {
+  // ── save draft ───────────────────────────────────────────────────────────────
+  const handleSaveDraft = async () => {
+    setSaveStatus('saving');
+    try {
+      const entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
+      const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle);
+      if (result.success) {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus(''), 2000);
+      } else {
+        setSaveStatus('error');
+        alert('Error saving draft: ' + (result.error || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error('Unexpected error saving draft:', err);
       setSaveStatus('error');
-      alert('Error saving draft: ' + (result.error || 'Unknown error'));
+      alert('Error saving draft');
     }
-  } catch (saveError) {
-    console.error('Unexpected error saving draft:', saveError);
-    setSaveStatus('error');
-    alert('Error saving draft');
-  }
-};
+  };
 
-  // Submit functionality, now including pageTitle
+  // ── submit ───────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     try {
-      // Prepare entries for saving - use permanentUrl if available
-      const entriesToSave = entries.map(entry => ({
-        ...entry,
-        // Use permanentUrl for saving if available, otherwise use imageUrl
-        imageUrl: entry.permanentUrl || entry.imageUrl
-      }));
-      
-      // Modified to include page_title in save parameters
+      const entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
       const result = await saveContent(submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle);
-      
-      if (result.success) {
-        setStatus('submitted');
-      } else {
-        alert('Error submitting content: ' + (result.error || 'Unknown error'));
-      }
-    } catch (submitError) {
-      console.error('Unexpected error submitting content:', submitError);
+      if (result.success) setStatus('submitted');
+      else alert('Error submitting content: ' + (result.error || 'Unknown error'));
+    } catch (err) {
+      console.error('Unexpected error submitting:', err);
       alert('Error submitting content');
     }
   };
 
-  // Navigation functions
-  const handleNextSlide = () => {
-    if (currentSlide < entries.length - 1) {
-      setCurrentSlide(currentSlide + 1);
-    }
-  };
+  // ── navigation ───────────────────────────────────────────────────────────────
+  const handlePrevSlide = () => { if (currentSlide > 0) setCurrentSlide(s => s - 1); };
+  const handleNextSlide = () => { if (currentSlide < entries.length - 1) setCurrentSlide(s => s + 1); };
 
-  const handlePrevSlide = () => {
-    if (currentSlide > 0) {
-      setCurrentSlide(currentSlide - 1);
-    }
-  };
-
-  // Add a new entry with a unique ID
   const handleAddEntry = useCallback(() => {
-    if (entries.length >= MAX_ENTRIES) {
-      alert(`You can only have up to ${MAX_ENTRIES} images per submission.`);
-      return;
-    }
-    
-    // Generate a new unique ID using our helper function
-    const newId = generateUniqueId();
-    
-    setEntries(prevEntries => [
-      ...prevEntries,
-      {
-        id: newId,
-        title: '',
-        caption: '',
-        selectedTags: [],
-        imageUrl: null,
-        isFeature: false,
-        isFullSpread: false
-      }
-    ]);
-    
-    // Automatically navigate to the new entry
+    if (entries.length >= MAX_ENTRIES) { alert(`Maximum ${MAX_ENTRIES} images per submission.`); return; }
+    setEntries(prev => [...prev, { id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false }]);
     setCurrentSlide(entries.length);
-  }, [entries, MAX_ENTRIES]);
+  }, [entries]);
+
+  // ── press mechanic ───────────────────────────────────────────────────────────
+  const releasePress = (setter: React.Dispatch<React.SetStateAction<PressState>>, cb: () => void) => {
+    setter('pressing');
+    setTimeout(() => { setter('releasing'); cb(); setTimeout(() => setter('rest'), 220); }, 140);
+  };
+
+  const pressStyle = (state: PressState, amber = false): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700,
+    letterSpacing: '0.14em', textTransform: 'uppercase',
+    color: amber ? 'var(--neon-amber)' : 'var(--paper-3)',
+    textShadow: amber ? '0 0 8px var(--glow-amber)' : 'none',
+    padding: '10px 22px', borderRadius: 2, cursor: 'pointer', border: 'none',
+    background: state === 'pressing'
+      ? (amber ? 'rgba(224,168,48,0.22)' : 'rgba(224,90,40,0.2)')
+      : (amber ? 'rgba(224,168,48,0.08)' : 'rgba(224,90,40,0.06)'),
+    borderTop: `1px solid ${state !== 'rest' ? (amber ? 'rgba(224,168,48,0.5)' : 'rgba(224,90,40,0.5)') : (amber ? 'rgba(224,168,48,0.18)' : 'rgba(224,90,40,0.15)')}`,
+    borderLeft: `1px solid ${state !== 'rest' ? (amber ? 'rgba(224,168,48,0.5)' : 'rgba(224,90,40,0.5)') : (amber ? 'rgba(224,168,48,0.18)' : 'rgba(224,90,40,0.15)')}`,
+    borderRight: `1px solid ${state !== 'rest' ? (amber ? 'rgba(224,168,48,0.5)' : 'rgba(224,90,40,0.5)') : (amber ? 'rgba(224,168,48,0.18)' : 'rgba(224,90,40,0.15)')}`,
+    borderBottom: `3px solid ${state === 'pressing' ? 'transparent' : (amber ? 'rgba(224,168,48,0.35)' : 'rgba(224,90,40,0.3)')}`,
+    transform: state === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
+    transition: state === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1), background 0.12s' : 'transform 0.06s ease, background 0.08s',
+    boxShadow: amber && state !== 'rest' ? '0 0 14px rgba(224,168,48,0.25)' : 'none',
+  });
+
+  const entry = entries[currentSlide] ?? entries[0];
 
   return (
-    <div className="max-w-md mx-auto min-h-screen flex flex-col bg-white text-gray-900 md:border-x md:border-gray-200 md:min-h-0">
-      {/* Fixed Header */}
-      <div className="px-4 py-3 flex items-center justify-between z-20 bg-white border-b border-gray-200 sticky top-0 shadow-sm">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-lg font-medium text-gray-900">{currentPeriod.quarter}</h1>
-            <div className={`text-xs flex items-center ${
-              status === 'draft'
-                ? 'text-gray-600'
-                : 'text-green-600'
-            }`}>
-              <div className={`w-2 h-2 rounded-full mr-1 ${
-                status === 'draft' ? 'bg-gray-500' : 'bg-green-500'
-              }`}></div>
-              {status === 'draft' ? 'Draft' : 'Submitted'} • {timeLeft.days}d {timeLeft.hours}h left
+    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh' }}>
+      <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+
+        {/* ── Header ── */}
+        <div style={{ flexShrink: 0, padding: '20px 20px 0', position: 'sticky', top: 0, zIndex: 20, background: 'var(--lt-bg)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <Link href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 5, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--lt-text-3)', textDecoration: 'none' }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15,18 9,12 15,6" /></svg>
+              Dashboard
+            </Link>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, letterSpacing: '0.04em', color: 'var(--lt-text-2)' }}>
+              online<span style={{ color: 'rgba(235,225,205,0.28)', margin: '0 1px' }}>//</span>offline
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', color: 'var(--neon-amber)', textShadow: '0 0 8px var(--glow-amber)' }}>
+              {entries.length}/{MAX_ENTRIES}
             </div>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {/* Slot counter */}
-          <div className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-            {entries.length}/{MAX_ENTRIES}
-          </div>
-          
-          <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100"
-            aria-label={showDetails ? "Hide details" : "Show details"}
-          >
-            {showDetails ? (
-              <ChevronUp className="h-5 w-5 text-gray-600" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-600" />
-            )}
-          </button>
-        </div>
-      </div>
-      
-      {/* Collection Title & Type Selector - Fixed Panel */}
-      {showDetails && (
-        <div className="bg-white border-b border-gray-200 px-4 py-3 z-10">
-          <input
-            value={pageTitle}
-            onChange={(e) => setPageTitle(e.target.value)}
-            className="text-lg font-medium bg-transparent border-none p-0 w-full focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900 mb-3"
-            placeholder="Add collection title (optional)"
-            disabled={status === 'submitted'}
-          />
-          
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">Submission Type:</div>
-            <div className="relative z-30">
-              <button 
-                className="flex items-center gap-2 py-1 px-3 rounded-md bg-gray-100 hover:bg-gray-200 cursor-pointer text-gray-800"
-                onClick={() => status !== 'submitted' && setShowTypeSelector(!showTypeSelector)}
-                disabled={status === 'submitted'}
-              >
-                <span className="text-sm">
-                  {submissionType === 'regular' ? 'Regular' : 'Full Page Spread'}
-                </span>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-              
-              {/* Type selector dropdown */}
-              {showTypeSelector && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-md shadow-lg overflow-hidden border border-gray-200 min-w-[180px]">
-                  <button
-                    className={`w-full text-left px-3 py-2 text-sm ${
-                      submissionType === 'regular' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      setSubmissionType('regular');
-                      setShowTypeSelector(false);
-                    }}
-                  >
-                    Regular (Multiple Images)
-                  </button>
-                  <button
-                    className={`w-full text-left px-3 py-2 text-sm ${
-                      submissionType === 'fullSpread' ? 'bg-blue-50 text-blue-600' : 'hover:bg-gray-50'
-                    }`}
-                    onClick={() => {
-                      setSubmissionType('fullSpread');
-                      setShowTypeSelector(false);
-                    }}
-                  >
-                    Full Page Spread
-                  </button>
-                </div>
-              )}
+          <div style={{ height: 1, background: 'var(--lt-text)', opacity: 0.6, boxShadow: '0 0 6px 1px rgba(235,225,205,0.2)', marginBottom: 10 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, color: 'var(--lt-text-2)' }}>
+                {currentPeriod.quarter || '—'}
+              </span>
+              <div style={{ width: 3, height: 3, borderRadius: '50%', background: status === 'submitted' ? 'var(--neon-green)' : 'var(--neon-amber)', boxShadow: status === 'submitted' ? '0 0 6px var(--glow-green)' : '0 0 6px var(--glow-amber)', flexShrink: 0 }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--lt-text-3)', letterSpacing: '0.06em' }}>
+                {status === 'submitted' ? 'Submitted' : 'Draft'} · {timeLeft.days}d {timeLeft.hours}h left
+              </span>
             </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Main Content Area */}
-      {submissionType === 'fullSpread' ? (
-        // FullSpread view with single image
-        <div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden">
-          <div className="h-full flex-1 flex items-center justify-center p-4">
-            {entries.length > 0 && entries[0]?.imageUrl ? (
-              <div className="relative w-full h-full flex items-center justify-center">
-                <div className="relative max-w-full max-h-full">
-                  {/* Handle Image display based on URL type */}
-                  {entries[0].imageUrl.startsWith('blob:') ? (
-  <div className="relative w-full h-full max-w-full max-h-full">
-    <Image 
-      src={entries[0].imageUrl}
-      alt={entries[0].title || "Full page spread"}
-      fill
-      className="object-contain rounded-lg shadow-md"
-      unoptimized={true} // Must use unoptimized for blob URLs
-    />
-  </div>
-) : (
-  <Image
-    src={entries[0].imageUrl}
-    alt={entries[0].title || "Full page spread"}
-    width={400}
-    height={400}
-    className="object-contain rounded-lg shadow-md"
-    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-    unoptimized={entries[0].fileType === 'blob'}
-  />
-)}
-                </div>
-                
-                {/* Remove button */}
-                {status === 'draft' && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveImage(entries[0].id)}
-                    className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
-                    disabled={entries[0].isUploading}
-                  >
-                    <X className="h-4 w-4 text-gray-600" />
-                  </button>
-                )}
-                
-                {/* Upload progress indicator */}
-                {entries[0].isUploading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mb-3" />
-                <div className="text-sm text-gray-600 mb-3">
-                  <label className="block cursor-pointer font-medium text-blue-600 hover:text-blue-500">
-                    <span>Upload full page image</span>
-                    <input
-                      type="file"
-                      className="sr-only"
-                      accept="image/jpeg,image/png,image/gif,image/webp"
-                      onChange={(e) => handleImageChange(entries[0]?.id || 1, e)}
-                      disabled={status === 'submitted'}
-                    />
-                  </label>
-                </div>
-                <p className="text-xs text-gray-500">
-                  Supported formats: JPG, PNG, GIF, WebP up to 10MB
-                </p>
-              </div>
-            )}
-          </div>
-          
-          {/* Full page content inputs */}
-          <div className="bg-white border-t border-gray-200">
-            {/* Title and Caption */}
-            <div className="p-4 border-b border-gray-100">
-              <input
-                value={entries[0]?.title || ''}
-                onChange={(e) => {
-                  setEntries(prevEntries => prevEntries.map((entry, i) => 
-                    i === 0 ? { ...entry, title: e.target.value } : entry
-                  ));
-                }}
-                className="w-full text-xl font-medium bg-transparent border-none p-0 mb-2 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
-                placeholder="Add title"
-                disabled={status === 'submitted'}
-              />
-              
-              <textarea
-                value={entries[0]?.caption || ''}
-                onChange={(e) => {
-                  setEntries(prevEntries => prevEntries.map((entry, i) => 
-                    i === 0 ? { ...entry, caption: e.target.value } : entry
-                  ));
-                }}
-                className="w-full bg-transparent border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-600 resize-none"
-                placeholder="Add caption"
-                rows={3}
-                disabled={status === 'submitted'}
-              />
-            </div>
-            
-            {/* Tags Section */}
-            <div>
-              <div 
-                className="flex items-center justify-between px-4 py-3 cursor-pointer"
-                onClick={() => setShowTagsPanel(!showTagsPanel)}
-              >
-                <div className="text-sm font-medium flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-gray-500" />
-                  Themes
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  {/* Tag count */}
-                  {entries[0]?.selectedTags && entries[0].selectedTags.length > 0 && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
-                      {entries[0].selectedTags.length}
-                    </span>
-                  )}
-                  
-                  {showTagsPanel ? (
-                    <ChevronUp className="h-4 w-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-gray-400" />
-                  )}
-                </div>
-              </div>
-              
-              {/* Expandable tags section */}
-              {showTagsPanel && (
-                <div className="px-4 pb-4">
-                  {/* Show currently selected tags */}
-                  {entries[0]?.selectedTags && entries[0].selectedTags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {entries[0].selectedTags.map((tag) => (
-                        <span 
-                          key={tag}
-                          className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1"
-                        >
-                          {tag}
-                          {status === 'draft' && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEntries(prevEntries => prevEntries.map((entry, i) => {
-                                  if (i !== 0) return entry;
-                                  return { 
-                                    ...entry, 
-                                    selectedTags: entry.selectedTags.filter(t => t !== tag) 
-                                  };
-                                }));
-                              }}
-                              className="text-blue-400 hover:text-blue-600"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {/* All available tags */}
-                  {status === 'draft' && (
-                    <div>
-                      <div className="text-xs text-gray-500 mb-2">
-                        Select themes for this image:
-                      </div>
-                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto py-1">
-                        {themes.map((tag) => (
-                          <button
-                            key={tag}
-                            type="button"
-                            className={`text-xs px-2 py-1.5 rounded-md ${
-                              entries[0]?.selectedTags?.includes(tag)
-                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                            }`}
-                            onClick={() => {
-                              setEntries(prevEntries => prevEntries.map((entry, i) => {
-                                if (i !== 0) return entry;
-                                
-                                const selectedTags = entry.selectedTags.includes(tag)
-                                  ? entry.selectedTags.filter(t => t !== tag)
-                                  : [...entry.selectedTags, tag];
-                                  
-                                return { ...entry, selectedTags };
-                              }));
-                            }}
-                            disabled={status !== 'draft'}
-                          >
-                            {tag}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        // Regular submission - multiple images with immersive viewing
-        <div className="flex-1 flex flex-col">
-          {/* Image tabs - thumbnail navigation */}
-          <div className="border-b overflow-x-auto">
-            <div className="h-12 px-4 bg-transparent flex items-center">
-              {entries.map((entry, index) => (
-                <button
-                  key={`tab-${entry.id}`} // This will now be unique regardless of ID type
-                  onClick={() => setCurrentSlide(index)}
-                  className={`px-4 py-2 mr-1 flex items-center ${
-                    currentSlide === index 
-                      ? 'border-b-2 border-blue-500 text-blue-700' 
-                      : 'text-gray-500'
-                  }`}
-                >
-                  {entry.imageUrl ? (
-                    <div className="relative w-6 h-6 rounded-full overflow-hidden">
-                      {entry.imageUrl.startsWith('blob:') ? (
-  <div className="w-full h-full bg-gray-200">
-    <img 
-      src={entry.imageUrl} 
-      alt={`Thumbnail ${index + 1}`}
-      className="w-full h-full object-cover"
-    />
-  </div>
-) : (
-  <div className="absolute inset-0">
-    <Image 
-      src={entry.imageUrl} 
-      alt={`Thumbnail ${index + 1}`}
-      width={24}
-      height={24}
-      className="w-full h-full object-cover"
-      unoptimized={true}
-    />
-  </div>
-)}
-                      {entry.isFeature && (
-                        <div className="absolute inset-0 bg-amber-500/20 border border-amber-500 rounded-full"></div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
-                      <span className="text-xs text-gray-600">{index + 1}</span>
-                    </div>
-                  )}
-                  <span className="ml-2 font-medium text-xs">
-                    {index + 1}
-                  </span>
+            {/* Submission type toggle */}
+            <div style={{ display: 'flex', border: '1px solid var(--lt-rule)', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+              {(['regular', 'fullSpread'] as const).map(t => (
+                <button key={t} onClick={() => status !== 'submitted' && setSubmissionType(t)} style={{ padding: '4px 9px', fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.10em', textTransform: 'uppercase', border: 'none', cursor: status === 'submitted' ? 'default' : 'pointer', background: submissionType === t ? 'rgba(224,168,48,0.12)' : 'transparent', color: submissionType === t ? 'var(--neon-amber)' : 'var(--lt-text-3)', textShadow: submissionType === t ? '0 0 6px var(--glow-amber)' : 'none', transition: 'background 0.15s, color 0.15s' }}>
+                  {t === 'regular' ? 'Regular' : 'Spread'}
                 </button>
               ))}
-              
-              {/* Add new image button */}
-              {status === 'draft' && entries.length < MAX_ENTRIES && (
-                <button
-                  onClick={handleAddEntry}
-                  className="h-8 w-8 rounded-full flex items-center justify-center p-0 mx-1 text-gray-500 hover:bg-gray-100"
-                  aria-label="Add new image"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              )}
             </div>
           </div>
-          
-          {/* Main Image Viewer */}
-          {entries.map((entry, index) => (
-            <div 
-              key={`slide-${entry.id}`} // This will now be unique regardless of ID type
-              className={`flex-1 flex flex-col ${currentSlide === index ? 'block' : 'hidden'}`}
-            >
-              {/* Image Area */}
-              <div className="flex-1 flex flex-col relative bg-gray-100 overflow-hidden">
-                <div className="h-full flex-1 flex items-center justify-center p-4">
-                  {entry.imageUrl ? (
-                    <div className="relative w-full h-full flex items-center justify-center">
-                      <div className="relative max-w-full max-h-full">
-                        {/* Handle both blob URLs and stored URLs */}
-                        {entry.imageUrl.startsWith('blob:') ? (
-  <img
-    src={entry.imageUrl}
-    alt={entry.title || `Image ${index + 1}`}
-    className="max-w-full max-h-full object-contain rounded-lg shadow-md"
-  />
-) : (
-  <Image
-    src={entry.imageUrl}
-    alt={entry.title || `Image ${index + 1}`}
-    width={400}
-    height={400}
-    className="object-contain rounded-lg shadow-md"
-    style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }}
-    unoptimized={true}
-  />
-)}
-                      </div>
-                      
-                      {/* Remove button */}
-                      {status === 'draft' && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveImage(entry.id)}
-                          className="absolute top-2 right-2 p-1.5 bg-white shadow rounded-full hover:bg-gray-100 transition-colors"
-                          disabled={entry.isUploading}
-                        >
-                          <X className="h-4 w-4 text-gray-600" />
-                        </button>
-                      )}
-                      
-                      {/* Upload progress indicator */}
-                      {entry.isUploading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 rounded-lg">
-                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center bg-white rounded-lg shadow-sm border-2 border-dashed border-gray-300 w-full h-full p-6 text-center">
-                      <Upload className="h-12 w-12 text-gray-400 mb-3" />
-                      <div className="text-sm text-gray-600 mb-3">
-                        <label className="block cursor-pointer font-medium text-blue-600 hover:text-blue-500">
-                          <span>Upload image</span>
-                          <input
-                            type="file"
-                            className="sr-only"
-                            accept="image/jpeg,image/png,image/gif,image/webp"
-                            onChange={(e) => handleImageChange(entry.id, e)}
-                            disabled={status === 'submitted'}
-                          />
-                        </label>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        Supported formats: JPG, PNG, GIF, WebP up to 10MB
-                      </p>
-                    </div>
-                  )}
-                </div>
+        </div>
 
-                {/* Navigation arrows - only shown when we have multiple entries */}
-                {entries.length > 1 && (
-                  <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
-                    <div className="flex items-center justify-between w-full px-4">
-                      {currentSlide > 0 && (
-                        <button 
-                          onClick={handlePrevSlide}
-                          className="w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center pointer-events-auto"
-                        >
-                          <ChevronDown className="h-5 w-5 text-gray-700 rotate-90" />
-                        </button>
-                      )}
-                      
-                      {currentSlide < entries.length - 1 && (
-                        <button 
-                          onClick={handleNextSlide}
-                          className="w-10 h-10 rounded-full bg-white/90 shadow-md flex items-center justify-center ml-auto pointer-events-auto"
-                        >
-                          <ChevronDown className="h-5 w-5 text-gray-700 -rotate-90" />
-                        </button>
-                      )}
-                    </div>
+        {/* ── Image tabs ── */}
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 8, overflowX: 'auto', padding: '4px 20px 10px', scrollbarWidth: 'none' } as React.CSSProperties}>
+          {entries.map((en, i) => (
+            <button key={`tab-${en.id}`} onClick={() => setCurrentSlide(i)} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', border: `1.5px solid ${i === currentSlide ? 'var(--neon-amber)' : 'var(--lt-rule)'}`, boxShadow: i === currentSlide ? '0 0 8px var(--glow-amber)' : 'none', overflow: 'hidden', cursor: 'pointer', background: 'var(--lt-card)', padding: 0, position: 'relative', transition: 'border-color 0.15s, box-shadow 0.15s' }}>
+              {en.imageUrl
+                ? <img src={en.imageUrl} alt={`${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: i === currentSlide ? 'var(--neon-amber)' : 'var(--lt-text-3)' }}>{i + 1}</span>
+              }
+            </button>
+          ))}
+          {status === 'draft' && entries.length < MAX_ENTRIES && (
+            <button onClick={handleAddEntry} style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', border: '1px dashed var(--lt-rule)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="6" y1="1" x2="6" y2="11" stroke="var(--lt-text-3)" strokeWidth="1.5" strokeLinecap="round" /><line x1="1" y1="6" x2="11" y2="6" stroke="var(--lt-text-3)" strokeWidth="1.5" strokeLinecap="round" /></svg>
+            </button>
+          )}
+        </div>
+
+        {/* ── Scroll area ── */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 88 } as React.CSSProperties}>
+
+          {/* Image viewer */}
+          <div style={{ margin: '0 20px', height: 260, borderRadius: 2, background: 'rgba(0,0,0,0.35)', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {entry?.imageUrl ? (
+              <>
+                <img src={entry.imageUrl} alt={entry.title || 'upload'} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                {status === 'draft' && (
+                  <button onClick={() => handleRemoveImage(entry.id)} disabled={entry.isUploading} style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(235,225,205,0.18)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><line x1="1" y1="1" x2="9" y2="9" stroke="var(--lt-text-2)" strokeWidth="1.5" strokeLinecap="round" /><line x1="9" y1="1" x2="1" y2="9" stroke="var(--lt-text-2)" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </button>
+                )}
+                {entry.isUploading && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)' }}>
+                    <div style={{ width: 28, height: 28, border: '2px solid var(--neon-amber)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
                   </div>
                 )}
-                
-                {/* Slide indicators */}
-                {entries.length > 1 && (
-                  <div className="absolute bottom-3 left-0 right-0 flex items-center justify-center gap-2">
-                    <div className="py-1 px-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md flex items-center justify-center gap-2">
-                      {entries.map((entry, idx) => (
-                        <button
-                          key={`indicator-${entry.id}`} // This will now be unique regardless of ID type
-                          onClick={() => setCurrentSlide(idx)}
-                          className={`w-2.5 h-2.5 rounded-full ${
-                            idx === currentSlide ? 'bg-blue-600' : 'bg-gray-300'
-                          }`}
-                          aria-label={`Go to image ${idx + 1}`}
-                        ></button>
-                      ))}
-                      
-                      {/* Add new image button in indicator bar */}
-                      {status === 'draft' && entries.length < MAX_ENTRIES && (
-                        <button
-                          onClick={handleAddEntry}
-                          className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center ml-1"
-                          aria-label="Add new image"
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      )}
-                    </div>
+              </>
+            ) : (
+              <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: status === 'submitted' ? 'default' : 'pointer' }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--neon-amber)" strokeWidth="1.5" style={{ opacity: 0.7 }}><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 8px var(--glow-amber)' }}>Upload image</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--lt-text-3)', letterSpacing: '0.06em' }}>JPG · PNG · WebP · up to 10MB</span>
+                <input type="file" accept="image/jpeg,image/png,image/gif,image/webp" onChange={e => handleImageChange(entry?.id ?? entries[0].id, e)} disabled={status === 'submitted'} style={{ display: 'none' }} />
+              </label>
+            )}
+            {/* Prev/Next arrows */}
+            {entries.length > 1 && currentSlide > 0 && (
+              <button onClick={handlePrevSlide} style={{ position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(235,225,205,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-2)" strokeWidth="2"><polyline points="15,18 9,12 15,6" /></svg>
+              </button>
+            )}
+            {entries.length > 1 && currentSlide < entries.length - 1 && (
+              <button onClick={handleNextSlide} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: '1px solid rgba(235,225,205,0.14)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-2)" strokeWidth="2"><polyline points="9,18 15,12 9,6" /></svg>
+              </button>
+            )}
+          </div>
+
+          {/* Collection title */}
+          <div style={{ padding: '14px 20px 0' }}>
+            <input value={pageTitle} onChange={e => setPageTitle(e.target.value)} disabled={status === 'submitted'} placeholder="Collection title (optional)" style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--lt-rule)', color: 'var(--lt-text-2)', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, padding: '4px 0 7px', outline: 'none', caretColor: 'var(--neon-amber)' }} />
+          </div>
+
+          {/* Per-entry detail panels */}
+          {entries.map((en, index) => (
+            <div key={`detail-${en.id}`} style={{ display: currentSlide === index ? 'block' : 'none' }}>
+
+              {/* Title + caption */}
+              <div style={{ padding: '14px 20px 0' }}>
+                <input value={en.title} onChange={e => setEntries(prev => prev.map((x, i) => i === index ? { ...x, title: e.target.value } : x))} disabled={status === 'submitted'} placeholder="Image title" style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--lt-rule)', color: 'var(--lt-text)', fontFamily: 'var(--font-serif)', fontSize: 20, padding: '4px 0 8px', outline: 'none', caretColor: 'var(--neon-amber)', marginBottom: 12 }} />
+                <textarea value={en.caption} onChange={e => setEntries(prev => prev.map((x, i) => i === index ? { ...x, caption: e.target.value } : x))} disabled={status === 'submitted'} placeholder="Caption" rows={2} style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--lt-rule)', color: 'var(--lt-text-2)', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '4px 0 8px', outline: 'none', resize: 'none', caretColor: 'var(--neon-amber)' }} />
+              </div>
+
+              {/* Image options (collapsible) */}
+              <div style={{ borderTop: '1px solid var(--lt-rule)', margin: '12px 0 0' }}>
+                <button onClick={() => setShowImageControls(s => !s)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>Image options</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {en.isFeature && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>Feature</span>}
+                    {en.isFullSpread && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Full Spread</span>}
+                    <svg style={{ width: 8, height: 8, transition: 'transform 0.18s', transform: showImageControls ? 'rotate(90deg)' : 'rotate(0deg)', color: 'var(--lt-text-3)' }} viewBox="0 0 6 10" fill="none"><polyline points="1,1 5,5 1,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                </button>
+                {showImageControls && en.imageUrl && status === 'draft' && (
+                  <div style={{ padding: '0 20px 14px', display: 'flex', gap: 8 }}>
+                    {/* Feature toggle */}
+                    <button onClick={() => setEntries(prev => prev.map((x, i) => i === index ? { ...x, isFeature: !x.isFeature } : (x.isFeature && !en.isFeature ? { ...x, isFeature: false } : x)))} style={{ flex: 1, padding: '8px 0', borderRadius: 2, border: `1px solid ${en.isFeature ? 'rgba(224,168,48,0.4)' : 'var(--lt-card-bdr)'}`, background: en.isFeature ? 'rgba(224,168,48,0.1)' : 'var(--lt-card)', color: en.isFeature ? 'var(--neon-amber)' : 'var(--lt-text-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: 'pointer', textShadow: en.isFeature ? '0 0 6px var(--glow-amber)' : 'none', transition: 'background 0.15s, border-color 0.15s' }}>Feature</button>
+                    {/* Full spread toggle */}
+                    <button onClick={() => setEntries(prev => prev.map((x, i) => i === index ? { ...x, isFullSpread: !x.isFullSpread } : x))} disabled={!en.isFeature} style={{ flex: 1, padding: '8px 0', borderRadius: 2, border: `1px solid ${en.isFullSpread ? 'rgba(168,136,232,0.4)' : 'var(--lt-card-bdr)'}`, background: en.isFullSpread ? 'rgba(168,136,232,0.1)' : 'var(--lt-card)', color: en.isFullSpread ? 'var(--neon-purple)' : 'var(--lt-text-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.10em', textTransform: 'uppercase', cursor: en.isFeature ? 'pointer' : 'default', opacity: en.isFeature ? 1 : 0.4, textShadow: en.isFullSpread ? '0 0 6px var(--glow-purple)' : 'none', transition: 'background 0.15s, border-color 0.15s' }}>Full Spread</button>
                   </div>
                 )}
               </div>
-              
-              {/* Details Panel with collapsible sections */}
-              <div className="bg-white border-t border-gray-200">
-                {/* Title and Caption - Always visible */}
-                <div className="p-4 border-b border-gray-100">
-                  <input
-                    value={entry.title}
-                    onChange={(e) => {
-                      setEntries(prevEntries => prevEntries.map((ent, i) => 
-                        i === index ? { ...ent, title: e.target.value } : ent
-                      ));
-                    }}
-                    className="w-full text-xl font-medium bg-transparent border-none p-0 mb-2 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-900"
-                    placeholder="Add title"
-                    disabled={status === 'submitted'}
-                  />
-                  
-                  <textarea
-                    value={entry.caption}
-                    onChange={(e) => {
-                      setEntries(prevEntries => prevEntries.map((ent, i) => 
-                        i === index ? { ...ent, caption: e.target.value } : ent
-                      ));
-                    }}
-                    className="w-full bg-transparent border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400 text-gray-600 resize-none"
-                    placeholder="Add caption"
-                    rows={2}
-                    disabled={status === 'submitted'}
-                  />
-                </div>
-                
-                {/* Feature Controls Section - Collapsible */}
-                <div className="border-b border-gray-100">
-                  <div 
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer"
-                    onClick={() => setShowImageControls(!showImageControls)}
-                  >
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      <Camera className="h-4 w-4 text-gray-500" />
-                      Image Options
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* Feature and Full Page badges as pills - visible even when collapsed */}
-                      {entry.isFeature && (
-                        <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-xs">
-                          Feature
-                        </span>
-                      )}
-                      
-                      {entry.isFullSpread && (
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">
-                          Full Page
-                        </span>
-                      )}
-                      
-                      {showImageControls ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      )}
-                    </div>
+
+              {/* Tags (collapsible) */}
+              <div style={{ borderTop: '1px solid var(--lt-rule)' }}>
+                <button onClick={() => setShowTagsPanel(s => !s)} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 20px', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>Themes</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {en.selectedTags.length > 0 && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>{en.selectedTags.length}</span>}
+                    <svg style={{ width: 8, height: 8, transition: 'transform 0.18s', transform: showTagsPanel ? 'rotate(90deg)' : 'rotate(0deg)', color: 'var(--lt-text-3)' }} viewBox="0 0 6 10" fill="none"><polyline points="1,1 5,5 1,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                   </div>
-                  
-                  {/* Expandable section */}
-                  {showImageControls && entry.imageUrl && status === 'draft' && (
-                    <div className="px-4 pb-4">
-                      <div className="flex gap-2">
-                        <button
-                          className={`py-2 px-3 rounded-md text-sm font-medium flex-1 ${
-                            entry.isFeature 
-                              ? 'bg-amber-100 text-amber-700 border border-amber-200' 
-                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                          }`}
-                          onClick={() => setEntries(prevEntries => prevEntries.map((e, i) => 
-                            i === index ? { ...e, isFeature: !e.isFeature } : 
-                            i !== index && e.isFeature && !entry.isFeature ? { ...e, isFeature: false } : e
-                          ))}
-                        >
-                          <div className="flex items-center justify-center">
-                            <Camera className="h-4 w-4 mr-2" />
-                            Feature Image
-                          </div>
-                        </button>
-                        
-                        <button
-                          className={`py-2 px-3 rounded-md text-sm font-medium flex-1 ${
-                            entry.isFullSpread 
-                              ? 'bg-purple-100 text-purple-700 border border-purple-200' 
-                              : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                          }`}
-                          onClick={() => setEntries(prevEntries => prevEntries.map((e, i) => 
-                            i === index ? { ...e, isFullSpread: !e.isFullSpread } : e
-                          ))}
-                          disabled={!entry.isFeature}
-                        >
-                          <div className="flex items-center justify-center">
-                            <Maximize2 className="h-4 w-4 mr-2" />
-                            Full Page
-                          </div>
-                        </button>
-                      </div>
-                      
-                      {!entry.isFeature && entry.isFullSpread && (
-                        <p className="text-xs text-amber-600 mt-2">
-                          Note: Only feature images can be set as full page spreads
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Tags Section - Collapsible */}
-                <div>
-                  <div 
-                    className="flex items-center justify-between px-4 py-3 cursor-pointer"
-                    onClick={() => setShowTagsPanel(!showTagsPanel)}
-                  >
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      <Tag className="h-4 w-4 text-gray-500" />
-                      Themes
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      {/* Tag count */}
-                      {entry.selectedTags && entry.selectedTags.length > 0 && (
-                        <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs">
-                          {entry.selectedTags.length}
-                        </span>
-                      )}
-                      
-                      {showTagsPanel ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Expandable tags section */}
-                  {showTagsPanel && (
-                    <div className="px-4 pb-4">
-                      {/* Show currently selected tags */}
-                      {entry.selectedTags && entry.selectedTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 mb-3">
-                          {entry.selectedTags.map((tag) => (
-                            <span 
-                              key={tag}
-                              className="text-xs px-2 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1"
-                            >
-                              {tag}
-                              {status === 'draft' && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEntries(prevEntries => prevEntries.map((ent, i) => {
-                                      if (i !== index) return ent;
-                                      return { 
-                                        ...ent, 
-                                        selectedTags: ent.selectedTags.filter(t => t !== tag) 
-                                      };
-                                    }));
-                                  }}
-                                  className="text-blue-400 hover:text-blue-600"
-                                >
-                                  <X className="h-3 w-3" />
-                                </button>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* All available tags */}
-                      {status === 'draft' && (
-                        <div>
-                          <div className="text-xs text-gray-500 mb-2">
-                            Select themes for this image:
-                          </div>
-                          <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto py-1">
-                            {themes.map((tag) => (
-                              <button
-                                key={tag}
-                                type="button"
-                                className={`text-xs px-2 py-1.5 rounded-md ${
-                                  entry.selectedTags.includes(tag)
-                                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                                    : 'bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200'
-                                }`}
-                                onClick={() => {
-                                  setEntries(prevEntries => prevEntries.map((ent, i) => {
-                                    if (i !== index) return ent;
-                                    const selectedTags = ent.selectedTags.includes(tag)
-                                      ? ent.selectedTags.filter(t => t !== tag)
-                                      : [...ent.selectedTags, tag];
-                                    return { ...ent, selectedTags };
-                                  }));
-                                }}
-                                disabled={status !== 'draft'}
-                              >
-                                {tag}
+                </button>
+                {showTagsPanel && (
+                  <div style={{ padding: '0 20px 16px' }}>
+                    {en.selectedTags.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                        {en.selectedTags.map(tag => (
+                          <span key={tag} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', borderRadius: 2, background: 'rgba(224,168,48,0.1)', border: '1px solid rgba(224,168,48,0.3)', fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', letterSpacing: '0.06em' }}>
+                            {tag}
+                            {status === 'draft' && (
+                              <button onClick={e => { e.stopPropagation(); setEntries(prev => prev.map((x, i) => i === index ? { ...x, selectedTags: x.selectedTags.filter(t => t !== tag) } : x)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, color: 'var(--neon-amber)' }}>
+                                <svg width="8" height="8" viewBox="0 0 8 8" fill="none"><line x1="1" y1="1" x2="7" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /><line x1="7" y1="1" x2="1" y2="7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" /></svg>
                               </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {status === 'draft' && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                        {themes.map(tag => {
+                          const sel = en.selectedTags.includes(tag);
+                          return (
+                            <button key={tag} onClick={() => setEntries(prev => prev.map((x, i) => { if (i !== index) return x; const st = x.selectedTags.includes(tag) ? x.selectedTags.filter(t => t !== tag) : [...x.selectedTags, tag]; return { ...x, selectedTags: st }; }))} style={{ padding: '4px 9px', borderRadius: 2, border: `1px solid ${sel ? 'rgba(224,168,48,0.35)' : 'var(--lt-card-bdr)'}`, background: sel ? 'rgba(224,168,48,0.1)' : 'var(--lt-card)', color: sel ? 'var(--neon-amber)' : 'var(--lt-text-3)', fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.06em', cursor: 'pointer', textShadow: sel ? '0 0 5px var(--glow-amber)' : 'none', transition: 'background 0.12s, border-color 0.12s' }}>
+                              {tag}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
             </div>
           ))}
         </div>
-      )}
-      
-      {/* Action Buttons */}
-      <div className="bg-white border-t border-gray-200 px-4 py-3 flex gap-3 sticky bottom-0 shadow-md">
-        <button
-          type="button"
-          className="flex-1 py-2.5 px-4 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-          onClick={handleSaveDraft}
-          disabled={status !== 'draft'}
-        >
-          <Save className="h-4 w-4" />
-          {saveStatus === 'saving' 
-            ? 'Saving...' 
-            : saveStatus === 'saved' 
-              ? 'Saved!' 
-              : saveStatus === 'error'
-                ? 'Error!'
-                : 'Save Draft'
-          }
-        </button>
-        
-        {status === 'draft' ? (
-          <button
-            type="button"
-            className="flex-1 py-2.5 px-4 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-            onClick={handleSubmit}
-          >
-            <Send className="h-4 w-4" />
-            Submit
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="flex-1 py-2.5 px-4 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors flex items-center justify-center gap-2"
-            onClick={() => setStatus('draft')}
-          >
-            <Info className="h-4 w-4" />
-            Revert to Draft
-          </button>
-        )}
+
+        {/* ── Action bar ── */}
+        <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 390, maxWidth: '100vw', padding: '12px 20px', background: 'rgba(15,14,11,0.96)', borderTop: '1px solid var(--lt-rule)', display: 'flex', gap: 10, zIndex: 100, backdropFilter: 'blur(8px)' } as React.CSSProperties}>
+          {status === 'submitted' ? (
+            <>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>✓ Submitted</span>
+              </div>
+              <button onPointerDown={() => setSubmitPress('pressing')} onPointerUp={() => releasePress(setSubmitPress, () => setStatus('draft'))} onPointerLeave={() => submitPress === 'pressing' && releasePress(setSubmitPress, () => setStatus('draft'))} style={pressStyle(submitPress, true)}>
+                Revert to Draft
+              </button>
+            </>
+          ) : (
+            <>
+              <button onPointerDown={() => setSavePress('pressing')} onPointerUp={() => releasePress(setSavePress, handleSaveDraft)} onPointerLeave={() => savePress === 'pressing' && releasePress(setSavePress, handleSaveDraft)} style={{ ...pressStyle(savePress, false), flex: 1 }}>
+                {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : saveStatus === 'error' ? 'Error' : 'Save Draft'}
+              </button>
+              <button onPointerDown={() => setSubmitPress('pressing')} onPointerUp={() => releasePress(setSubmitPress, handleSubmit)} onPointerLeave={() => submitPress === 'pressing' && releasePress(setSubmitPress, handleSubmit)} style={{ ...pressStyle(submitPress, true), flex: 1 }}>
+                Submit
+              </button>
+            </>
+          )}
+        </div>
+
       </div>
     </div>
   );
