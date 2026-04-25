@@ -248,3 +248,9 @@
     box-shadow 0.18s ease,
     background 0.3s;
 }
+
+/* ── Utility ── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
