@@ -42,17 +42,10 @@ export default function CollabsLibrary() {
   const [selectedCollabId, setSelectedCollabId] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [profileResults, setProfileResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
   const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({ id: '', season: 'Spring', year: 2025 });
-
-  const searchResults: User[] = [
-    { id: '1', name: 'Sarah Chen', bio: 'Photographer | Urban Documentation', avatar: '' },
-    { id: '2', name: 'Alex Kim', bio: 'Writer | Cultural Essays', avatar: '' },
-    { id: '3', name: 'Maria Garcia', bio: 'Visual Artist | Mixed Media', avatar: '' },
-    { id: '4', name: 'James Liu', bio: 'Street Photographer | Documentary', avatar: '' },
-    { id: '5', name: 'Maya Patel', bio: 'Illustrator | Digital Art', avatar: '' },
-  ];
 
   const showError = (message: string) => {
     setError({ message, isVisible: true });
@@ -144,6 +137,31 @@ export default function CollabsLibrary() {
   }, [router]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  const searchProfiles = async (term: string) => {
+    if (!term.trim()) { setProfileResults([]); return; }
+    const supabase = createClientComponentClient();
+    try {
+      const { data, error: searchError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url, is_public, bio')
+        .or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`)
+        .limit(10);
+      if (searchError) { showError('Search failed: ' + searchError.message); return; }
+      setProfileResults(
+        ((data || []).filter((p: any) => p.is_public === true)).map((p: any) => ({
+          id: p.id,
+          name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim(),
+          bio: p.bio || '',
+          avatar: p.avatar_url || '',
+        }))
+      );
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Search error');
+    }
+  };
+
+  useEffect(() => { searchProfiles(searchTerm); }, [searchTerm]);
 
   const handleJoinClick = async (collabId: string, title: string, mode: ParticipationMode) => {
     try {
@@ -398,9 +416,7 @@ export default function CollabsLibrary() {
 
               {/* Results list */}
               <div style={{ border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
-                {searchResults
-                  .filter(u => u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.bio.toLowerCase().includes(searchTerm.toLowerCase()))
-                  .map(u => {
+                {profileResults.map(u => {
                     const isSelected = !!selectedUsers.find(s => s.id === u.id);
                     return (
                       <div
