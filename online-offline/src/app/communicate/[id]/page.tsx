@@ -255,7 +255,15 @@ export default function CommunicateEditorPage() {
             </svg>
           </Link>
         ) : (
-          <button onClick={() => setCurrentStage('recipient')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', lineHeight: 0, padding: 0 }}>
+          <button
+            onClick={() => {
+              setSearchTerm(recipientName);
+              searchContributors(recipientName);
+              setShowSearchResults(true);
+              setCurrentStage('recipient');
+            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', lineHeight: 0, padding: 0 }}
+          >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -293,91 +301,56 @@ export default function CommunicateEditorPage() {
       {currentStage === 'recipient' && (
         <div style={{ flex: 1, padding: '20px 16px' }}>
           <div style={{ background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, overflow: 'hidden' }}>
-            {selectedRecipient ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {selectedRecipient.avatar_url ? (
-                    <img src={selectedRecipient.avatar_url} alt={recipientName} width={36} height={36} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }} />
-                  ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(224,168,48,0.12)', border: '1px solid rgba(224,168,48,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--neon-amber)' }}>
-                        {(selectedRecipient.first_name?.[0] ?? '') + (selectedRecipient.last_name?.[0] ?? '')}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--lt-text)', margin: 0 }}>{recipientName}</p>
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '2px 0 0' }}>Curator</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedRecipient(null)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', fontSize: 18, lineHeight: 1, padding: '4px 6px' }}
-                >×</button>
+            <div style={{ padding: '14px 16px' }}>
+              <div style={{ position: 'relative' }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--lt-text-3)', pointerEvents: 'none' }}>
+                  <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1" />
+                  <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search for a curator…"
+                  value={searchTerm}
+                  onChange={handleSearchChange}
+                  onFocus={() => setShowSearchResults(true)}
+                  autoFocus
+                  style={{ width: '100%', background: 'var(--lt-bg)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, padding: '9px 12px 9px 30px', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text)', outline: 'none', caretColor: 'var(--neon-amber)' }}
+                />
               </div>
-            ) : (
-              <div style={{ padding: '14px 16px' }}>
-                <div style={{ position: 'relative' }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--lt-text-3)', pointerEvents: 'none' }}>
-                    <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1" />
-                    <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-                  </svg>
-                  <input
-                    type="text"
-                    placeholder="Search for a curator…"
-                    value={searchTerm}
-                    onChange={handleSearchChange}
-                    onFocus={() => setShowSearchResults(true)}
-                    style={{ width: '100%', background: 'var(--lt-bg)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, padding: '9px 12px 9px 30px', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text)', outline: 'none', caretColor: 'var(--neon-amber)' }}
-                  />
-                </div>
 
-                {showSearchResults && searchResults.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    {searchResults.map(p => (
-                      <div
-                        key={p.id}
-                        onClick={() => selectRecipient(p)}
-                        style={{ padding: '14px 0', borderTop: '1px solid var(--rule)', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>to</span>
-                            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(224,168,48,0.25), transparent)' }} />
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
-                            {p.first_name} {p.last_name}
-                          </div>
-                          {p.bio && (
-                            <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>
-                              {p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio}
-                            </div>
-                          )}
+              {showSearchResults && searchResults.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  {searchResults.map(p => (
+                    <div
+                      key={p.id}
+                      onClick={() => selectRecipient(p)}
+                      style={{ padding: '14px 0', borderTop: '1px solid var(--rule)', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>to</span>
+                          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(224,168,48,0.25), transparent)' }} />
                         </div>
+                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
+                          {p.first_name} {p.last_name}
+                        </div>
+                        {p.bio && (
+                          <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>
+                            {p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio}
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    </div>
+                  ))}
+                </div>
+              )}
 
-                {showSearchResults && searchTerm && searchResults.length === 0 && (
-                  <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', marginTop: 16, textAlign: 'center' }}>
-                    No results found
-                  </p>
-                )}
-              </div>
-            )}
-
-            {selectedRecipient && (
-              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--lt-rule)', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setCurrentStage('compose')}
-                  disabled={!hasPermission}
-                  style={{ ...pressStyle('rest', true), opacity: hasPermission ? 1 : 0.4, cursor: hasPermission ? 'pointer' : 'not-allowed' }}
-                >
-                  Continue →
-                </button>
-              </div>
-            )}
+              {showSearchResults && searchTerm && searchResults.length === 0 && (
+                <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', marginTop: 16, textAlign: 'center' }}>
+                  No results found
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
