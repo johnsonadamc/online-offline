@@ -298,5 +298,303 @@ function CollabSubmissionContent() {
     );
   }
 
-  return null; // Stage 2
+  // ── viewer style ─────────────────────────────────────────────────────────────
+  const viewerStyle: React.CSSProperties = isFullscreen
+    ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 0, overflow: 'hidden' }
+    : { width: '100%', aspectRatio: '4/3', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' };
+
+  // ── JSX ──────────────────────────────────────────────────────────────────────
+  return (
+    <div style={{ height: '100vh', background: 'var(--ground)', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 390, height: '100%', display: 'flex', flexDirection: 'column' }}>
+
+        {/* ── Header ── */}
+        <div style={{
+          padding: '20px 22px 0', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--ground)',
+        }}>
+          <Link href="/dashboard" style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+            textTransform: 'uppercase', color: 'var(--paper-4)', textDecoration: 'none',
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <polyline points="15,18 9,12 15,6" />
+            </svg>
+            Dashboard
+          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 11, color: statusPillColor, textShadow: statusPillGlow, transition: 'color 0.2s' }}>
+              {statusPillText}
+            </span>
+            {modeLabel && (
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em',
+                textTransform: 'uppercase', padding: '3px 8px', borderRadius: 2,
+                color: modeStyle.color, background: modeStyle.bg,
+                border: `1px solid ${modeStyle.border}`, textShadow: modeStyle.shadow,
+              }}>
+                {modeLabel}
+              </span>
+            )}
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', color: 'var(--neon-accent)', textShadow: '0 0 6px var(--glow-accent)' }}>
+              {deadlineText}
+            </span>
+          </div>
+        </div>
+
+        {/* Thick rule */}
+        <div style={{ height: 1, margin: '11px 22px 0', background: 'var(--paper)', opacity: 0.8, boxShadow: '0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08)', flexShrink: 0 }} />
+
+        {/* ── Scroll body ── */}
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 } as React.CSSProperties}>
+
+          {/* Collab identity */}
+          <div style={{ padding: '16px 22px 0' }}>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 22, color: 'var(--paper)', opacity: 0.9, lineHeight: 1.15, marginBottom: 5 }}>
+              {collabDetails.title}
+            </div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--paper-3)', lineHeight: 1.5 }}>
+              {collabDetails.description}
+            </div>
+          </div>
+
+          {/* Prompt strip */}
+          {promptText && (
+            <div style={{
+              margin: '14px 22px 0', padding: '10px 12px',
+              borderLeft: '2px solid var(--neon-amber)',
+              boxShadow: '-3px 0 10px -2px var(--glow-amber)',
+              background: 'rgba(224,168,48,0.04)',
+              borderRadius: '0 2px 2px 0',
+              display: 'flex', flexDirection: 'column', gap: 4,
+            }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>
+                Prompt
+              </div>
+              <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--paper-2)', lineHeight: 1.45 }}>
+                {promptText}
+              </div>
+            </div>
+          )}
+
+          {/* Section rule */}
+          <div style={{ height: 1, margin: '14px 22px 0', background: 'var(--rule-mid)' }} />
+
+          {/* Image area */}
+          <div style={{ margin: '14px 22px 0' }}>
+            <div style={viewerStyle}>
+              {hasImage ? (
+                <>
+                  <img
+                    src={previewUrl || submission.media_url || ''}
+                    alt={submission.title || 'submission'}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  {/* gradient overlay */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(15,14,11,0.65) 0%, transparent 50%)', pointerEvents: 'none' }} />
+
+                  {/* remove — draft only */}
+                  {submission.status === 'draft' && (
+                    <button
+                      onClick={() => { setPreviewUrl(null); setMediaFile(null); setSubmission(prev => ({ ...prev, media_url: '' })); }}
+                      style={{ position: 'absolute', top: 8, right: 8, width: 26, height: 26, background: 'rgba(15,14,11,0.7)', border: '1px solid var(--rule-mid)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--paper-3)', zIndex: 2 }}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+
+                  {/* fullscreen toggle — always shown with image */}
+                  <button
+                    onClick={() => setIsFullscreen(f => !f)}
+                    style={{ position: 'absolute', bottom: 8, right: 8, width: 26, height: 26, background: 'rgba(15,14,11,0.7)', border: '1px solid var(--rule-mid)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--paper-4)', zIndex: 2 }}
+                  >
+                    {isFullscreen ? (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="4,14 10,14 10,20" /><polyline points="20,10 14,10 14,4" />
+                        <line x1="10" y1="14" x2="3" y2="21" /><line x1="21" y1="3" x2="14" y2="10" />
+                      </svg>
+                    ) : (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="15,3 21,3 21,9" /><polyline points="9,21 3,21 3,15" />
+                        <line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" />
+                      </svg>
+                    )}
+                  </button>
+                </>
+              ) : (
+                /* Upload zone */
+                <div
+                  onClick={submission.status !== 'submitted' ? triggerFileInput : undefined}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, width: '100%', height: '100%', cursor: submission.status === 'submitted' ? 'default' : 'pointer' }}
+                >
+                  <div style={{ width: 40, height: 40, border: '1px solid var(--rule-mid)', borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--ground-4)' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--paper-4)" strokeWidth="1.5">
+                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)' }}>Add image</div>
+                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--paper-5)', fontWeight: 300 }}>tap to upload</div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Per-image metadata */}
+          <div style={{ margin: '14px 22px 0', opacity: hasImage ? 1 : 0.4, transition: 'opacity 0.15s' }}>
+            <input
+              name="title"
+              value={submission.title}
+              onChange={handleInputChange}
+              disabled={submission.status === 'submitted'}
+              placeholder="Image title"
+              style={{
+                width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper-2)',
+                lineHeight: 1.2, caretColor: 'var(--neon-accent)',
+              }}
+            />
+            <div style={{ height: 1, background: 'var(--rule)', margin: '8px 0' }} />
+            <div style={{ position: 'relative' }}>
+              <textarea
+                name="caption"
+                value={submission.caption}
+                onChange={handleInputChange}
+                disabled={submission.status === 'submitted'}
+                placeholder="Add a caption…"
+                rows={2}
+                style={{
+                  width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                  fontFamily: 'var(--font-sans)', fontSize: 13, fontWeight: 300,
+                  color: 'var(--paper-4)', resize: 'none', lineHeight: 1.55,
+                  caretColor: 'var(--neon-accent)', minHeight: 42, paddingBottom: 18,
+                }}
+              />
+              <div style={{
+                position: 'absolute', bottom: 0, right: 0,
+                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em',
+                color: submission.caption.length > CAPTION_WARN ? 'var(--neon-accent)' : 'var(--paper-5)',
+                textShadow: submission.caption.length > CAPTION_WARN ? '0 0 4px var(--glow-accent)' : 'none',
+                pointerEvents: 'none', transition: 'color 0.15s',
+              }}>
+                {submission.caption.length}
+              </div>
+            </div>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div style={{ margin: '10px 22px 0', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: '#ef4444' }}>
+              {error}
+            </div>
+          )}
+
+        </div>{/* end scroll-body */}
+
+        {/* ── Action bar ── */}
+        <div style={{
+          flexShrink: 0, zIndex: 20,
+          padding: '12px 22px 28px',
+          background: 'var(--ground)', borderTop: '1px solid var(--rule)',
+          display: 'flex', gap: 8, alignItems: 'center',
+        }}>
+          {submission.status === 'submitted' ? (
+            /* Revert button */
+            <button
+              onPointerDown={() => setRevertPress('pressing')}
+              onPointerUp={() => releasePress(setRevertPress, handleRevertToEdit)}
+              onPointerLeave={() => revertPress === 'pressing' && releasePress(setRevertPress, handleRevertToEdit)}
+              style={{
+                flex: 1,
+                fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '9px 16px',
+                background: revertPress === 'pressing' ? 'rgba(224,168,48,0.1)' : 'rgba(224,168,48,0.06)',
+                border: '1px solid rgba(224,168,48,0.25)',
+                color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)',
+                borderBottomWidth: 2, borderBottomColor: 'rgba(224,168,48,0.4)',
+                boxShadow: '0 2px 0 rgba(224,168,48,0.2), 0 3px 6px rgba(0,0,0,0.4)',
+                transform: revertPress === 'pressing' ? 'translateY(2px)' : 'none',
+                transition: revertPress === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.06s ease',
+              }}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <polyline points="1,4 1,10 7,10" /><path d="M3.51,15a9,9,0,1,0,.49-4.5" />
+              </svg>
+              Revert to draft
+            </button>
+          ) : (
+            <>
+              {/* Save */}
+              <button
+                onPointerDown={() => setSavePress('pressing')}
+                onPointerUp={() => releasePress(setSavePress, () => handleSubmit(false))}
+                onPointerLeave={() => savePress === 'pressing' && releasePress(setSavePress, () => handleSubmit(false))}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                  textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '9px 16px',
+                  background: savePress === 'pressing' ? 'var(--ground-4)' : 'var(--ground-3)',
+                  border: '1px solid var(--rule-mid)',
+                  color: 'var(--paper-3)',
+                  borderBottomWidth: 2, borderBottomColor: 'var(--ground-4)',
+                  boxShadow: '0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4)',
+                  transform: savePress === 'pressing' ? 'translateY(2px)' : 'none',
+                  transition: savePress === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.06s ease',
+                }}
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17,21 17,13 7,13 7,21" /><polyline points="7,3 7,8 15,8" />
+                </svg>
+                {saving && !submitting ? 'Saving…' : 'Save'}
+              </button>
+
+              {/* Submit */}
+              <button
+                onPointerDown={() => setSubmitPress('pressing')}
+                onPointerUp={() => releasePress(setSubmitPress, () => handleSubmit(true))}
+                onPointerLeave={() => submitPress === 'pressing' && releasePress(setSubmitPress, () => handleSubmit(true))}
+                style={{
+                  flex: 1,
+                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                  textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  padding: '9px 16px',
+                  background: submitPress === 'pressing' ? 'rgba(224,90,40,0.16)' : 'rgba(224,90,40,0.1)',
+                  border: '1px solid rgba(224,90,40,0.35)',
+                  color: 'var(--neon-accent)', textShadow: '0 0 6px var(--glow-accent)',
+                  borderBottomWidth: 2, borderBottomColor: 'rgba(224,90,40,0.5)',
+                  boxShadow: '0 2px 0 rgba(224,90,40,0.3), 0 3px 6px rgba(0,0,0,0.4)',
+                  transform: submitPress === 'pressing' ? 'translateY(2px)' : 'none',
+                  transition: submitPress === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.06s ease',
+                }}
+              >
+                {submitting ? 'Submitting…' : 'Submit'}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22,2 15,22 11,13 2,9" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileChange}
+          disabled={submission.status === 'submitted'}
+          style={{ display: 'none' }}
+        />
+
+      </div>
+    </div>
+  );
 }
