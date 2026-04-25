@@ -270,14 +270,14 @@ export default function SubmissionForm() {
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--ground)', minHeight: '100vh', display: 'flex', justifyContent: 'center' }}>
-      <div style={{ width: '100%', maxWidth: 390, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: 'var(--ground)', height: '100vh', display: 'flex', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: 390, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Header ── */}
         <div style={{
-          padding: '20px 22px 0',
+          padding: '20px 22px 0', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          position: 'sticky', top: 0, zIndex: 20, background: 'var(--ground)',
+          zIndex: 20, background: 'var(--ground)',
         }}>
           <Link href="/dashboard" style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -323,7 +323,7 @@ export default function SubmissionForm() {
         }} />
 
         {/* ── Scroll body ── */}
-        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 8 } as React.CSSProperties}>
+        <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 } as React.CSSProperties}>
 
           {/* Mode selector */}
           <div style={{ padding: '16px 22px 0' }}>
@@ -750,7 +750,7 @@ export default function SubmissionForm() {
 
         {/* ── Action bar ── */}
         <div style={{
-          position: 'sticky', bottom: 0, zIndex: 20,
+          flexShrink: 0, zIndex: 20,
           padding: '12px 22px 28px',
           background: 'var(--ground)', borderTop: '1px solid var(--rule)',
           display: 'flex', gap: 8, alignItems: 'center',
