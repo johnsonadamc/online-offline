@@ -173,25 +173,33 @@ export default function CurationInterface() {
   }, []);
 
   // ── Computed values ────────────────────────────────────────────────────────
-  const uniqueTemplateIds = new Set<string>();
+  // Each entry is a (mode, templateId) slot key:
+  //   community_<templateId>  — one slot for the community version
+  //   local_<templateId>      — one slot for local (any city; city swaps don't add slots)
+  //   private_<templateId>    — one slot for the private version
+  // Different modes for the same template count separately; multiple local-city
+  // picks for the same template collapse to one.
+  const uniqueCollabSlots = new Set<string>();
   selectedCollabs.forEach(id => {
     if (!id || id.trim() === '') return;
     if (id.startsWith('local_')) {
-      // Format: local_<templateId>_<City_Name> — templateId has no underscores (UUID uses hyphens)
+      // local_<templateId>_<City_Name> — strip city, keep mode+template key
       const rest = id.slice('local_'.length);
       const sep = rest.indexOf('_');
-      uniqueTemplateIds.add(sep !== -1 ? rest.slice(0, sep) : rest);
+      const templateId = sep !== -1 ? rest.slice(0, sep) : rest;
+      uniqueCollabSlots.add(`local_${templateId}`);
     } else if (id.startsWith('community_')) {
-      uniqueTemplateIds.add(id.slice('community_'.length));
+      // Already unique per template+mode
+      uniqueCollabSlots.add(id);
     } else {
-      // Private collab — real UUID. Normalize to template ID so it deduplicates
-      // against any community/local selection for the same template.
-      uniqueTemplateIds.add(privateCollabTemplateMap[id] ?? id);
+      // Private collab real UUID — key as private_<templateId>
+      const templateId = privateCollabTemplateMap[id];
+      uniqueCollabSlots.add(templateId ? `private_${templateId}` : `private_${id}`);
     }
   });
 
   const usedSlots = selectedCreators.length + selectedAds.length +
-    selectedCommunications.length + uniqueTemplateIds.size;
+    selectedCommunications.length + uniqueCollabSlots.size;
   const remainingContent = maxContentPieces - usedSlots;
 
   // ── Data helpers (unchanged) ───────────────────────────────────────────────
@@ -655,7 +663,7 @@ export default function CurationInterface() {
         <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
           {([
             { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
-            { id: 'collabs' as const,      label: 'Collabs',      count: uniqueTemplateIds.size },
+            { id: 'collabs' as const,      label: 'Collabs',      count: uniqueCollabSlots.size },
             { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
             { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
           ]).map(({ id, label, count }) => (
