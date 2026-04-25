@@ -355,7 +355,10 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     const joined = joinedCollabs.find(c => c.id === id);
     if (joined) {
       const t = templates.find(t => t.id === joined.template_id);
-      return `${t?.name ?? joined.title} — Private`;
+      const name = t?.name ?? joined.title;
+      if (joined.participation_mode === 'community') return `${name} — Community`;
+      if (joined.participation_mode === 'local') return `${name} — Local (${joined.location ?? ''})`;
+      return `${name} — Private`;
     }
     return id;
   };
