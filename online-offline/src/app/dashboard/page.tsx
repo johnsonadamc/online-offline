@@ -865,7 +865,7 @@ export default function Dashboard() {
                   communications.map(comm => (
                     <div
                       key={comm.id}
-                      onClick={() => router.push(`/communicate?id=${comm.id}`)}
+                      onClick={() => router.push(`/communicate/${comm.id}`)}
                       style={{
                         padding: '14px 0',
                         borderTop: '1px solid var(--rule)',

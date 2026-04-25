@@ -147,6 +147,7 @@ export default function CurationInterface() {
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [selectedCommunications, setSelectedCommunications] = useState<string[]>([]);
   const [selectedCollabs, setSelectedCollabs] = useState<string[]>([]);
+  const [privateCollabTemplateMap, setPrivateCollabTemplateMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,22 +173,13 @@ export default function CurationInterface() {
   }, []);
 
   // ── Computed values ────────────────────────────────────────────────────────
-  const uniqueTemplateIds = new Set<string>();
-  selectedCollabs.forEach(id => {
-    if (!id || id.trim() === '') return;
-    if (id.startsWith('local_')) {
-      const parts = id.split('_');
-      if (parts.length >= 2) uniqueTemplateIds.add(parts[1]);
-      else uniqueTemplateIds.add(id);
-    } else if (id.startsWith('community_')) {
-      uniqueTemplateIds.add(id.substring('community_'.length));
-    } else {
-      uniqueTemplateIds.add(id);
-    }
-  });
+  // Collab count = number of items in selectedCollabs.
+  // toggleItem prevents duplicate IDs, so selectedCollabs is already a unique list.
+  // This matches the "Added to magazine" footer which renders one row per entry.
+  const collabSlotCount = selectedCollabs.filter(id => id.trim() !== '').length;
 
   const usedSlots = selectedCreators.length + selectedAds.length +
-    selectedCommunications.length + uniqueTemplateIds.size;
+    selectedCommunications.length + collabSlotCount;
   const remainingContent = maxContentPieces - usedSlots;
 
   // ── Data helpers (unchanged) ───────────────────────────────────────────────
@@ -394,6 +386,18 @@ export default function CurationInterface() {
     c.bio.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const filteredAds = ads.filter(ad =>
+    searchTerm === '' ||
+    ad.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    ad.bio.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredCommunications = communications.filter(comm =>
+    searchTerm === '' ||
+    comm.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${comm.profiles.first_name} ${comm.profiles.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   // ── Data loading (unchanged) ───────────────────────────────────────────────
   useEffect(() => {
     async function loadData() {
@@ -465,6 +469,7 @@ export default function CurationInterface() {
               discount: typeof c.discount === 'number' ? c.discount : 2,
             })));
           } else {
+            if (campaignError) console.error('Error fetching campaigns:', campaignError);
             setAds([]);
           }
         } catch (err) {
@@ -606,7 +611,12 @@ export default function CurationInterface() {
             </div>
             <input
               type="text"
-              placeholder="Search contributors, collabs, campaigns…"
+              placeholder={
+                activeSection === 'contributors' ? 'Search contributors…' :
+                activeSection === 'collabs'       ? 'Search collaborations…' :
+                activeSection === 'comms'         ? 'Search communications…' :
+                                                    'Search campaigns…'
+              }
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               style={{
@@ -650,13 +660,13 @@ export default function CurationInterface() {
         <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
           {([
             { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
-            { id: 'collabs' as const,      label: 'Collabs',      count: uniqueTemplateIds.size },
+            { id: 'collabs' as const,      label: 'Collabs',      count: collabSlotCount },
             { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
             { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
           ]).map(({ id, label, count }) => (
             <button
               key={id}
-              onClick={() => setActiveSection(id)}
+              onClick={() => { setActiveSection(id); setSearchTerm(''); }}
               style={{
                 display: 'flex', alignItems: 'center', gap: '5px',
                 padding: '8px 0', marginRight: '18px',
@@ -811,6 +821,8 @@ export default function CurationInterface() {
                     selectedCollabs={selectedCollabs}
                     toggleItem={(id) => toggleItem(id, 'collab')}
                     remainingContent={remainingContent}
+                    onPrivateCollabMap={setPrivateCollabTemplateMap}
+                    searchTerm={searchTerm}
                   />
                 </div>
               )}
@@ -879,8 +891,13 @@ export default function CurationInterface() {
                       <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '14px 0 8px' }}>
                         Messages received
                       </div>
+                      {filteredCommunications.length === 0 && searchTerm && (
+                        <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '13px', color: 'var(--lt-text-3)', padding: '8px 0' }}>
+                          No messages match &ldquo;{searchTerm}&rdquo;.
+                        </p>
+                      )}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {communications.map(comm => (
+                        {filteredCommunications.map(comm => (
                           <div
                             key={comm.id}
                             style={{ background: 'rgba(224,168,48,0.03)', border: '1px solid rgba(224,168,48,0.1)', borderRadius: '1px', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: '3px' }}
@@ -910,7 +927,12 @@ export default function CurationInterface() {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
-                    {ads.map(ad => {
+                    {filteredAds.length === 0 && (
+                      <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '13px', color: 'var(--lt-text-3)', padding: '8px 0' }}>
+                        {searchTerm ? `No campaigns match “${searchTerm}”.` : 'No campaigns this period.'}
+                      </p>
+                    )}
+                    {filteredAds.map(ad => {
                       const isSelected = selectedAds.includes(ad.id);
                       return (
                         <div
