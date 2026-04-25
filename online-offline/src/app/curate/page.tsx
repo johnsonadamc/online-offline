@@ -147,6 +147,7 @@ export default function CurationInterface() {
   const [selectedAds, setSelectedAds] = useState<string[]>([]);
   const [selectedCommunications, setSelectedCommunications] = useState<string[]>([]);
   const [selectedCollabs, setSelectedCollabs] = useState<string[]>([]);
+  const [privateCollabTemplateMap, setPrivateCollabTemplateMap] = useState<Record<string, string>>({});
   const [searchTerm, setSearchTerm] = useState('');
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -176,13 +177,16 @@ export default function CurationInterface() {
   selectedCollabs.forEach(id => {
     if (!id || id.trim() === '') return;
     if (id.startsWith('local_')) {
-      const parts = id.split('_');
-      if (parts.length >= 2) uniqueTemplateIds.add(parts[1]);
-      else uniqueTemplateIds.add(id);
+      // Format: local_<templateId>_<City_Name> — templateId has no underscores (UUID uses hyphens)
+      const rest = id.slice('local_'.length);
+      const sep = rest.indexOf('_');
+      uniqueTemplateIds.add(sep !== -1 ? rest.slice(0, sep) : rest);
     } else if (id.startsWith('community_')) {
-      uniqueTemplateIds.add(id.substring('community_'.length));
+      uniqueTemplateIds.add(id.slice('community_'.length));
     } else {
-      uniqueTemplateIds.add(id);
+      // Private collab — real UUID. Normalize to template ID so it deduplicates
+      // against any community/local selection for the same template.
+      uniqueTemplateIds.add(privateCollabTemplateMap[id] ?? id);
     }
   });
 
@@ -812,6 +816,7 @@ export default function CurationInterface() {
                     selectedCollabs={selectedCollabs}
                     toggleItem={(id) => toggleItem(id, 'collab')}
                     remainingContent={remainingContent}
+                    onPrivateCollabMap={setPrivateCollabTemplateMap}
                   />
                 </div>
               )}
