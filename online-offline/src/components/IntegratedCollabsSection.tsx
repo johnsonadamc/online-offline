@@ -30,6 +30,7 @@ interface CollabsSectionProps {
   toggleItem: (id: string) => void;
   remainingContent: number;
   onPrivateCollabMap?: (map: Record<string, string>) => void;
+  searchTerm?: string;
 }
 
 interface City {
@@ -58,6 +59,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   toggleItem,
   remainingContent,
   onPrivateCollabMap,
+  searchTerm = '',
 }) => {
   const supabase = createClientComponentClient();
 
@@ -383,6 +385,15 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     return aJ === bJ ? 0 : aJ ? -1 : 1;
   });
 
+  const q = searchTerm.trim().toLowerCase();
+  const visibleTemplates = q
+    ? sortedTemplates.filter(t =>
+        t.name.toLowerCase().includes(q) ||
+        (t.display_text || '').toLowerCase().includes(q) ||
+        (t.instructions || '').toLowerCase().includes(q)
+      )
+    : sortedTemplates;
+
   // ── checkmark SVG (reused across all checkboxes) ────────────────────────────
   const Checkmark = () => (
     <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
@@ -395,13 +406,13 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     <div>
       {/* template list */}
       <div style={{ padding: '4px 14px 6px' }}>
-        {sortedTemplates.length === 0 && (
+        {visibleTemplates.length === 0 && (
           <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', padding: '16px 4px' }}>
-            No collaborations this period.
+            {q ? `No collaborations match "${searchTerm}".` : 'No collaborations this period.'}
           </p>
         )}
 
-        {sortedTemplates.map((template, idx) => {
+        {visibleTemplates.map((template, idx) => {
           const isDescOpen     = descOpen.has(template.id);
           const isLocalExpanded = localOpen.has(template.id);
           const hasJoined      = userHasJoinedPrivate(template.id) || userHasJoinedCommunity(template.id) || userHasJoinedLocal(template.id);
