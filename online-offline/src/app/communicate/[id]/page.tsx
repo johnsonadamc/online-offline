@@ -1,25 +1,10 @@
 'use client';
 
-import React from 'react';
-import { useState, useEffect, ChangeEvent, useRef } from 'react';
+import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  ArrowLeft, 
-  AlertCircle, 
-  Search, 
-  X, 
-  User, 
-  Save,
-  Send,
-  Edit,
-  Clock
-} from 'lucide-react';
 import { saveCommunication } from '@/lib/supabase/communications';
 import { canCommunicateWith } from '@/lib/supabase/profiles';
 
@@ -30,19 +15,19 @@ interface Profile {
   avatar_url?: string;
 }
 
+type PressState = 'rest' | 'pressing' | 'releasing';
+
 export default function CommunicateEditorPage() {
-  // Use useParams hook instead of React.use
   const params = useParams();
-  const id = params?.id as string;
-  const communicationId = id !== 'new' ? id : null;
-  
+  const id = params?.id as string | undefined;
+  const communicationId = id && id !== 'new' ? id : null;
+
   const router = useRouter();
   const supabase = createClientComponentClient({
     supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
     supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
   });
-  
-  // Core state
+
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [selectedRecipient, setSelectedRecipient] = useState<Profile | null>(null);
@@ -54,603 +39,420 @@ export default function CommunicateEditorPage() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  
-  // UI state
   const [hasPermission, setHasPermission] = useState(true);
   const [permissionCheckComplete, setPermissionCheckComplete] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
   const [currentStage, setCurrentStage] = useState<'recipient' | 'compose'>('recipient');
+  const [submitPress, setSubmitPress] = useState<PressState>('rest');
+  const [savePress, setSavePress] = useState<PressState>('rest');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  
-  // Constants
+
   const WORD_LIMIT = 250;
-  
-  // Load communication data
+
+  // ── load existing communication ──────────────────────────────────────────────
   useEffect(() => {
+    if (!communicationId) return;
+    setLoading(true);
     const fetchCommunication = async () => {
-      if (!communicationId) return;
-      
-      setLoading(true);
       try {
         const { data, error } = await supabase
           .from('communications')
-          .select(`
-            *,
-            profiles:recipient_id (
-              id,
-              first_name,
-              last_name,
-              avatar_url
-            )
-          `)
+          .select('*, profiles:recipient_id (id, first_name, last_name, avatar_url)')
           .eq('id', communicationId)
           .single();
-          
         if (error) throw error;
-        
         if (data) {
-          // Check if the communication is in draft status
           if (data.status !== 'draft') {
             setError('This communication cannot be edited anymore');
             router.push('/dashboard');
             return;
           }
-          
           setSubject(data.subject || '');
           setContent(data.content || '');
-          
-          // Handle potential null/undefined profiles
           if (data.profiles) {
-            const profileData: Profile = {
+            const p: Profile = {
               id: data.profiles.id || '',
               first_name: data.profiles.first_name || '',
               last_name: data.profiles.last_name || '',
-              avatar_url: data.profiles.avatar_url
+              avatar_url: data.profiles.avatar_url,
             };
-            setSelectedRecipient(profileData);
-            
-            // Check permission for the loaded recipient
-            const result = await canCommunicateWith(profileData.id);
+            setSelectedRecipient(p);
+            const result = await canCommunicateWith(p.id);
             setHasPermission(result.allowed);
             setPermissionCheckComplete(true);
-          }
-          
-          calculateWordCount(data.content || '');
-          
-          // Set current stage based on loaded data
-          if (data.profiles) {
             setCurrentStage('compose');
           }
+          calculateWordCount(data.content || '');
         }
       } catch (err) {
-        console.error('Error fetching communication:', err);
-        const errorMessage = err instanceof Error ? err.message : 'Failed to load communication';
-        setError(errorMessage);
+        setError(err instanceof Error ? err.message : 'Failed to load communication');
       } finally {
         setLoading(false);
       }
     };
-    
     fetchCommunication();
   }, [communicationId, router, supabase]);
-  
-  // Calculate word count when content changes
-  useEffect(() => {
-    calculateWordCount(content);
-  }, [content]);
-  
-  // Focus the textarea when in focus mode
-  useEffect(() => {
-    if (focusMode && textareaRef.current) {
-      setTimeout(() => {
-        textareaRef.current?.focus();
-      }, 100);
-    }
-  }, [focusMode]);
-  
+
+  useEffect(() => { calculateWordCount(content); }, [content]);
+
+  // ── helpers ──────────────────────────────────────────────────────────────────
   const calculateWordCount = (text: string) => {
-    if (!text || text.trim() === '') {
-      setWordCount(0);
-      return;
-    }
-    
-    const words = text.trim().split(/\s+/);
-    setWordCount(words.length);
+    setWordCount(!text?.trim() ? 0 : text.trim().split(/\s+/).length);
   };
-  
+
   const searchContributors = async (term: string) => {
-    if (!term || term.length < 1) { 
-      setSearchResults([]);
-      return;
-    }
-    
-    const searchTerm = term.trim(); 
-    
+    if (!term?.length) { setSearchResults([]); return; }
     try {
-      // Use a direct Supabase query with the exact term
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url, is_public')
-        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%`)
+        .or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`)
         .limit(10);
-      
-      if (error) {
-        console.error("Supabase query error:", error);
-        setError('Database query failed: ' + error.message);
-        return;
-      }
-      
-      // Filter for public profiles only
-      if (data && data.length > 0) {
-        const publicProfiles = data.filter(profile => profile.is_public === true);
-        setSearchResults(publicProfiles);
-      } else {
-        setSearchResults([]);
-      }
+      if (error) { setError('Search failed: ' + error.message); return; }
+      setSearchResults((data || []).filter(p => p.is_public === true));
     } catch (err) {
-      console.error('Unexpected error:', err);
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Search error');
     }
   };
-  
+
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
     const term = e.target.value;
     setSearchTerm(term);
     searchContributors(term);
     setShowSearchResults(true);
   };
-  
+
   const selectRecipient = async (recipient: Profile) => {
     setSelectedRecipient(recipient);
     setSearchTerm('');
     setSearchResults([]);
     setShowSearchResults(false);
-    
-    // Check permission for the selected recipient
-    if (recipient) {
-      const result = await canCommunicateWith(recipient.id);
-      setHasPermission(result.allowed);
-      setPermissionCheckComplete(true);
-      
-      // Move to compose stage after selecting recipient
-      setCurrentStage('compose');
-    }
+    const result = await canCommunicateWith(recipient.id);
+    setHasPermission(result.allowed);
+    setPermissionCheckComplete(true);
+    setCurrentStage('compose');
   };
-  
+
   const handleSaveDraft = async () => {
-    if (!selectedRecipient) {
-      setError('Please select a recipient');
-      return;
-    }
-    
-    if (!subject.trim()) {
-      setError('Please enter a subject');
-      return;
-    }
-    
-    // Check permission before saving
-    if (!hasPermission) {
-      setError('You do not have permission to send communications to this user');
-      return;
-    }
-    
-    setSaving(true);
-    setError(null);
-    
+    if (!selectedRecipient) { setError('Please select a recipient'); return; }
+    if (!subject.trim()) { setError('Please enter a subject'); return; }
+    if (!hasPermission) { setError('You do not have permission to communicate with this user'); return; }
+    setSaving(true); setError(null);
     try {
-      const communicationData = {
+      const result = await saveCommunication({
         id: communicationId || undefined,
         recipient_id: selectedRecipient.id,
         subject: subject.trim(),
         content: content.trim(),
-        image_url: null // No image uploads
-      };
-      
-      const result = await saveCommunication(communicationData);
-      
-      if (!result.success) {
-        throw new Error(result.error ? String(result.error) : 'Failed to save draft');
-      }
-      
-      // Redirect to dashboard after successful save
+        image_url: null,
+      });
+      if (!result.success) throw new Error(result.error ? String(result.error) : 'Failed to save draft');
       router.push('/dashboard');
     } catch (err) {
-      console.error('Error saving draft:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to save draft';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to save draft');
     } finally {
       setSaving(false);
     }
   };
-  
+
   const handleSubmit = async () => {
-    if (!selectedRecipient) {
-      setError('Please select a recipient');
-      return;
-    }
-    
-    if (!subject.trim()) {
-      setError('Please enter a subject');
-      return;
-    }
-    
-    if (wordCount > WORD_LIMIT) {
-      setError(`Content exceeds the ${WORD_LIMIT} word limit`);
-      return;
-    }
-    
-    // Check permission before submitting
-    if (!hasPermission) {
-      setError('You do not have permission to send communications to this user');
-      return;
-    }
-    
-    setSubmitting(true);
-    setError(null);
-    
+    if (!selectedRecipient) { setError('Please select a recipient'); return; }
+    if (!subject.trim()) { setError('Please enter a subject'); return; }
+    if (wordCount > WORD_LIMIT) { setError(`Content exceeds the ${WORD_LIMIT} word limit`); return; }
+    if (!hasPermission) { setError('You do not have permission to communicate with this user'); return; }
+    setSubmitting(true); setError(null);
     try {
-      // First save as draft to ensure all data is updated
-      const communicationData = {
+      const saveResult = await saveCommunication({
         id: communicationId || undefined,
         recipient_id: selectedRecipient.id,
         subject: subject.trim(),
         content: content.trim(),
-        image_url: null // No image uploads
-      };
-      
-      const saveResult = await saveCommunication(communicationData);
-      
-      if (!saveResult.success) {
-        throw new Error(saveResult.error ? String(saveResult.error) : 'Failed to save communication');
-      }
-      
-      // Then submit the saved draft
+        image_url: null,
+      });
+      if (!saveResult.success) throw new Error(saveResult.error ? String(saveResult.error) : 'Failed to save');
       const commId = communicationId || (saveResult.communication && saveResult.communication.id);
-      if (!commId) {
-        throw new Error('Failed to get communication ID');
-      }
-      
-      // Use the backend function to submit the communication
-      const { error } = await supabase
+      if (!commId) throw new Error('Failed to get communication ID');
+      const { error: updateErr } = await supabase
         .from('communications')
-        .update({
-          status: 'submitted',
-          updated_at: new Date().toISOString(),
-          word_count: wordCount // Store word count in the database
-        })
+        .update({ status: 'submitted', updated_at: new Date().toISOString(), word_count: wordCount })
         .eq('id', commId)
         .eq('status', 'draft');
-        
-      if (error) throw error;
-      
-      // Create notification for recipient
-      await supabase
-        .from('communication_notifications')
-        .insert({
-          communication_id: commId,
-          recipient_id: selectedRecipient.id
-        });
-      
-      // Redirect to dashboard after successful submission
+      if (updateErr) throw updateErr;
+      await supabase.from('communication_notifications').insert({
+        communication_id: commId,
+        recipient_id: selectedRecipient.id,
+      });
       router.push('/dashboard');
     } catch (err) {
-      console.error('Error submitting communication:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to submit communication';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Failed to submit');
     } finally {
       setSubmitting(false);
     }
   };
-  
-  // Toggle focus mode
-  const toggleFocusMode = () => {
-    setFocusMode(!focusMode);
+
+  // ── press mechanic style helper ──────────────────────────────────────────────
+  const pressStyle = (state: PressState, amber = false): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: amber ? 'var(--neon-amber)' : (state === 'rest' ? 'var(--paper-3)' : 'var(--neon-accent)'),
+    textShadow: amber ? '0 0 8px var(--glow-amber)' : 'none',
+    padding: '9px 20px',
+    background: state === 'pressing'
+      ? (amber ? 'rgba(224,168,48,0.2)' : 'rgba(224,90,40,0.18)')
+      : (amber ? 'rgba(224,168,48,0.08)' : 'var(--ground-3)'),
+    border: `1px solid ${state !== 'rest'
+      ? (amber ? 'rgba(224,168,48,0.45)' : 'rgba(224,90,40,0.5)')
+      : (amber ? 'rgba(224,168,48,0.28)' : 'var(--rule-mid)')}`,
+    borderBottom: `2px solid ${state === 'pressing'
+      ? (amber ? 'rgba(224,168,48,0.55)' : 'rgba(224,90,40,0.6)')
+      : (amber ? 'rgba(224,168,48,0.35)' : 'var(--ground-4)')}`,
+    borderRadius: 2,
+    cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
+    transform: state === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
+    boxShadow: state === 'pressing' ? 'none'
+      : amber
+        ? '0 2px 0 rgba(224,168,48,0.2), 0 0 14px rgba(224,168,48,0.06)'
+        : '0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4)',
+    transition: state === 'releasing'
+      ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, background 0.3s'
+      : 'transform 0.08s cubic-bezier(0.4,0,0.6,1), box-shadow 0.08s, background 0.08s',
+  });
+
+  const releasePress = (set: (s: PressState) => void) => {
+    set('releasing');
+    setTimeout(() => set('rest'), 220);
   };
-  
-  // Go back to recipient selection
-  const goBackToRecipient = () => {
-    setCurrentStage('recipient');
-  };
-  
+
+  // ── loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="p-6 text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
+      <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
       </div>
     );
   }
-  
+
+  const recipientName = selectedRecipient
+    ? `${selectedRecipient.first_name} ${selectedRecipient.last_name}`.trim()
+    : '';
+
+  // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className={`sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-3 ${
-        focusMode ? 'opacity-0 hover:opacity-100 transition-opacity duration-200' : ''
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {currentStage === 'recipient' || !selectedRecipient ? (
-              <Link href="/dashboard" className="text-gray-600 hover:text-gray-900">
-                <ArrowLeft size={20} />
-              </Link>
-            ) : (
-              <button 
-                onClick={goBackToRecipient}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                <ArrowLeft size={20} />
-              </button>
-            )}
-            <div>
-              <h1 className="text-lg font-medium text-gray-900">
-                {communicationId ? 'Edit Message' : 'Message'}
-              </h1>
-              <div className="text-xs flex items-center text-gray-600">
-                <div className="w-2 h-2 rounded-full mr-1 bg-gray-500"></div>
-                Draft
-              </div>
-            </div>
+    <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', flexDirection: 'column', color: 'var(--lt-text)' }}>
+
+      {/* ── header ── */}
+      <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--lt-bg)', borderBottom: '1px solid var(--lt-rule)', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        {currentStage === 'recipient' || !selectedRecipient ? (
+          <Link href="/dashboard" style={{ color: 'var(--lt-text-3)', lineHeight: 0, display: 'block' }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+        ) : (
+          <button onClick={() => setCurrentStage('recipient')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', lineHeight: 0, padding: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
+        <div>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: 'var(--lt-text-2)' }}>
+            {communicationId ? 'Edit message' : 'New message'}
+          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--neon-amber)', boxShadow: '0 0 6px var(--glow-amber)' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>Draft</span>
           </div>
-          
-          {currentStage === 'compose' && (
-            <button 
-              className={`w-8 h-8 flex items-center justify-center rounded-full ${
-                focusMode ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:bg-gray-100'
-              }`}
-              onClick={toggleFocusMode}
-              title={focusMode ? "Exit focus mode" : "Enter focus mode"}
-            >
-              <Edit size={16} />
-            </button>
-          )}
         </div>
       </header>
-      
-      {/* Error Display */}
+
+      {/* ── error banner ── */}
       {error && (
-        <div className="m-4 bg-red-50 border border-red-200 rounded-md p-3 flex items-start gap-3">
-          <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700">{error}</p>
+        <div style={{ margin: '12px 16px 0', padding: '10px 14px', background: 'rgba(224,90,40,0.07)', border: '1px solid rgba(224,90,40,0.25)', borderRadius: 2 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-accent)', margin: 0 }}>{error}</p>
         </div>
       )}
-      
-      {/* Permission Warning */}
+
+      {/* ── permission warning ── */}
       {permissionCheckComplete && !hasPermission && selectedRecipient && (
-        <div className="m-4 bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start gap-3">
-          <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-amber-800">Permission Required</p>
-            <p className="text-xs text-amber-700">
-              You need to request access to {selectedRecipient.first_name}&apos;s profile before sending communications.
-            </p>
-          </div>
+        <div style={{ margin: '12px 16px 0', padding: '10px 14px', background: 'rgba(224,168,48,0.06)', border: '1px solid rgba(224,168,48,0.2)', borderRadius: 2 }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', margin: '0 0 4px' }}>Permission required</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text-3)', margin: 0 }}>
+            Request access to {selectedRecipient.first_name}&apos;s profile before sending.
+          </p>
         </div>
       )}
-      
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Recipient Selection */}
-        {currentStage === 'recipient' && (
-          <div className={`px-4 py-5 flex-1 ${focusMode ? 'hidden' : ''}`}>
-            <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-              {selectedRecipient ? (
-                <div className="flex items-center justify-between p-4">
-                  <div className="flex items-center gap-3">
-                    {selectedRecipient.avatar_url ? (
-                      <Image 
-                        src={selectedRecipient.avatar_url} 
-                        alt={`${selectedRecipient.first_name} ${selectedRecipient.last_name}`}
-                        width={40}
-                        height={40}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User size={18} className="text-blue-600" />
+
+      {/* ── recipient stage ── */}
+      {currentStage === 'recipient' && (
+        <div style={{ flex: 1, padding: '20px 16px' }}>
+          <div style={{ background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, overflow: 'hidden' }}>
+            {selectedRecipient ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {selectedRecipient.avatar_url ? (
+                    <div style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                      <Image src={selectedRecipient.avatar_url} alt={recipientName} fill sizes="36px" style={{ objectFit: 'cover' }} />
+                    </div>
+                  ) : (
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(224,168,48,0.12)', border: '1px solid rgba(224,168,48,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--neon-amber)' }}>
+                        {(selectedRecipient.first_name?.[0] ?? '') + (selectedRecipient.last_name?.[0] ?? '')}
+                      </span>
+                    </div>
+                  )}
+                  <div>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--lt-text)', margin: 0 }}>{recipientName}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '2px 0 0' }}>Curator</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedRecipient(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', fontSize: 18, lineHeight: 1, padding: '4px 6px' }}
+                >×</button>
+              </div>
+            ) : (
+              <div style={{ padding: '14px 16px' }}>
+                <div style={{ position: 'relative' }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--lt-text-3)', pointerEvents: 'none' }}>
+                    <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1" />
+                    <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search for a curator…"
+                    value={searchTerm}
+                    onChange={handleSearchChange}
+                    onFocus={() => setShowSearchResults(true)}
+                    style={{ width: '100%', background: 'var(--lt-bg)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, padding: '9px 12px 9px 30px', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text)', outline: 'none', caretColor: 'var(--neon-amber)' }}
+                  />
+                </div>
+
+                {showSearchResults && searchResults.length > 0 && (
+                  <div style={{ marginTop: 6 }}>
+                    {searchResults.map(p => (
+                      <div
+                        key={p.id}
+                        onClick={() => selectRecipient(p)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid var(--lt-rule)' }}
+                      >
+                        {p.avatar_url ? (
+                          <div style={{ position: 'relative', width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
+                            <Image src={p.avatar_url} alt={`${p.first_name} ${p.last_name}`} fill sizes="28px" style={{ objectFit: 'cover' }} />
+                          </div>
+                        ) : (
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(224,168,48,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--neon-amber)' }}>
+                              {(p.first_name?.[0] ?? '') + (p.last_name?.[0] ?? '')}
+                            </span>
+                          </div>
+                        )}
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text-2)' }}>
+                          {p.first_name} {p.last_name}
+                        </span>
                       </div>
-                    )}
-                    <div>
-                      <p className="font-medium">{selectedRecipient.first_name} {selectedRecipient.last_name}</p>
-                      <p className="text-xs text-gray-500">Curator</p>
-                    </div>
-                  </div>
-                  <div className="flex">
-                    <button 
-                      type="button"
-                      onClick={() => setSelectedRecipient(null)}
-                      className="text-gray-400 hover:text-gray-600 p-2"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-4">
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                      <Search size={16} className="text-gray-400" />
-                    </div>
-                    <Input
-                      type="text"
-                      placeholder="Search for a curator..."
-                      value={searchTerm}
-                      onChange={handleSearchChange}
-                      onFocus={() => setShowSearchResults(true)}
-                      className="w-full pl-10 pr-3 py-2.5 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  
-                  {/* Search results */}
-                  {showSearchResults && searchResults.length > 0 && (
-                    <div className="mt-2 max-h-72 overflow-y-auto">
-                      {searchResults.map(profile => (
-                        <div 
-                          key={profile.id}
-                          className="p-3 hover:bg-gray-50 rounded-md cursor-pointer flex items-center gap-3"
-                          onClick={() => selectRecipient(profile)}
-                        >
-                          {profile.avatar_url ? (
-                            <Image 
-                              src={profile.avatar_url} 
-                              alt={`${profile.first_name} ${profile.last_name}`}
-                              width={32}
-                              height={32}
-                              className="rounded-full"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <User size={16} className="text-blue-600" />
-                            </div>
-                          )}
-                          <span className="text-sm">{profile.first_name} {profile.last_name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {showSearchResults && searchTerm && searchResults.length === 0 && (
-                    <div className="mt-4 py-6 text-center bg-gray-50 rounded-md">
-                      <p className="text-sm text-gray-500">No results found</p>
-                    </div>
-                  )}
-                </div>
-              )}
-              
-              {selectedRecipient && (
-                <div className="p-4 border-t border-gray-100">
-                  <Button
-                    onClick={() => setCurrentStage('compose')}
-                    disabled={!hasPermission}
-                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-                  >
-                    Continue
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* Message Composition */}
-        {currentStage === 'compose' && (
-          <div className={`flex-1 flex flex-col ${
-            focusMode ? 'bg-gray-50' : 'p-4'
-          }`}>
-            <div className={`bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col ${
-              focusMode ? 'border-0 shadow-none rounded-none flex-1' : 'mb-4'
-            }`}>
-              {/* Selected recipient banner */}
-              <div className={`flex items-center p-3 border-b border-gray-100 ${
-                focusMode ? 'opacity-0 hover:opacity-100 transition-opacity duration-200' : ''
-              }`}>
-                <div className="flex items-center gap-2 flex-1">
-                  {selectedRecipient && (
-                    <div className="flex items-center gap-2">
-                      {selectedRecipient.avatar_url ? (
-                        <Image 
-                          src={selectedRecipient.avatar_url} 
-                          alt={`${selectedRecipient.first_name} ${selectedRecipient.last_name}`}
-                          width={24}
-                          height={24}
-                          className="rounded-full"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                          <User size={12} className="text-blue-600" />
-                        </div>
-                      )}
-                      <span className="text-sm font-medium">{selectedRecipient.first_name} {selectedRecipient.last_name}</span>
-                    </div>
-                  )}
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                  wordCount > WORD_LIMIT 
-                    ? 'bg-red-100 text-red-700' 
-                    : 'bg-gray-100 text-gray-700'
-                }`}>
-                  <Clock size={12} />
-                  {wordCount}/{WORD_LIMIT}
-                </span>
-              </div>
-              
-              {/* Subject field */}
-              <div className={`p-4 ${focusMode ? 'opacity-0 hover:opacity-100 transition-opacity duration-200' : ''}`}>
-                <Input
-                  type="text"
-                  placeholder="Subject"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="w-full text-lg font-medium border-none p-0 focus:outline-none focus:ring-0 placeholder:text-gray-400"
-                />
-              </div>
-              
-              {/* Message content */}
-              <div className="flex-1 border-t border-gray-100">
-                <Textarea
-                  ref={textareaRef}
-                  placeholder="Write your message here..."
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  className={`h-full min-h-[200px] w-full resize-none border-none focus:ring-0 ${
-                    focusMode ? 'p-8 text-lg' : 'p-4'
-                  }`}
-                />
-                
-                {/* Empty state inspiration - only show when empty and not in focus mode */}
-                {!content && !focusMode && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="text-center p-6 max-w-xs opacity-80">
-                      <p className="text-gray-400 text-sm">
-                        Your message may appear in print. Make it meaningful.
-                      </p>
-                    </div>
+                    ))}
                   </div>
                 )}
+
+                {showSearchResults && searchTerm && searchResults.length === 0 && (
+                  <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', marginTop: 16, textAlign: 'center' }}>
+                    No results found
+                  </p>
+                )}
               </div>
+            )}
+
+            {selectedRecipient && (
+              <div style={{ padding: '12px 16px', borderTop: '1px solid var(--lt-rule)', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setCurrentStage('compose')}
+                  disabled={!hasPermission}
+                  style={{ ...pressStyle('rest', true), opacity: hasPermission ? 1 : 0.4, cursor: hasPermission ? 'pointer' : 'not-allowed' }}
+                >
+                  Continue →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── compose stage ── */}
+      {currentStage === 'compose' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 16px 0' }}>
+          {/* recipient hero */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '0 0 5px' }}>To</p>
+            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--lt-text)', margin: 0 }}>{recipientName}</p>
+          </div>
+
+          <div style={{ background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 16 }}>
+            {/* subject */}
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--lt-rule)' }}>
+              <input
+                type="text"
+                placeholder="Subject"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
+              />
+            </div>
+
+            {/* body */}
+            <div style={{ flex: 1, position: 'relative', padding: '12px 16px 36px' }}>
+              <textarea
+                ref={textareaRef}
+                placeholder="Write your message…"
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                style={{ width: '100%', minHeight: 200, background: 'transparent', border: 'none', outline: 'none', resize: 'none', fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
+              />
+              <span style={{
+                position: 'absolute', bottom: 12, right: 16,
+                fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.04em',
+                color: wordCount > WORD_LIMIT ? 'var(--neon-accent)' : 'var(--neon-amber)',
+                textShadow: wordCount > WORD_LIMIT ? '0 0 8px var(--glow-accent)' : '0 0 8px var(--glow-amber)',
+                opacity: wordCount === 0 ? 0.35 : 1,
+                transition: 'color 0.2s',
+                pointerEvents: 'none',
+              }}>
+                {wordCount} / {WORD_LIMIT}
+              </span>
             </div>
           </div>
-        )}
-      </div>
-      
-      {/* Action Buttons */}
+        </div>
+      )}
+
+      {/* ── action bar ── */}
       {currentStage === 'compose' && (
-        <div className={`sticky bottom-0 bg-white border-t border-gray-200 p-4 grid grid-cols-2 gap-3 ${
-          focusMode ? 'opacity-0 hover:opacity-100 transition-opacity duration-200' : ''
-        }`}>
-          <Button
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--lt-bg)', borderTop: '1px solid var(--lt-rule)', padding: '12px 16px', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button
+            onPointerDown={() => setSavePress('pressing')}
+            onPointerUp={() => releasePress(setSavePress)}
+            onPointerLeave={() => { if (savePress === 'pressing') releasePress(setSavePress); }}
             onClick={handleSaveDraft}
             disabled={!selectedRecipient || !subject || saving || submitting || !hasPermission}
-            className={`bg-white border border-gray-300 hover:bg-gray-50 transition-colors rounded-md py-3 flex items-center justify-center gap-2 shadow-sm ${
-              (!selectedRecipient || !subject || !hasPermission) ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            style={{ ...pressStyle(savePress), opacity: (!selectedRecipient || !subject || !hasPermission) ? 0.4 : 1 }}
           >
-            {saving ? (
-              <span style={{ color: "#374151" }}>Saving...</span>
-            ) : (
-              <>
-                <Save size={16} className="text-gray-600" />
-                <span style={{ color: "#374151" }} className="font-medium">Save Draft</span>
-              </>
-            )}
-          </Button>
-          
-          <Button
+            {saving ? 'Saving…' : 'Save draft'}
+          </button>
+          <button
+            onPointerDown={() => setSubmitPress('pressing')}
+            onPointerUp={() => releasePress(setSubmitPress)}
+            onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
             onClick={handleSubmit}
             disabled={!selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
-            className={`bg-blue-600 hover:bg-blue-700 text-white rounded-md py-3 flex items-center justify-center gap-2 ${
-              (!selectedRecipient || !subject || !content.trim() || !hasPermission) ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
+            style={{ ...pressStyle(submitPress, true), opacity: (!selectedRecipient || !subject || !content.trim() || !hasPermission || wordCount > WORD_LIMIT) ? 0.4 : 1 }}
           >
-            {submitting ? 'Submitting...' : (
-              <>
-                <Send size={16} />
-                <span>Submit</span>
-              </>
-            )}
-          </Button>
+            {submitting ? 'Sending…' : 'Send'}
+          </button>
         </div>
       )}
     </div>
