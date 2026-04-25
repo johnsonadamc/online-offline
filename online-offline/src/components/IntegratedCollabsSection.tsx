@@ -29,6 +29,7 @@ interface CollabsSectionProps {
   selectedCollabs: string[];
   toggleItem: (id: string) => void;
   remainingContent: number;
+  onPrivateCollabMap?: (map: Record<string, string>) => void;
 }
 
 interface City {
@@ -56,6 +57,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   selectedCollabs,
   toggleItem,
   remainingContent,
+  onPrivateCollabMap,
 }) => {
   const supabase = createClientComponentClient();
 
@@ -275,6 +277,16 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     };
     fetchData();
   }, [periodId, supabase, userLocation, fetchCommunityParticipantCounts]);
+
+  // ── Report private collab → template mapping to parent for accurate counting ─
+  useEffect(() => {
+    if (!onPrivateCollabMap) return;
+    const map: Record<string, string> = {};
+    joinedCollabs.forEach(c => {
+      if (c.participation_mode === 'private' && c.template_id) map[c.id] = c.template_id;
+    });
+    onPrivateCollabMap(map);
+  }, [joinedCollabs, onPrivateCollabMap]);
 
   // ── UI helpers ───────────────────────────────────────────────────────────────
   const toggleDesc = (id: string) => setDescOpen(prev => {
@@ -512,7 +524,17 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--lt-text-3)', letterSpacing: '0.04em' }}>
                         {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : `— ${availableCities.length} cities`}
                       </span>
-                      <span style={{ fontSize: 8, color: 'var(--lt-text-3)', marginLeft: 2, transition: 'transform 0.18s ease', display: 'inline-block', transform: isLocalExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+                      <svg
+                        style={{
+                          width: 7, height: 7, flexShrink: 0, marginLeft: 4,
+                          transition: 'transform 0.18s ease, color 0.18s',
+                          transform: isLocalExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                          color: isLocalExpanded ? 'var(--neon-green)' : 'var(--lt-text-3)',
+                        }}
+                        viewBox="0 0 6 10" fill="none"
+                      >
+                        <polyline points="1,1 5,5 1,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
                     </div>
                   </div>
 
