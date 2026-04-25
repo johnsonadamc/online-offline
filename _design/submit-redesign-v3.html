@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>online//offline — Submit v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@300;400;500&family=Courier+Prime:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground:      #252119;
+    --ground-2:    #2e2a20;
+    --ground-3:    #373229;
+    --ground-4:    #413c31;
+    --ground-5:    #4c4639;
+    --paper:       #f0ebe2;
+    --paper-2:     #d8d2c8;
+    --paper-3:     #b0a898;
+    --paper-4:     #857d72;
+    --paper-5:     #554d44;
+    --neon-accent: #e05a28;
+    --neon-green:  #4ec47a;
+    --glow-accent: rgba(224,90,40,0.4);
+    --glow-green:  rgba(78,196,122,0.4);
+    --glow-paper:  rgba(240,235,226,0.15);
+    --rule:        rgba(240,235,226,0.08);
+    --rule-mid:    rgba(240,235,226,0.14);
+    --rule-strong: rgba(240,235,226,0.24);
+    --font-serif:  'Instrument Serif', Georgia, serif;
+    --font-sans:   'Instrument Sans', system-ui, sans-serif;
+    --font-mono:   'Courier Prime', 'Courier New', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ground);
+    font-family: var(--font-sans);
+    color: var(--paper);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .grain {
+    position: fixed; inset: 0; z-index: 999; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='250' height='250'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='250' height='250' filter='url(%23g)' opacity='0.055'/%3E%3C/svg%3E");
+    background-size: 200px; mix-blend-mode: overlay; opacity: 0.7;
+  }
+
+  .reg { position: fixed; bottom: 14px; opacity: 0.18; pointer-events: none; z-index: 998; }
+  .reg.left { left: 14px; }
+  .reg.right { right: 14px; }
+
+  .page {
+    width: 100%; max-width: 390px;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── demo bar ── */
+  .demo-bar {
+    background: rgba(224,90,40,0.06);
+    border-bottom: 1px solid rgba(224,90,40,0.15);
+    padding: 8px 22px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--paper-5);
+    display: flex; gap: 7px; flex-wrap: wrap; align-items: center;
+  }
+  .demo-bar span { color: var(--paper-4); }
+  .demo-btn {
+    padding: 3px 8px; background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; cursor: pointer; color: var(--paper-4);
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .demo-btn:hover { color: var(--paper-2); }
+  .demo-btn.on { color: var(--neon-accent); border-color: rgba(224,90,40,0.4); }
+
+  /* ── header ── */
+  .header {
+    padding: 20px 22px 0;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--ground);
+  }
+  .back-link {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--paper-4); cursor: pointer;
+  }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .status-pill {
+    font-family: var(--font-serif); font-style: italic; font-size: 11px;
+    color: var(--paper-4); transition: color 0.2s;
+  }
+  .status-pill.saving { color: var(--paper-4); }
+  .status-pill.saved  { color: var(--neon-green); text-shadow: 0 0 8px var(--glow-green); }
+  .status-pill.submitted { color: var(--neon-accent); text-shadow: 0 0 8px var(--glow-accent); }
+  .deadline-chip {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--neon-accent); text-shadow: 0 0 6px var(--glow-accent);
+  }
+
+  .thick-rule {
+    height: 1px; margin: 11px 22px 0;
+    background: var(--paper); opacity: 0.8;
+    box-shadow: 0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08);
+  }
+
+  /* ── scroll body ── */
+  .scroll-body { flex: 1; overflow-y: auto; padding-bottom: 8px; }
+
+  /* ── mode selector ── */
+  .mode-wrap { padding: 16px 22px 0; }
+  .mode-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mode-btn {
+    padding: 10px 12px;
+    background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; cursor: pointer; text-align: left;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    user-select: none;
+  }
+  .mode-btn:hover { background: var(--ground-4); }
+  .mode-btn.active {
+    background: rgba(224,90,40,0.08);
+    border-color: rgba(224,90,40,0.35);
+    box-shadow: -3px 0 10px -2px var(--glow-accent);
+  }
+  .mode-btn-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--paper-4); margin-bottom: 2px;
+    transition: color 0.15s;
+  }
+  .mode-btn.active .mode-btn-label {
+    color: var(--neon-accent); text-shadow: 0 0 6px var(--glow-accent);
+  }
+  .mode-btn-desc {
+    font-family: var(--font-sans); font-size: 11px; color: var(--paper-3); font-weight: 300;
+  }
+
+  /* ── title ── */
+  .title-wrap { padding: 18px 22px 0; }
+  .title-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--paper-5); margin-bottom: 5px;
+  }
+  .collection-title {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: var(--font-serif); font-size: 26px;
+    color: var(--paper); opacity: 0.9; line-height: 1.1;
+    caret-color: var(--neon-accent);
+  }
+  .collection-title::placeholder { color: var(--paper-5); opacity: 1; }
+  .title-rule { height: 1px; margin: 12px 22px 0; background: var(--rule-mid); }
+
+  /* ── image area ── */
+  .image-area { margin: 16px 22px 0; }
+
+  .main-viewer {
+    width: 100%; aspect-ratio: 4/3;
+    background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; overflow: hidden; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .main-viewer.spread { aspect-ratio: 3/4; }
+
+  /* upload empty state */
+  .upload-zone {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; width: 100%; height: 100%; cursor: pointer;
+    transition: background 0.15s;
+  }
+  .upload-zone:hover { background: rgba(224,90,40,0.04); }
+  .upload-icon {
+    width: 40px; height: 40px;
+    border: 1px solid var(--rule-mid); border-radius: 2px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--ground-4);
+  }
+  .upload-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--paper-4);
+  }
+  .upload-hint { font-family: var(--font-sans); font-size: 11px; color: var(--paper-5); font-weight: 300; }
+
+  /* filled viewer */
+  .slot-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .slot-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(15,14,11,0.65) 0%, transparent 50%);
+    pointer-events: none; display: none;
+  }
+
+  /* remove button — top right */
+  .slot-remove {
+    position: absolute; top: 8px; right: 8px;
+    width: 26px; height: 26px;
+    background: rgba(15,14,11,0.7); border: 1px solid var(--rule-mid);
+    border-radius: 2px; display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--paper-3);
+    transition: background 0.12s, color 0.12s; z-index: 2;
+  }
+  .slot-remove:hover { background: rgba(224,90,40,0.3); color: var(--paper); }
+
+  /* ★ feature button — bottom left of viewer */
+  .feature-btn {
+    position: absolute; bottom: 8px; left: 8px;
+    font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: none; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 2px;
+    border: 1px solid var(--rule-mid);
+    background: rgba(15,14,11,0.75);
+    cursor: pointer; z-index: 2;
+    color: var(--paper-4);
+    transition: color 0.15s, border-color 0.15s;
+    user-select: none;
+  }
+  .feature-btn.is-feature {
+    color: var(--neon-accent);
+    text-shadow: 0 0 6px var(--glow-accent);
+    border-color: rgba(224,90,40,0.4);
+  }
+  .feature-btn:hover { color: var(--paper-2); border-color: var(--rule-strong); }
+  .feature-btn.is-feature:hover { color: var(--neon-accent); }
+
+  /* nav arrows */
+  .nav-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    width: 28px; height: 28px;
+    background: rgba(15,14,11,0.7); border: 1px solid var(--rule-mid);
+    border-radius: 2px; display: none;
+    align-items: center; justify-content: center;
+    cursor: pointer; color: var(--paper-3); z-index: 2;
+    transition: background 0.12s;
+  }
+  .nav-arrow:hover { background: rgba(15,14,11,0.9); color: var(--paper); }
+  .nav-arrow.left  { left: 8px; }
+  .nav-arrow.right { right: 8px; }
+
+  /* ── filmstrip ── */
+  .filmstrip-row {
+    display: flex; align-items: center; gap: 5px;
+    margin-top: 6px; overflow-x: auto; padding-bottom: 2px;
+  }
+  .filmstrip-row::-webkit-scrollbar { display: none; }
+
+  .film-slot {
+    flex-shrink: 0; width: 48px; height: 48px;
+    background: var(--ground-3); border: 1px solid var(--rule-mid);
+    border-radius: 2px; overflow: hidden; position: relative;
+    cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s;
+  }
+  .film-slot:hover { border-color: var(--rule-strong); }
+  .film-slot.active { border-color: rgba(240,235,226,0.4); }
+  .film-slot.is-feature {
+    border-color: var(--neon-accent);
+    box-shadow: 0 0 6px var(--glow-accent);
+  }
+  .film-slot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .film-star {
+    position: absolute; bottom: 2px; right: 3px;
+    font-size: 8px; color: var(--neon-accent);
+    text-shadow: 0 0 4px var(--glow-accent); line-height: 1;
+  }
+
+  /* image counter badge */
+  .img-counter {
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+    color: var(--paper-5); white-space: nowrap; flex-shrink: 0;
+    margin-left: auto; padding-left: 8px;
+  }
+
+  .film-add {
+    flex-shrink: 0; width: 48px; height: 48px;
+    background: var(--ground-3); border: 1px dashed var(--rule-mid);
+    border-radius: 2px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--paper-5);
+    transition: border-color 0.12s, color 0.12s;
+  }
+  .film-add:hover { border-color: var(--paper-4); color: var(--paper-3); }
+
+  .filmstrip-hint {
+    margin-top: 5px;
+    font-family: var(--font-sans); font-size: 11px;
+    color: var(--paper-5); font-weight: 300; font-style: italic;
+  }
+
+  /* ── per-image metadata ── */
+  .meta-area { margin: 14px 22px 0; }
+
+  .img-title {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: var(--font-serif); font-size: 18px;
+    color: var(--paper-2); line-height: 1.2;
+    caret-color: var(--neon-accent);
+  }
+  .img-title::placeholder { color: var(--paper-5); opacity: 1; }
+
+  .meta-rule-sm { height: 1px; background: var(--rule); margin: 8px 0; }
+  .meta-rule    { height: 1px; background: var(--rule); margin: 10px 0; }
+
+  /* caption + char count */
+  .caption-wrap { position: relative; }
+  .caption-input {
+    width: 100%; background: transparent; border: none; outline: none;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 300;
+    color: var(--paper-4); resize: none; line-height: 1.55;
+    caret-color: var(--neon-accent); min-height: 42px;
+    padding-bottom: 18px; /* room for char count */
+  }
+  .caption-input::placeholder { color: var(--paper-5); }
+  .char-count {
+    position: absolute; bottom: 0; right: 0;
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+    color: var(--paper-5); pointer-events: none;
+    transition: color 0.15s;
+  }
+  .char-count.warn { color: var(--neon-accent); text-shadow: 0 0 4px var(--glow-accent); }
+
+  /* ── tags ── */
+  .tags-section { }
+  .tags-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+  }
+  .tags-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--paper-5); flex-shrink: 0;
+  }
+
+  /* copy tags from image 1 button */
+  .copy-tags-btn {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--paper-5);
+    background: transparent; border: 1px dashed var(--rule-mid);
+    padding: 2px 7px; border-radius: 2px; cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+    display: none; /* shown only on images 2+ */
+  }
+  .copy-tags-btn:hover { color: var(--paper-3); border-color: var(--rule-strong); }
+  .copy-tags-btn.visible { display: inline-flex; align-items: center; gap: 4px; }
+
+  .tags-row {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .tag-pill {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--neon-accent);
+    background: rgba(224,90,40,0.08); border: 1px solid rgba(224,90,40,0.2);
+    padding: 2px 7px; border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .tag-x { opacity: 0.5; cursor: pointer; }
+  .tag-x:hover { opacity: 1; }
+  .tag-add {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--paper-5);
+    background: transparent; border: 1px dashed var(--rule-mid);
+    padding: 2px 7px; border-radius: 2px; cursor: pointer;
+    transition: color 0.12s, border-color 0.12s;
+  }
+  .tag-add:hover { color: var(--paper-3); border-color: var(--rule-strong); }
+
+  .tags-panel {
+    margin-top: 8px; background: var(--ground-3);
+    border: 1px solid var(--rule-mid); border-radius: 2px;
+    padding: 10px; display: none;
+  }
+  .tags-panel.open { display: block; }
+  .tags-panel-label {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--paper-5); margin-bottom: 8px;
+  }
+  .tags-grid { display: flex; flex-wrap: wrap; gap: 5px; max-height: 110px; overflow-y: auto; }
+  .tag-option {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 2px; cursor: pointer;
+    border: 1px solid var(--rule-mid); color: var(--paper-4); background: var(--ground-4);
+    transition: all 0.1s;
+  }
+  .tag-option:hover { color: var(--paper-2); border-color: var(--rule-strong); }
+  .tag-option.selected {
+    color: var(--neon-accent); background: rgba(224,90,40,0.1);
+    border-color: rgba(224,90,40,0.3);
+  }
+
+  /* ── action bar ── */
+  .action-bar {
+    position: sticky; bottom: 0; z-index: 20;
+    padding: 12px 22px 28px;
+    background: var(--ground); border-top: 1px solid var(--rule);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .press-btn {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.14em;
+    text-transform: uppercase; border-radius: 2px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 1px solid var(--rule-mid); border-bottom: 2px solid var(--ground-4);
+    box-shadow: 0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4);
+    transition: transform 0.08s, box-shadow 0.08s, background 0.08s;
+    user-select: none; padding: 9px 16px;
+  }
+  .press-btn:active {
+    transform: translateY(2px);
+    box-shadow: 0 0 0 transparent, 0 1px 3px rgba(0,0,0,0.6);
+    transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .save-btn { background: var(--ground-3); color: var(--paper-3); min-width: 80px; }
+  .save-btn:hover { color: var(--paper-2); }
+  .submit-btn {
+    flex: 1;
+    background: rgba(224,90,40,0.1);
+    border-color: rgba(224,90,40,0.35); border-bottom-color: rgba(224,90,40,0.5);
+    box-shadow: 0 2px 0 rgba(224,90,40,0.3), 0 3px 6px rgba(0,0,0,0.4);
+    color: var(--neon-accent); text-shadow: 0 0 6px var(--glow-accent);
+  }
+  .submit-btn:hover { background: rgba(224,90,40,0.16); }
+
+  /* copy-tags flash animation */
+  @keyframes flashGreen {
+    0%   { border-color: rgba(78,196,122,0.6); color: var(--neon-green); }
+    100% { border-color: var(--rule-mid); color: var(--paper-5); }
+  }
+  .copy-tags-btn.flashed {
+    animation: flashGreen 0.6s ease forwards;
+  }
+</style>
+</head>
+<body>
+
+<div class="grain"></div>
+<svg class="reg left"  width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="none" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="8" y1="0" x2="8" y2="16" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="0" y1="8" x2="16" y2="8" stroke="var(--paper-4)" stroke-width="0.8"/></svg>
+<svg class="reg right" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="4" fill="none" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="8" y1="0" x2="8" y2="16" stroke="var(--paper-4)" stroke-width="0.8"/><line x1="0" y1="8" x2="16" y2="8" stroke="var(--paper-4)" stroke-width="0.8"/></svg>
+
+<div class="page">
+
+  <!-- demo bar -->
+  <div class="demo-bar">
+    <span>Mockup →</span>
+    <button class="demo-btn on" id="dC" onclick="setMode('collection')">Collection</button>
+    <button class="demo-btn"    id="dS" onclick="setMode('spread')">Spread</button>
+    <button class="demo-btn"    id="dI" onclick="toggleImages()">Images: off</button>
+    <button class="demo-btn"    id="dSt" onclick="cycleSave()">Save: idle</button>
+    <button class="demo-btn"    id="dSub" onclick="toggleSubmitted()">Status: draft</button>
+    <button class="demo-btn"    id="dSlide" onclick="nextSlide()" style="display:none">Next image</button>
+  </div>
+
+  <!-- header -->
+  <div class="header">
+    <div class="back-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="15,18 9,12 15,6"/></svg>
+      Dashboard
+    </div>
+    <div class="header-right">
+      <span class="status-pill" id="statusPill">draft</span>
+      <span class="deadline-chip">42d remaining</span>
+    </div>
+  </div>
+
+  <div class="thick-rule"></div>
+
+  <!-- scroll body -->
+  <div class="scroll-body">
+
+    <!-- mode selector -->
+    <div class="mode-wrap">
+      <div class="mode-selector">
+        <div class="mode-btn active" id="btnCollection" onclick="setMode('collection')">
+          <div class="mode-btn-label">Collection</div>
+          <div class="mode-btn-desc">1–8 images, one featured</div>
+        </div>
+        <div class="mode-btn" id="btnSpread" onclick="setMode('spread')">
+          <div class="mode-btn-label">Full Spread</div>
+          <div class="mode-btn-desc">Single image, full page</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- title -->
+    <div class="title-wrap">
+      <div class="title-label" id="titleLabel">Title</div>
+      <input class="collection-title" placeholder="Untitled" />
+    </div>
+    <div class="title-rule"></div>
+
+    <!-- image area -->
+    <div class="image-area">
+      <div class="main-viewer" id="mainViewer">
+
+        <!-- empty -->
+        <div class="upload-zone" id="uploadZone">
+          <div class="upload-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--paper-4)" stroke-width="1.5">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </div>
+          <div class="upload-label">Add image</div>
+          <div class="upload-hint">tap to upload</div>
+        </div>
+
+        <!-- filled -->
+        <img class="slot-img" id="mainImg" src="" alt="">
+        <div class="slot-overlay" id="mainOverlay"></div>
+
+        <!-- remove -->
+        <div class="slot-remove" id="mainRemove" onclick="removeImage()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </div>
+
+        <!-- feature button — replaces double-tap -->
+        <div class="feature-btn" id="featureBtn" onclick="toggleFeature()">
+          <span id="featureStar">☆</span>
+          <span id="featureLabel">set as feature</span>
+        </div>
+
+        <!-- nav -->
+        <div class="nav-arrow left"  id="navL" onclick="navigate(-1)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15,18 9,12 15,6"/></svg>
+        </div>
+        <div class="nav-arrow right" id="navR" onclick="navigate(1)">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9,18 15,12 9,6"/></svg>
+        </div>
+      </div>
+
+      <!-- filmstrip + counter -->
+      <div class="filmstrip-row" id="filmstripRow" style="display:none"></div>
+      <div class="filmstrip-hint" id="filmstripHint" style="display:none">Tap to navigate between images</div>
+    </div>
+
+    <!-- per-image metadata -->
+    <div class="meta-area" id="metaArea">
+      <input class="img-title" id="imgTitle" placeholder="Image title" />
+      <div class="meta-rule-sm"></div>
+      <div class="caption-wrap">
+        <textarea class="caption-input" id="captionInput" placeholder="Add a caption…" rows="2"
+          oninput="updateCharCount(this)"></textarea>
+        <div class="char-count" id="charCount">0</div>
+      </div>
+      <div class="meta-rule"></div>
+
+      <!-- tags -->
+      <div class="tags-section">
+        <div class="tags-header">
+          <span class="tags-label">Themes</span>
+          <!-- copy from image 1 — shown on images 2+ -->
+          <button class="copy-tags-btn" id="copyTagsBtn" onclick="copyTagsFromFirst()">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy from image 1
+          </button>
+        </div>
+        <div class="tags-row" id="tagsRow">
+          <span class="tag-pill" data-tag="Photography">Photography <span class="tag-x" onclick="removeTagPill(this)">×</span></span>
+          <span class="tag-pill" data-tag="Urban">Urban <span class="tag-x" onclick="removeTagPill(this)">×</span></span>
+          <button class="tag-add" onclick="toggleTagsPanel()">+ add</button>
+        </div>
+        <div class="tags-panel" id="tagsPanel">
+          <div class="tags-panel-label">Select themes</div>
+          <div class="tags-grid" id="tagsGrid"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end scroll-body -->
+
+  <!-- action bar -->
+  <div class="action-bar">
+    <button class="press-btn save-btn" id="saveBtn" onclick="simulateSave()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+        <polyline points="17,21 17,13 7,13 7,21"/>
+        <polyline points="7,3 7,8 15,8"/>
+      </svg>
+      <span id="saveBtnLabel">Save</span>
+    </button>
+    <button class="press-btn submit-btn">
+      Submit
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22,2 15,22 11,13 2,9"/>
+      </svg>
+    </button>
+  </div>
+
+</div>
+
+<script>
+  const themes = ['Photography','Music','Art','Family','Nature','Travel','Food','Sports','Architecture','Fashion','Literature','Film','Street Life','Portrait','Urban'];
+
+  // demo placeholder images
+  const demos = [
+    'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#2a1f1a"/><text x="200" y="155" font-family="Georgia" font-style="italic" font-size="16" fill="#5a4035" text-anchor="middle">image 1</text></svg>'),
+    'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#1a1f2a"/><text x="200" y="155" font-family="Georgia" font-style="italic" font-size="16" fill="#354050" text-anchor="middle">image 2</text></svg>'),
+    'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="400" height="300" fill="#1a2a1f"/><text x="200" y="155" font-family="Georgia" font-style="italic" font-size="16" fill="#304530" text-anchor="middle">image 3</text></svg>'),
+  ];
+
+  // per-image data
+  const imageData = demos.map((_, i) => ({
+    title: '',
+    caption: '',
+    tags: i === 0 ? ['Photography', 'Urban'] : [],
+    isFeature: i === 0,
+  }));
+
+  let mode = 'collection';
+  let hasImages = false;
+  let isSubmitted = false;
+  let currentSlide = 0;
+  let tagsOpen = false;
+  let saveState = 'idle'; // idle | saving | saved
+
+  // ── save simulation ──
+  function simulateSave() {
+    if (saveState === 'saving') return;
+    saveState = 'saving';
+    updateSaveBtn();
+    const pill = document.getElementById('statusPill');
+    if (!isSubmitted) { pill.textContent = 'saving…'; pill.className = 'status-pill saving'; }
+    setTimeout(() => {
+      saveState = 'saved';
+      updateSaveBtn();
+      if (!isSubmitted) { pill.textContent = 'saved'; pill.className = 'status-pill saved'; }
+      setTimeout(() => {
+        saveState = 'idle';
+        updateSaveBtn();
+        if (!isSubmitted) { pill.textContent = 'draft'; pill.className = 'status-pill'; }
+      }, 1800);
+    }, 900);
+  }
+
+  function cycleSave() {
+    simulateSave();
+    const btn = document.getElementById('dSt');
+    btn.textContent = 'Save: saving…';
+    btn.className = 'demo-btn on';
+    setTimeout(() => { btn.textContent = 'Save: saved'; }, 900);
+    setTimeout(() => { btn.textContent = 'Save: idle'; btn.className = 'demo-btn'; }, 2700);
+  }
+
+  function updateSaveBtn() {
+    const label = document.getElementById('saveBtnLabel');
+    label.textContent = saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save';
+  }
+
+  // ── mode ──
+  function setMode(m) {
+    mode = m;
+    document.getElementById('btnCollection').className = 'mode-btn' + (m === 'collection' ? ' active' : '');
+    document.getElementById('btnSpread').className     = 'mode-btn' + (m === 'spread'     ? ' active' : '');
+    document.getElementById('dC').className = 'demo-btn' + (m === 'collection' ? ' on' : '');
+    document.getElementById('dS').className = 'demo-btn' + (m === 'spread'     ? ' on' : '');
+    render();
+  }
+
+  // ── images ──
+  function toggleImages() {
+    hasImages = !hasImages;
+    currentSlide = 0;
+    const btn = document.getElementById('dI');
+    btn.textContent = 'Images: ' + (hasImages ? 'on' : 'off');
+    btn.className = 'demo-btn' + (hasImages ? ' on' : '');
+    document.getElementById('dSlide').style.display = (hasImages && mode === 'collection') ? 'inline-block' : 'none';
+    render();
+  }
+
+  function nextSlide() {
+    if (!hasImages) return;
+    currentSlide = (currentSlide + 1) % demos.length;
+    render();
+  }
+
+  function navigate(dir) {
+    currentSlide = Math.max(0, Math.min(demos.length - 1, currentSlide + dir));
+    render();
+  }
+
+  function removeImage() {
+    hasImages = false;
+    document.getElementById('dI').textContent = 'Images: off';
+    document.getElementById('dI').className = 'demo-btn';
+    document.getElementById('dSlide').style.display = 'none';
+    render();
+  }
+
+  // ── feature ──
+  function toggleFeature() {
+    if (imageData[currentSlide].isFeature) return; // already feature, no-op
+    imageData.forEach((d, i) => d.isFeature = i === currentSlide);
+    render();
+  }
+
+  // ── submitted ──
+  function toggleSubmitted() {
+    isSubmitted = !isSubmitted;
+    const btn = document.getElementById('dSub');
+    btn.textContent = 'Status: ' + (isSubmitted ? 'submitted' : 'draft');
+    btn.className = 'demo-btn' + (isSubmitted ? ' on' : '');
+    const pill = document.getElementById('statusPill');
+    pill.textContent = isSubmitted ? 'submitted' : 'draft';
+    pill.className = 'status-pill' + (isSubmitted ? ' submitted' : '');
+    render();
+  }
+
+  // ── char count ──
+  function updateCharCount(ta) {
+    const count = document.getElementById('charCount');
+    const len = ta.value.length;
+    count.textContent = len;
+    count.className = 'char-count' + (len > 200 ? ' warn' : '');
+  }
+
+  // ── tags ──
+  function toggleTagsPanel() {
+    tagsOpen = !tagsOpen;
+    document.getElementById('tagsPanel').className = 'tags-panel' + (tagsOpen ? ' open' : '');
+  }
+
+  function removeTagPill(x) { x.parentElement.remove(); }
+
+  function copyTagsFromFirst() {
+    // In mockup: flash the button and add tags from image 1
+    const btn = document.getElementById('copyTagsBtn');
+    btn.className = btn.className + ' flashed';
+    setTimeout(() => btn.className = btn.className.replace(' flashed',''), 700);
+
+    // add image 1's tags to the tags row (mock)
+    const row = document.getElementById('tagsRow');
+    const addBtn = row.querySelector('.tag-add');
+    const existing = Array.from(row.querySelectorAll('[data-tag]')).map(el => el.dataset.tag);
+    const firstTags = imageData[0].tags;
+    firstTags.forEach(tag => {
+      if (!existing.includes(tag)) {
+        const pill = document.createElement('span');
+        pill.className = 'tag-pill';
+        pill.dataset.tag = tag;
+        pill.innerHTML = tag + ' <span class="tag-x" onclick="removeTagPill(this)">×</span>';
+        row.insertBefore(pill, addBtn);
+      }
+    });
+  }
+
+  function buildTagsGrid() {
+    const grid = document.getElementById('tagsGrid');
+    grid.innerHTML = '';
+    themes.forEach(t => {
+      const btn = document.createElement('button');
+      const active = imageData[currentSlide]?.tags?.includes(t);
+      btn.className = 'tag-option' + (active ? ' selected' : '');
+      btn.textContent = t;
+      btn.onclick = () => {
+        const tags = imageData[currentSlide].tags;
+        const idx = tags.indexOf(t);
+        if (idx > -1) tags.splice(idx, 1); else tags.push(t);
+        btn.className = 'tag-option' + (tags.includes(t) ? ' selected' : '');
+      };
+      grid.appendChild(btn);
+    });
+  }
+
+  // ── filmstrip ──
+  function buildFilmstrip() {
+    const row  = document.getElementById('filmstripRow');
+    const hint = document.getElementById('filmstripHint');
+    row.innerHTML = '';
+
+    if (!hasImages || mode === 'spread') {
+      row.style.display  = 'none';
+      hint.style.display = 'none';
+      return;
+    }
+    row.style.display  = 'flex';
+    hint.style.display = 'block';
+
+    demos.forEach((src, i) => {
+      const slot = document.createElement('div');
+      let cls = 'film-slot';
+      if (i === currentSlide) cls += ' active';
+      if (imageData[i].isFeature) cls += ' is-feature';
+      slot.className = cls;
+      const img = document.createElement('img');
+      img.src = src; slot.appendChild(img);
+      if (imageData[i].isFeature) {
+        const star = document.createElement('div');
+        star.className = 'film-star'; star.textContent = '★'; slot.appendChild(star);
+      }
+      slot.onclick = () => { currentSlide = i; render(); };
+      row.appendChild(slot);
+    });
+
+    // counter
+    const counter = document.createElement('div');
+    counter.className = 'img-counter';
+    counter.textContent = (currentSlide + 1) + ' / ' + demos.length;
+    row.appendChild(counter);
+
+    // add button
+    if (!isSubmitted && demos.length < 8) {
+      const add = document.createElement('div');
+      add.className = 'film-add';
+      add.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+      row.appendChild(add);
+    }
+  }
+
+  // ── main render ──
+  function render() {
+    const viewer     = document.getElementById('mainViewer');
+    const uploadZone = document.getElementById('uploadZone');
+    const mainImg    = document.getElementById('mainImg');
+    const mainOverlay= document.getElementById('mainOverlay');
+    const mainRemove = document.getElementById('mainRemove');
+    const featureBtn = document.getElementById('featureBtn');
+    const featureStar= document.getElementById('featureStar');
+    const featureLbl = document.getElementById('featureLabel');
+    const navL       = document.getElementById('navL');
+    const navR       = document.getElementById('navR');
+    const metaArea   = document.getElementById('metaArea');
+    const imgTitle   = document.getElementById('imgTitle');
+    const copyBtn    = document.getElementById('copyTagsBtn');
+
+    // viewer shape
+    viewer.className = 'main-viewer' + (mode === 'spread' ? ' spread' : '');
+
+    if (hasImages) {
+      uploadZone.style.display  = 'none';
+      mainImg.style.display     = 'block';
+      mainOverlay.style.display = 'block';
+      mainImg.src = demos[currentSlide];
+
+      // remove
+      mainRemove.style.display = isSubmitted ? 'none' : 'flex';
+
+      // feature button
+      const isFeat = imageData[currentSlide].isFeature;
+      if (mode === 'collection') {
+        featureBtn.style.display = 'flex';
+        featureBtn.className = 'feature-btn' + (isFeat ? ' is-feature' : '');
+        featureStar.textContent = isFeat ? '★' : '☆';
+        featureLbl.textContent  = isFeat ? 'feature image' : 'set as feature';
+      } else {
+        featureBtn.style.display = 'none';
+      }
+
+      // nav arrows — collection only, multi-image
+      if (mode === 'collection' && demos.length > 1) {
+        navL.style.display = currentSlide > 0 ? 'flex' : 'none';
+        navR.style.display = currentSlide < demos.length - 1 ? 'flex' : 'none';
+      } else {
+        navL.style.display = navR.style.display = 'none';
+      }
+
+      // meta area fully visible
+      metaArea.style.opacity = '1';
+      imgTitle.placeholder = 'Image ' + (currentSlide + 1) + ' title';
+
+      // copy tags button — only on images 2+
+      copyBtn.className = 'copy-tags-btn' + (currentSlide > 0 ? ' visible' : '');
+
+    } else {
+      uploadZone.style.display  = 'flex';
+      mainImg.style.display     = 'none';
+      mainOverlay.style.display = 'none';
+      mainRemove.style.display  = 'none';
+      featureBtn.style.display  = 'none';
+      navL.style.display = navR.style.display = 'none';
+      metaArea.style.opacity = '0.4';
+      imgTitle.placeholder = 'Image title';
+      copyBtn.className = 'copy-tags-btn';
+    }
+
+    // title label
+    document.getElementById('titleLabel').textContent = mode === 'spread' ? 'Title' : 'Collection title';
+
+    // next-image demo button
+    document.getElementById('dSlide').style.display = (hasImages && mode === 'collection') ? 'inline-block' : 'none';
+
+    buildFilmstrip();
+    buildTagsGrid();
+  }
+
+  // init
+  render();
+</script>
+</body>
+</html>
