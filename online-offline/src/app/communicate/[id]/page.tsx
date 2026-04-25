@@ -12,6 +12,8 @@ interface Profile {
   first_name: string;
   last_name: string;
   avatar_url?: string;
+  bio?: string;
+  city?: string;
 }
 
 type PressState = 'rest' | 'pressing' | 'releasing';
@@ -103,7 +105,7 @@ export default function CommunicateEditorPage() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, is_public')
+        .select('id, first_name, last_name, avatar_url, is_public, bio, city')
         .or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`)
         .limit(10);
       if (error) { setError('Search failed: ' + error.message); return; }
@@ -332,25 +334,27 @@ export default function CommunicateEditorPage() {
                 </div>
 
                 {showSearchResults && searchResults.length > 0 && (
-                  <div style={{ marginTop: 6 }}>
+                  <div style={{ marginTop: 8 }}>
                     {searchResults.map(p => (
                       <div
                         key={p.id}
                         onClick={() => selectRecipient(p)}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid var(--lt-rule)' }}
+                        style={{ padding: '14px 0', borderTop: '1px solid var(--rule)', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}
                       >
-                        {p.avatar_url ? (
-                          <img src={p.avatar_url} alt={`${p.first_name} ${p.last_name}`} width={28} height={28} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }} />
-                        ) : (
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(224,168,48,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--neon-amber)' }}>
-                              {(p.first_name?.[0] ?? '') + (p.last_name?.[0] ?? '')}
-                            </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>to</span>
+                            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(224,168,48,0.25), transparent)' }} />
                           </div>
-                        )}
-                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text-2)' }}>
-                          {p.first_name} {p.last_name}
-                        </span>
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
+                            {p.first_name} {p.last_name}
+                          </div>
+                          {(p.city || p.bio) && (
+                            <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>
+                              {p.city || (p.bio && p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio)}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
