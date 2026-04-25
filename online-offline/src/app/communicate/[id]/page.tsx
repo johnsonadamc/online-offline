@@ -3,7 +3,6 @@
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import Image from 'next/image';
 import Link from 'next/link';
 import { saveCommunication } from '@/lib/supabase/communications';
 import { canCommunicateWith } from '@/lib/supabase/profiles';
@@ -297,9 +296,7 @@ export default function CommunicateEditorPage() {
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   {selectedRecipient.avatar_url ? (
-                    <div style={{ position: 'relative', width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                      <Image src={selectedRecipient.avatar_url} alt={recipientName} fill sizes="36px" style={{ objectFit: 'cover' }} />
-                    </div>
+                    <img src={selectedRecipient.avatar_url} alt={recipientName} width={36} height={36} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }} />
                   ) : (
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(224,168,48,0.12)', border: '1px solid rgba(224,168,48,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--neon-amber)' }}>
@@ -343,9 +340,7 @@ export default function CommunicateEditorPage() {
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 4px', cursor: 'pointer', borderBottom: '1px solid var(--lt-rule)' }}
                       >
                         {p.avatar_url ? (
-                          <div style={{ position: 'relative', width: 28, height: 28, borderRadius: '50%', overflow: 'hidden', flexShrink: 0 }}>
-                            <Image src={p.avatar_url} alt={`${p.first_name} ${p.last_name}`} fill sizes="28px" style={{ objectFit: 'cover' }} />
-                          </div>
+                          <img src={p.avatar_url} alt={`${p.first_name} ${p.last_name}`} width={28} height={28} style={{ borderRadius: '50%', objectFit: 'cover', flexShrink: 0, display: 'block' }} />
                         ) : (
                           <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(224,168,48,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--neon-amber)' }}>
