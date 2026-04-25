@@ -33,6 +33,7 @@ interface CurrentPeriod {
 type ParticipationMode = 'community' | 'local' | 'private';
 
 type ErrorState = { message: string; isVisible: boolean };
+type PressState = 'rest' | 'pressing' | 'releasing';
 
 export default function CollabsLibrary() {
   const router = useRouter();
@@ -44,6 +45,8 @@ export default function CollabsLibrary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [profileResults, setProfileResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelPress, setCancelPress] = useState<PressState>('rest');
+  const [sendPress, setSendPress] = useState<PressState>('rest');
   const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
   const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({ id: '', season: 'Spring', year: 2025 });
 
@@ -239,6 +242,45 @@ export default function CollabsLibrary() {
     );
   };
 
+  const releasePress = (set: (s: PressState) => void) => {
+    set('releasing');
+    setTimeout(() => set('rest'), 220);
+  };
+
+  const pressStyle = (state: PressState, purple = false): React.CSSProperties => ({
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 7,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 10,
+    fontWeight: 700,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: purple ? 'var(--neon-purple)' : (state === 'rest' ? 'var(--paper-3)' : 'var(--neon-accent)'),
+    textShadow: purple ? '0 0 6px var(--glow-purple)' : 'none',
+    padding: '9px 20px',
+    background: state === 'pressing'
+      ? (purple ? 'rgba(168,136,232,0.2)' : 'rgba(224,90,40,0.18)')
+      : (purple ? 'rgba(168,136,232,0.1)' : 'var(--ground-3)'),
+    border: `1px solid ${state !== 'rest'
+      ? (purple ? 'rgba(168,136,232,0.5)' : 'rgba(224,90,40,0.5)')
+      : (purple ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)')}`,
+    borderBottom: `2px solid ${state === 'pressing'
+      ? (purple ? 'rgba(168,136,232,0.6)' : 'rgba(224,90,40,0.6)')
+      : (purple ? 'rgba(168,136,232,0.45)' : 'var(--ground-4)')}`,
+    borderRadius: 2,
+    cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent',
+    transform: state === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
+    boxShadow: state === 'pressing' ? 'none'
+      : purple
+        ? '0 2px 0 rgba(168,136,232,0.2), 0 0 14px rgba(168,136,232,0.06)'
+        : '0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4)',
+    transition: state === 'releasing'
+      ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, background 0.3s'
+      : 'transform 0.08s cubic-bezier(0.4,0,0.6,1), box-shadow 0.08s, background 0.08s',
+  });
+
   const typeStyle: Record<string, { color: string; bg: string; border: string }> = {
     chain:     { color: 'rgba(129,140,248,0.9)', bg: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.25)' },
     theme:     { color: 'rgba(245,169,63,0.9)',  bg: 'rgba(245,169,63,0.08)',  border: 'rgba(245,169,63,0.25)'  },
@@ -377,10 +419,10 @@ export default function CollabsLibrary() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
           <div style={{ background: 'var(--ground-2)', border: '1px solid var(--rule-mid)', borderRadius: 2, width: '100%', maxWidth: 480 }}>
             {/* Modal header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-mid)', background: 'var(--ground-3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ color: 'var(--neon-purple)', flexShrink: 0 }}><rect x="2" y="5.5" width="9" height="7" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M4 5.5V3.5C4 2.1 5.1 1 6.5 1C7.9 1 9 2.1 9 3.5V5.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(167,139,250,0.9)' }}>Private Collab: {selectedCollabTitle}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Private Collab: {selectedCollabTitle}</span>
               </div>
               <button onClick={() => setShowInviteDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-3)', opacity: 0.6, padding: 2 }}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
@@ -396,8 +438,8 @@ export default function CollabsLibrary() {
                   placeholder="Search contributors…"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
+                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box', caretColor: 'var(--neon-purple)' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,136,232,0.5)'; }}
                   onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
                 />
               </div>
@@ -406,8 +448,8 @@ export default function CollabsLibrary() {
               {selectedUsers.length > 0 && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2 }}>
                   {selectedUsers.map(u => (
-                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.25)', borderRadius: 2, padding: '3px 8px' }}>
-                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'rgba(167,139,250,0.9)' }}>{u.name}</span>
+                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.25)', borderRadius: 2, padding: '3px 8px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)' }}>{u.name}</span>
                       <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(167,139,250,0.7)', padding: 0, display: 'flex', lineHeight: 0 }}><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M3 3L8 8M8 3L3 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg></button>
                     </div>
                   ))}
@@ -415,40 +457,53 @@ export default function CollabsLibrary() {
               )}
 
               {/* Results list */}
-              <div style={{ border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', maxHeight: 220, overflowY: 'auto' }}>
-                {profileResults.map(u => {
+              {profileResults.length > 0 && (
+                <div style={{ border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
+                  {profileResults.map(u => {
                     const isSelected = !!selectedUsers.find(s => s.id === u.id);
                     return (
                       <div
                         key={u.id}
                         onClick={() => toggleUser(u)}
-                        style={{ padding: '10px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', borderBottom: '1px solid var(--rule-mid)', background: isSelected ? 'rgba(167,139,250,0.06)' : 'transparent' }}
+                        style={{
+                          padding: '14px 14px',
+                          borderTop: '1px solid var(--rule)',
+                          cursor: 'pointer',
+                          background: isSelected ? 'rgba(168,136,232,0.05)' : 'transparent',
+                          borderLeft: isSelected ? '2px solid var(--neon-purple)' : '2px solid transparent',
+                          boxShadow: isSelected ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
+                        }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 28, height: 28, borderRadius: 2, background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)' }}>
-                            {u.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{u.name}</div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6 }}>{u.bio}</div>
-                          </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>to</span>
+                          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, rgba(168,136,232,0.25), transparent)' }} />
                         </div>
-                        <div style={{ width: 18, height: 18, borderRadius: '50%', border: `1px solid ${isSelected ? 'rgba(167,139,250,0.6)' : 'var(--rule-mid)'}`, background: isSelected ? 'rgba(167,139,250,0.2)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {isSelected && <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 5L4.5 7.5L8 3" stroke="rgba(167,139,250,0.9)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                        </div>
+                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: 3 }}>{u.name}</div>
+                        {u.bio && <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: 12, color: 'var(--paper-4)' }}>{u.bio.length > 60 ? u.bio.slice(0, 60) + '…' : u.bio}</div>}
                       </div>
                     );
                   })}
-              </div>
+                </div>
+              )}
 
               {/* Modal actions */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
-                <button onClick={() => setShowInviteDialog(false)} className="press-btn" style={{ padding: '9px 16px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Cancel</button>
                 <button
+                  onPointerDown={() => setCancelPress('pressing')}
+                  onPointerUp={() => releasePress(setCancelPress)}
+                  onPointerLeave={() => { if (cancelPress === 'pressing') releasePress(setCancelPress); }}
+                  onClick={() => setShowInviteDialog(false)}
+                  style={pressStyle(cancelPress)}
+                >
+                  Cancel
+                </button>
+                <button
+                  onPointerDown={() => setSendPress('pressing')}
+                  onPointerUp={() => releasePress(setSendPress)}
+                  onPointerLeave={() => { if (sendPress === 'pressing') releasePress(setSendPress); }}
                   onClick={createPrivateCollab}
                   disabled={selectedUsers.length === 0}
-                  className="press-btn-green"
-                  style={{ padding: '9px 16px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: selectedUsers.length === 0 ? 0.4 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
+                  style={{ ...pressStyle(sendPress, true), opacity: selectedUsers.length === 0 ? 0.4 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
                 >
                   Send Invites ({selectedUsers.length})
                 </button>
