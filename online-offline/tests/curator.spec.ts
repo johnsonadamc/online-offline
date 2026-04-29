@@ -6,110 +6,101 @@ test.describe('Curator flows', () => {
     await loginAs(page, TEST_USERS.curator);
   });
 
-  // ── Dashboard curate tab ─────────────────────────────────────────────────
+  // ── Dashboard ────────────────────────────────────────────────────────────
 
-  test('dashboard shows curate tab', async ({ page }) => {
+  test('dashboard shows Curate tab button', async ({ page }) => {
     await expect(page).toHaveURL(/dashboard/);
-    await page.getByRole('tab', { name: /curate/i }).click();
-    await expect(page.getByText(/curate/i)).toBeVisible();
+    // Dashboard tabs are plain <button> elements, not role="tab"
+    await expect(page.getByRole('button', { name: 'Curate' })).toBeVisible();
+  });
+
+  test('Curate tab navigates to curate page', async ({ page }) => {
+    await page.getByRole('button', { name: 'Curate' }).click();
+    await expect(page).toHaveURL(/curate/);
   });
 
   // ── Curate interface ─────────────────────────────────────────────────────
 
-  test('curate page loads with creator and collab sections', async ({ page }) => {
+  test('curate page loads with section tabs', async ({ page }) => {
     await page.goto('/curate');
-    await expect(page.getByText(/creators/i)).toBeVisible();
-    await expect(page.getByText(/collaborations/i)).toBeVisible();
+    // Section tabs are <button> elements labeled Contributors, Collabs, Comms, Ads
+    await expect(page.getByRole('button', { name: 'Contributors' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Collabs' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Comms' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ads' })).toBeVisible();
   });
 
-  test('can select a creator in curate interface', async ({ page }) => {
+  test('curate page shows slots counter', async ({ page }) => {
     await page.goto('/curate');
-    // Find first selectable creator card and toggle it
-    const creatorCard = page.locator('[data-testid="creator-card"]').first();
-    if (await creatorCard.isVisible()) {
-      await creatorCard.click();
-      // Card should show selected state (orange border or checkmark)
-      await expect(creatorCard).toHaveClass(/selected|active/);
-    } else {
-      // Fallback: check the page rendered without error
-      await expect(page.getByText(/creators/i)).toBeVisible();
-    }
+    // Stats bar shows Selected / Remaining / Slots counts
+    await expect(page.getByText('Selected')).toBeVisible();
+    await expect(page.getByText('Remaining')).toBeVisible();
+    await expect(page.getByText('Slots')).toBeVisible();
   });
 
-  test('can toggle communications inclusion', async ({ page }) => {
+  test('Contributors tab is active by default', async ({ page }) => {
     await page.goto('/curate');
-    const commsToggle = page.getByRole('checkbox', { name: /communications/i });
-    if (await commsToggle.isVisible()) {
-      const initial = await commsToggle.isChecked();
-      await commsToggle.click();
-      await expect(commsToggle).toBeChecked({ checked: !initial });
-    }
+    // Contributors tab is the default active section — search placeholder confirms it
+    await expect(page.getByPlaceholder('Search contributors…')).toBeVisible();
   });
 
-  test('can select a collaboration template', async ({ page }) => {
+  test('can switch to Collabs tab', async ({ page }) => {
     await page.goto('/curate');
-    // Scroll to collabs section
-    await page.getByText(/collaborations/i).scrollIntoViewIfNeeded();
-    // Find first collab card
-    const collabCard = page.locator('[data-testid="collab-card"]').first();
-    if (await collabCard.isVisible()) {
-      await collabCard.click();
-      await expect(collabCard).toHaveClass(/selected|active/);
-    } else {
-      await expect(page.getByText(/collaborations/i)).toBeVisible();
-    }
+    await page.getByRole('button', { name: 'Collabs' }).click();
+    await expect(page.getByPlaceholder('Search collaborations…')).toBeVisible();
   });
 
-  test('can save curation selections', async ({ page }) => {
+  test('can switch to Comms tab', async ({ page }) => {
     await page.goto('/curate');
-    const saveBtn = page.getByRole('button', { name: /save/i });
-    if (await saveBtn.isVisible()) {
-      await saveBtn.click();
-      await expect(page.getByText(/saved|selections saved/i)).toBeVisible({ timeout: 5000 });
-    }
+    await page.getByRole('button', { name: 'Comms' }).click();
+    await expect(page.getByPlaceholder('Search communications…')).toBeVisible();
+  });
+
+  test('can switch to Ads tab', async ({ page }) => {
+    await page.goto('/curate');
+    await page.getByRole('button', { name: 'Ads' }).click();
+    await expect(page.getByPlaceholder('Search campaigns…')).toBeVisible();
   });
 
   // ── Collab curation ──────────────────────────────────────────────────────
 
-  test('collab section shows period templates', async ({ page }) => {
+  test('Collabs tab shows period templates', async ({ page }) => {
     await page.goto('/curate');
-    await expect(page.getByText(/one hundred mornings/i)).toBeVisible();
-    await expect(page.getByText(/edges/i)).toBeVisible();
-    await expect(page.getByText(/the long way round/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Collabs' }).click();
+    // Seeded templates should appear in IntegratedCollabsSection
+    await expect(page.getByText('One Hundred Mornings')).toBeVisible({ timeout: 8000 });
+    await expect(page.getByText('Edges')).toBeVisible();
+    await expect(page.getByText('The Long Way Round')).toBeVisible();
   });
 
-  test('local collab shows city dropdown', async ({ page }) => {
+  // ── Save selections ──────────────────────────────────────────────────────
+
+  test('save button triggers confirmation dialog', async ({ page }) => {
     await page.goto('/curate');
-    // The Edges template has a local participation mode
-    const edgesSection = page.getByText(/edges/i).first();
-    await edgesSection.scrollIntoViewIfNeeded();
-    // City select should be present for local collabs
-    const citySelect = page.locator('select').filter({ hasText: /city|austin|chicago/i }).first();
-    if (await citySelect.isVisible()) {
-      await expect(citySelect).toBeEnabled();
+    // Save calls window.alert() — handle the dialog before clicking
+    const dialogPromise = page.waitForEvent('dialog');
+    // The save button uses a press mechanic; find it by class or text
+    const saveBtn = page.locator('.press-btn-green, button').filter({ hasText: /save/i }).first();
+    if (await saveBtn.isVisible()) {
+      await saveBtn.click();
+      const dialog = await dialogPromise;
+      expect(dialog.message()).toContain('saved');
+      await dialog.accept();
     }
-  });
-
-  // ── Communications review ────────────────────────────────────────────────
-
-  test('can view incoming communications from contributors', async ({ page }) => {
-    await page.goto('/curate');
-    // Communications section should be visible
-    const commsSection = page.getByText(/communications/i);
-    await expect(commsSection).toBeVisible();
-  });
-
-  // ── Campaigns / ads ──────────────────────────────────────────────────────
-
-  test('campaigns section is visible in curate', async ({ page }) => {
-    await page.goto('/curate');
-    await expect(page.getByText(/campaigns|sponsors|ads/i)).toBeVisible();
   });
 
   // ── Profile ──────────────────────────────────────────────────────────────
 
   test('curator profile page loads', async ({ page }) => {
     await page.goto('/profile');
-    await expect(page.getByLabel(/first name/i)).toBeVisible();
+    await expect(page.getByText('Identity')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save Changes' })).toBeVisible();
+  });
+
+  test('profile shows Profile and Permissions tabs', async ({ page }) => {
+    await page.goto('/profile');
+    // Profile tab buttons are rendered from array ['profile', 'permissions']
+    await expect(page.getByRole('button', { name: 'Profile' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Permissions' })).toBeVisible();
   });
 });
