@@ -44,6 +44,9 @@ export default function CommunicateEditorPage() {
   const [currentStage, setCurrentStage] = useState<'recipient' | 'compose'>('recipient');
   const [submitPress, setSubmitPress] = useState<PressState>('rest');
   const [savePress, setSavePress] = useState<PressState>('rest');
+  const [isReadOnly, setIsReadOnly] = useState(false);
+  const [withdrawPress, setWithdrawPress] = useState<PressState>('rest');
+  const [withdrawing, setWithdrawing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const WORD_LIMIT = 250;
@@ -62,9 +65,7 @@ export default function CommunicateEditorPage() {
         if (error) throw error;
         if (data) {
           if (data.status !== 'draft') {
-            setError('This communication cannot be edited anymore');
-            router.push('/dashboard');
-            return;
+            setIsReadOnly(true);
           }
           setSubject(data.subject || '');
           setContent(data.content || '');
@@ -189,6 +190,23 @@ export default function CommunicateEditorPage() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!communicationId) return;
+    setWithdrawing(true); setError(null);
+    try {
+      const { error: updateErr } = await supabase
+        .from('communications')
+        .update({ status: 'draft' })
+        .eq('id', communicationId);
+      if (updateErr) throw updateErr;
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to withdraw');
+    } finally {
+      setWithdrawing(false);
+    }
+  };
+
   // ── press mechanic style helper ──────────────────────────────────────────────
   const pressStyle = (state: PressState, amber = false): React.CSSProperties => ({
     display: 'inline-flex',
@@ -248,7 +266,7 @@ export default function CommunicateEditorPage() {
 
       {/* ── header ── */}
       <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--lt-bg)', borderBottom: '1px solid var(--lt-rule)', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        {currentStage === 'recipient' || !selectedRecipient ? (
+        {currentStage === 'recipient' || !selectedRecipient || isReadOnly ? (
           <Link href="/dashboard" style={{ color: 'var(--lt-text-3)', lineHeight: 0, display: 'block' }}>
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
               <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -271,11 +289,11 @@ export default function CommunicateEditorPage() {
         )}
         <div>
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: 'var(--lt-text-2)' }}>
-            {communicationId ? 'Edit message' : 'New message'}
+            {isReadOnly ? 'Message' : communicationId ? 'Edit message' : 'New message'}
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--neon-amber)', boxShadow: '0 0 6px var(--glow-amber)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>Draft</span>
+            <div style={{ width: 5, height: 5, borderRadius: '50%', background: isReadOnly ? 'var(--neon-accent)' : 'var(--neon-amber)', boxShadow: isReadOnly ? '0 0 6px var(--glow-accent)' : '0 0 6px var(--glow-amber)' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>{isReadOnly ? 'Sent' : 'Draft'}</span>
           </div>
         </div>
       </header>
@@ -372,6 +390,7 @@ export default function CommunicateEditorPage() {
                 placeholder="Subject"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
+                readOnly={isReadOnly}
                 style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
               />
             </div>
@@ -383,6 +402,7 @@ export default function CommunicateEditorPage() {
                 placeholder="Write your message…"
                 value={content}
                 onChange={e => setContent(e.target.value)}
+                readOnly={isReadOnly}
                 style={{ width: '100%', minHeight: 200, background: 'transparent', border: 'none', outline: 'none', resize: 'none', fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
               />
               <span style={{
@@ -403,27 +423,45 @@ export default function CommunicateEditorPage() {
 
       {/* ── action bar ── */}
       {currentStage === 'compose' && (
-        <div style={{ position: 'sticky', bottom: 0, background: 'var(--lt-bg)', borderTop: '1px solid var(--lt-rule)', padding: '12px 16px', display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button
-            onPointerDown={() => setSavePress('pressing')}
-            onPointerUp={() => releasePress(setSavePress)}
-            onPointerLeave={() => { if (savePress === 'pressing') releasePress(setSavePress); }}
-            onClick={handleSaveDraft}
-            disabled={!selectedRecipient || !subject || saving || submitting || !hasPermission}
-            style={{ ...pressStyle(savePress), opacity: (!selectedRecipient || !subject || !hasPermission) ? 0.4 : 1 }}
-          >
-            {saving ? 'Saving…' : 'Save draft'}
-          </button>
-          <button
-            onPointerDown={() => setSubmitPress('pressing')}
-            onPointerUp={() => releasePress(setSubmitPress)}
-            onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
-            onClick={handleSubmit}
-            disabled={!selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
-            style={{ ...pressStyle(submitPress, true), opacity: (!selectedRecipient || !subject || !content.trim() || !hasPermission || wordCount > WORD_LIMIT) ? 0.4 : 1 }}
-          >
-            {submitting ? 'Sending…' : 'Send'}
-          </button>
+        <div style={{ position: 'sticky', bottom: 0, background: 'var(--lt-bg)', borderTop: '1px solid var(--lt-rule)', padding: '12px 16px', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
+          {isReadOnly ? (
+            <>
+              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15, color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent)' }}>sent</span>
+              <button
+                onPointerDown={() => setWithdrawPress('pressing')}
+                onPointerUp={() => releasePress(setWithdrawPress)}
+                onPointerLeave={() => { if (withdrawPress === 'pressing') releasePress(setWithdrawPress); }}
+                onClick={handleWithdraw}
+                disabled={withdrawing}
+                style={pressStyle(withdrawPress)}
+              >
+                {withdrawing ? 'Withdrawing…' : 'Withdraw'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onPointerDown={() => setSavePress('pressing')}
+                onPointerUp={() => releasePress(setSavePress)}
+                onPointerLeave={() => { if (savePress === 'pressing') releasePress(setSavePress); }}
+                onClick={handleSaveDraft}
+                disabled={!selectedRecipient || !subject || saving || submitting || !hasPermission}
+                style={{ ...pressStyle(savePress), opacity: (!selectedRecipient || !subject || !hasPermission) ? 0.4 : 1 }}
+              >
+                {saving ? 'Saving…' : 'Save draft'}
+              </button>
+              <button
+                onPointerDown={() => setSubmitPress('pressing')}
+                onPointerUp={() => releasePress(setSubmitPress)}
+                onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
+                onClick={handleSubmit}
+                disabled={!selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
+                style={{ ...pressStyle(submitPress, true), opacity: (!selectedRecipient || !subject || !content.trim() || !hasPermission || wordCount > WORD_LIMIT) ? 0.4 : 1 }}
+              >
+                {submitting ? 'Sending…' : 'Send'}
+              </button>
+            </>
+          )}
         </div>
       )}
     </div>
