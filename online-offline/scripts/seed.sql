@@ -203,7 +203,7 @@ ON CONFLICT (id) DO NOTHING;
 ------------------------------------------------------------------------
 INSERT INTO public.content (id, creator_id, type, status, period_id, page_title)
 SELECT
-  'ffffffff-ffff-ffff-ffff-ffffffffffff01'::uuid,
+  'cafe0001-0000-4000-a000-000000000000'::uuid,
   '0889833d-d56a-4969-83b4-43c9585bcd92'::uuid,
   'regular', 'submitted',
   (SELECT val FROM _seed_ids WHERE key = 'period_id'),
@@ -212,7 +212,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.content (id, creator_id, type, status, period_id, page_title)
 SELECT
-  'ffffffff-ffff-ffff-ffff-ffffffffffff02'::uuid,
+  'cafe0002-0000-4000-a000-000000000000'::uuid,
   '402f2415-65c1-4efa-a95e-c0ccb38f7048'::uuid,
   'regular', 'submitted',
   (SELECT val FROM _seed_ids WHERE key = 'period_id'),
@@ -225,18 +225,18 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.content_entries
   (id, content_id, title, caption, order_index, is_feature, is_full_spread)
 VALUES
-  ('gggggggg-gggg-gggg-gggg-gggggggggg01',
-   'ffffffff-ffff-ffff-ffff-ffffffffffff01',
+  ('cafe0010-0000-4000-a000-000000000000',
+   'cafe0001-0000-4000-a000-000000000000',
    'Late at 6th & Lamar', 'Waiting for the light to change.',
    0, true, false),
 
-  ('gggggggg-gggg-gggg-gggg-gggggggggg02',
-   'ffffffff-ffff-ffff-ffff-ffffffffffff01',
+  ('cafe0011-0000-4000-a000-000000000000',
+   'cafe0001-0000-4000-a000-000000000000',
    'Congress at 2am', 'The bridge belongs to nobody.',
    1, false, false),
 
-  ('gggggggg-gggg-gggg-gggg-gggggggggg03',
-   'ffffffff-ffff-ffff-ffff-ffffffffffff02',
+  ('cafe0012-0000-4000-a000-000000000000',
+   'cafe0002-0000-4000-a000-000000000000',
    'The Margin', 'A notebook page left half-blank.',
    0, true, false)
 
@@ -270,7 +270,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.communications
   (id, sender_id, recipient_id, subject, content, status, period_id, word_count)
 SELECT
-  'hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhh01'::uuid,
+  'cafe0020-0000-4000-a000-000000000000'::uuid,
   '0889833d-d56a-4969-83b4-43c9585bcd92'::uuid,
   '185f8c7c-9837-425a-ac1c-ebf18d1af1b9'::uuid,
   'About my submission',
@@ -283,7 +283,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.communications
   (id, sender_id, recipient_id, subject, content, status, period_id, word_count)
 SELECT
-  'hhhhhhhh-hhhh-hhhh-hhhh-hhhhhhhhhh02'::uuid,
+  'cafe0021-0000-4000-a000-000000000000'::uuid,
   '402f2415-65c1-4efa-a95e-c0ccb38f7048'::uuid,
   '185f8c7c-9837-425a-ac1c-ebf18d1af1b9'::uuid,
   'Collab idea for next season',
@@ -298,7 +298,7 @@ ON CONFLICT (id) DO NOTHING;
 ------------------------------------------------------------------------
 INSERT INTO public.campaigns (id, name, bio, discount, period_id, is_active)
 SELECT
-  'iiiiiiii-iiii-iiii-iiii-iiiiiiiiiiii'::uuid,
+  'cafe0030-0000-4000-a000-000000000000'::uuid,
   'Moleskine',
   'Notebooks for those who still write by hand.',
   '15% off with code SLOWMAG',
@@ -308,7 +308,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.campaigns (id, name, bio, discount, period_id, is_active)
 SELECT
-  'iiiiiiii-iiii-4iii-8iii-iiiiiiiiiiii'::uuid,
+  'cafe0031-0000-4000-a000-000000000000'::uuid,
   'Risograph Press Co.',
   'Independent risograph printing for zines, books, and posters.',
   'Free shipping on first order',
