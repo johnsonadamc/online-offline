@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { CITIES } from '@/lib/constants/cities';
 
 interface CollabTemplate {
   id: string;
@@ -49,6 +50,12 @@ export default function CollabsLibrary() {
   const [sendPress, setSendPress] = useState<PressState>('rest');
   const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
   const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({ id: '', season: 'Spring', year: 2025 });
+  const [showLocalDialog, setShowLocalDialog] = useState(false);
+  const [localTemplateId, setLocalTemplateId] = useState('');
+  const [localCollabTitle, setLocalCollabTitle] = useState('');
+  const [localCity, setLocalCity] = useState('');
+  const [localCancelPress, setLocalCancelPress] = useState<PressState>('rest');
+  const [localJoinPress, setLocalJoinPress] = useState<PressState>('rest');
 
   const showError = (message: string) => {
     setError({ message, isVisible: true });
@@ -179,6 +186,18 @@ export default function CollabsLibrary() {
         setShowInviteDialog(true);
         return;
       }
+      if (mode === 'local') {
+        const supabase = createClientComponentClient();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw new Error(userError.message);
+        if (!user) { showError('You must be logged in'); return; }
+        const { data: profileData } = await supabase.from('profiles').select('city').eq('id', user.id).single();
+        setLocalTemplateId(collabId);
+        setLocalCollabTitle(title);
+        setLocalCity(profileData?.city || '');
+        setShowLocalDialog(true);
+        return;
+      }
       const template = availablePrompts.find(p => p.id === collabId);
       if (!template) { showError('Error: Template not found'); return; }
       const supabase = createClientComponentClient();
@@ -188,13 +207,13 @@ export default function CollabsLibrary() {
 
       const { data: collab, error: collabError } = await supabase
         .from('collabs')
-        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null } })
+        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: mode, location: null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: mode, location: null } })
         .select().single();
       if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
 
       const { error: participantError } = await supabase
         .from('collab_participants')
-        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: mode, location: mode === 'local' ? 'San Francisco' : null });
+        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: mode, location: null });
       if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
 
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
@@ -238,6 +257,34 @@ export default function CollabsLibrary() {
       router.push('/dashboard');
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Could not create private collaboration');
+    }
+  };
+
+  const confirmLocalJoin = async () => {
+    try {
+      const supabase = createClientComponentClient();
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError) throw new Error(userError.message);
+      if (!user) { showError('You must be logged in'); return; }
+      const template = availablePrompts.find(p => p.id === localTemplateId);
+      if (!template) { showError('Template not found'); return; }
+
+      const { data: collab, error: collabError } = await supabase
+        .from('collabs')
+        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'local', location: localCity, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'local', location: localCity } })
+        .select().single();
+      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+
+      const { error: participantError } = await supabase
+        .from('collab_participants')
+        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: 'local', location: localCity, city: localCity });
+      if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
+
+      setAvailablePrompts(prev => prev.filter(c => c.id !== localTemplateId));
+      setShowLocalDialog(false);
+      router.push('/dashboard');
+    } catch (err) {
+      showError(err instanceof Error ? err.message : 'Could not join the collaboration');
     }
   };
 
@@ -507,6 +554,61 @@ export default function CollabsLibrary() {
                   style={{ ...pressStyle(sendPress, true), opacity: selectedUsers.length === 0 ? 0.4 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
                 >
                   Send Invites ({selectedUsers.length})
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Local city dialog */}
+      {showLocalDialog && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: 'var(--ground-2)', border: '1px solid var(--rule-mid)', borderRadius: 2, width: '100%', maxWidth: 360 }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-mid)', background: 'var(--ground-3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <svg width="13" height="13" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--neon-green)', flexShrink: 0 }}><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)' }}>Local: {localCollabTitle}</span>
+              </div>
+              <button onClick={() => setShowLocalDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-3)', opacity: 0.6, padding: 2 }}>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+              </button>
+            </div>
+            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div>
+                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 6 }}>Your city</label>
+                <select
+                  value={localCity}
+                  onChange={e => setLocalCity(e.target.value)}
+                  style={{ width: '100%', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(52,211,153,0.5)'; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
+                >
+                  <option value="">Select a city</option>
+                  {CITIES.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <button
+                  onPointerDown={() => setLocalCancelPress('pressing')}
+                  onPointerUp={() => releasePress(setLocalCancelPress)}
+                  onPointerLeave={() => { if (localCancelPress === 'pressing') releasePress(setLocalCancelPress); }}
+                  onClick={() => setShowLocalDialog(false)}
+                  style={pressStyle(localCancelPress)}
+                >
+                  Cancel
+                </button>
+                <button
+                  onPointerDown={() => setLocalJoinPress('pressing')}
+                  onPointerUp={() => releasePress(setLocalJoinPress)}
+                  onPointerLeave={() => { if (localJoinPress === 'pressing') releasePress(setLocalJoinPress); }}
+                  onClick={confirmLocalJoin}
+                  disabled={!localCity}
+                  style={{ ...pressStyle(localJoinPress), color: localJoinPress === 'rest' ? 'rgba(52,211,153,0.9)' : 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', background: localJoinPress === 'pressing' ? 'rgba(52,211,153,0.2)' : 'rgba(52,211,153,0.1)', border: `1px solid ${localJoinPress !== 'rest' ? 'rgba(52,211,153,0.5)' : 'rgba(52,211,153,0.35)'}`, borderBottom: `2px solid ${localJoinPress === 'pressing' ? 'rgba(52,211,153,0.6)' : 'rgba(52,211,153,0.45)'}`, opacity: !localCity ? 0.4 : 1, cursor: !localCity ? 'not-allowed' : 'pointer' }}
+                >
+                  Join Local
                 </button>
               </div>
             </div>
