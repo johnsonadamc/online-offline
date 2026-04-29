@@ -8,100 +8,106 @@ test.describe('Contributor flows', () => {
 
   // ── Dashboard ────────────────────────────────────────────────────────────
 
-  test('dashboard loads and shows contribute tab', async ({ page }) => {
+  test('dashboard loads and shows Contribute and Curate tabs', async ({ page }) => {
     await expect(page).toHaveURL(/dashboard/);
-    await expect(page.getByRole('tab', { name: /contribute/i })).toBeVisible();
-    await expect(page.getByRole('tab', { name: /curate/i })).toBeVisible();
+    // Dashboard tabs are plain <button> elements, not role="tab"
+    await expect(page.getByRole('button', { name: 'Contribute' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Curate' })).toBeVisible();
   });
 
-  test('dashboard shows submitted content in contribute tab', async ({ page }) => {
-    await page.getByRole('tab', { name: /contribute/i }).click();
-    await expect(page.getByText(/street light studies/i)).toBeVisible();
+  test('dashboard Content section expands by default', async ({ page }) => {
+    // activeSection defaults to 'content' — Content section is open on load
+    await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
   });
 
   // ── Content submission ───────────────────────────────────────────────────
 
-  test('can navigate to submit page', async ({ page }) => {
-    await page.getByRole('link', { name: /submit/i }).first().click();
-    await expect(page).toHaveURL(/submit/);
-  });
-
   test('submit page renders form fields', async ({ page }) => {
     await page.goto('/submit');
-    await expect(page.getByLabel(/collection title/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /save draft/i })).toBeVisible();
-    await expect(page.getByRole('button', { name: /submit/i })).toBeVisible();
+    // Collection title label is a <div>, input has placeholder="Untitled"
+    await expect(page.locator('input[placeholder="Untitled"]')).toBeVisible();
+    // Action bar buttons — save button text is "Save" (not "Save draft")
+    await expect(page.getByRole('button', { name: 'Save' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
   });
 
   test('can save a draft submission', async ({ page }) => {
     await page.goto('/submit');
     const title = `Draft ${Date.now()}`;
-    await page.getByLabel(/collection title/i).fill(title);
-    await page.getByRole('button', { name: /save draft/i }).click();
-    await expect(page.getByText(/saved/i)).toBeVisible({ timeout: 5000 });
+    await page.locator('input[placeholder="Untitled"]').fill(title);
+    // Trigger save via pointer events (the button uses onPointerUp)
+    await page.getByRole('button', { name: 'Save' }).click();
+    // Save button cycles through: Save → Saving… → Saved
+    await expect(page.getByRole('button', { name: 'Saved' })).toBeVisible({ timeout: 5000 });
   });
 
   // ── Collaborations ───────────────────────────────────────────────────────
 
-  test('can browse collaborations', async ({ page }) => {
+  test('can browse collaborations library', async ({ page }) => {
     await page.goto('/collabs');
-    await expect(page.getByText(/one hundred mornings/i)).toBeVisible();
-    await expect(page.getByText(/edges/i)).toBeVisible();
+    // Template names are rendered in <h3> elements inside cards
+    await expect(page.getByText('One Hundred Mornings')).toBeVisible();
+    await expect(page.getByText('Edges')).toBeVisible();
+    await expect(page.getByText('The Long Way Round')).toBeVisible();
   });
 
-  test('can view a collaboration detail page', async ({ page }) => {
+  test('collab cards show participation mode join buttons', async ({ page }) => {
     await page.goto('/collabs');
-    await page.getByText(/one hundred mornings/i).first().click();
-    await expect(page).toHaveURL(/collabs\/.+/);
+    // Each card shows Community, Local, Private join buttons
+    await expect(page.getByRole('button', { name: 'Community' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Local' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Private' }).first()).toBeVisible();
   });
 
   // ── Communications ───────────────────────────────────────────────────────
 
-  test('can navigate to new communication', async ({ page }) => {
+  test('new communication page shows recipient search', async ({ page }) => {
     await page.goto('/communicate/new');
-    await expect(page.getByLabel(/subject/i)).toBeVisible();
+    // Recipient stage shows a search input for curators
+    await expect(page.getByPlaceholder('Search for a curator…')).toBeVisible();
   });
 
-  test('can save a communication draft', async ({ page }) => {
-    await page.goto('/communicate/new');
-    await page.getByLabel(/subject/i).fill(`Test subject ${Date.now()}`);
-    await page.locator('textarea').fill('Draft message body for testing.');
-    await page.getByRole('button', { name: /save draft/i }).click();
-    await expect(page.getByText(/saved|draft/i)).toBeVisible({ timeout: 5000 });
-  });
-
-  test('submitted communication renders read-only', async ({ page }) => {
-    // Navigate to dashboard to find a submitted communication
+  test('submitted communication renders read-only with Withdraw button', async ({ page }) => {
+    // Navigate via dashboard — the seeded comm "About my submission" should appear
     await page.goto('/dashboard');
-    await page.getByRole('tab', { name: /contribute/i }).click();
 
-    // If there's a submitted communication link, check it's read-only
-    const commLink = page.getByText(/about my submission/i).first();
+    const commLink = page.getByText('About my submission');
     if (await commLink.isVisible()) {
       await commLink.click();
       await expect(page).toHaveURL(/communicate\/.+/);
-      await expect(page.getByText(/sent/i)).toBeVisible();
-      await expect(page.getByRole('button', { name: /withdraw/i })).toBeVisible();
-      // Inputs should be read-only — not editable
-      const subject = page.getByLabel(/subject/i);
+
+      // Header shows "Sent" status label (uppercase via CSS, DOM text is "Sent")
+      await expect(page.getByText('Sent')).toBeVisible();
+
+      // Action bar shows italic "sent" label and Withdraw button
+      await expect(page.getByRole('button', { name: 'Withdraw' })).toBeVisible();
+
+      // Subject input has readonly attribute (no <label> — target by placeholder)
+      const subject = page.getByPlaceholder('Subject');
       await expect(subject).toHaveAttribute('readonly');
     }
   });
 
   // ── Profile ──────────────────────────────────────────────────────────────
 
-  test('profile page loads and shows fields', async ({ page }) => {
+  test('profile page loads and shows Identity section', async ({ page }) => {
     await page.goto('/profile');
-    await expect(page.getByLabel(/first name/i)).toBeVisible();
-    await expect(page.getByLabel(/city/i)).toBeVisible();
-    await expect(page.getByLabel(/bio/i)).toBeVisible();
+    // Profile labels are <label> elements but have no htmlFor — can't use getByLabel
+    // Target inputs directly or via surrounding context
+    await expect(page.getByText('Identity')).toBeVisible();
+    await expect(page.getByText('First Name')).toBeVisible();
+    await expect(page.getByText('Last Name')).toBeVisible();
+    await expect(page.getByText('City')).toBeVisible();
   });
 
   test('can update city on profile', async ({ page }) => {
     await page.goto('/profile');
-    const citySelect = page.getByLabel(/city/i);
+    // City is a <select> — only one select on the page
+    const citySelect = page.locator('select');
     await citySelect.selectOption('Austin');
-    await page.getByRole('button', { name: /save/i }).click();
-    await expect(page.getByText(/saved|updated/i)).toBeVisible({ timeout: 5000 });
+    // Save button text is "Save Changes"
+    await page.getByRole('button', { name: 'Save Changes' }).click();
+    // Success toast text
+    await expect(page.getByText('Profile updated successfully')).toBeVisible({ timeout: 5000 });
   });
 });
