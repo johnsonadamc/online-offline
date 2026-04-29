@@ -9,6 +9,7 @@ import {
   UserCheck, UserX, Check, X, Camera
 } from 'lucide-react';
 import { sendFollowRequest, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
+import { CITIES } from '@/lib/constants/cities';
 
 interface Follower {
   id: string;
@@ -50,6 +51,7 @@ interface ProfileState {
   lastName: string;
   profileTypes: string[];
   isPublic: boolean;
+  city: string;
   contentType: string;
   bankInfo: {
     accountNumber: string;
@@ -70,6 +72,7 @@ export default function ProfilePage() {
     lastName: '',
     profileTypes: [],
     isPublic: true,
+    city: '',
     contentType: 'photo',
     bankInfo: { accountNumber: '', routingNumber: '', accountType: 'checking' },
     curatorPaymentInfo: { cardNumber: '', expiryDate: '', cvv: '' },
@@ -138,6 +141,7 @@ export default function ProfilePage() {
             lastName: data.last_name || '',
             profileTypes: data.profile_types?.map((pt: { type: string }) => pt.type) || [],
             isPublic: data.is_public ?? true,
+            city: data.city || '',
             contentType: data.content_type || 'photo',
             bankInfo: data.bank_info || { accountNumber: '', routingNumber: '', accountType: 'checking' },
             curatorPaymentInfo: data.curator_payment_info || { cardNumber: '', expiryDate: '', cvv: '' },
@@ -348,7 +352,7 @@ export default function ProfilePage() {
       if (!user) throw new Error('No user');
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, identity_banner_url: bannerUrl, content_type: profile.contentType, is_public: profile.isPublic, updated_at: new Date().toISOString() });
+        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, identity_banner_url: bannerUrl, content_type: profile.contentType, city: profile.city, is_public: profile.isPublic, updated_at: new Date().toISOString() });
       if (error) throw error;
       showSuccess('Profile updated successfully');
     } catch (error) {
@@ -579,6 +583,23 @@ export default function ProfilePage() {
                     />
                   </div>
                 ))}
+              </div>
+
+              {/* City */}
+              <div style={{ padding: '0 14px 14px' }}>
+                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 5 }}>City</label>
+                <select
+                  value={profile.city}
+                  onChange={e => setProfile(prev => ({ ...prev, city: e.target.value }))}
+                  style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '4px 0', outline: 'none', cursor: 'pointer' }}
+                  onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--neon-accent)'; }}
+                  onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
+                >
+                  <option value="">Select a city</option>
+                  {CITIES.map(city => (
+                    <option key={city} value={city}>{city}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
