@@ -17,9 +17,9 @@ const CONTRIBUTOR1_ID = '0889833d-d56a-4969-83b4-43c9585bcd92'; // Maya Torres
 const CONTRIBUTOR2_ID = '402f2415-65c1-4efa-a95e-c0ccb38f7048'; // Daniel Osei
 const CURATOR1_ID     = '185f8c7c-9837-425a-ac1c-ebf18d1af1b9'; // Lena Vasquez
 
-const PERIOD_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-
-const TEMPLATE_IDS = [
+// Fallback UUIDs — used only when no existing row is found by name
+const PERIOD_ID_FALLBACK = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const TEMPLATE_ID_FALLBACKS = [
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb01',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb02',
   'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbb03',
@@ -31,10 +31,38 @@ const COLLAB_IDS = [
   'dddddddd-dddd-dddd-dddd-dddddddddd03',
 ];
 
+// Upsert rows into a table, merging on the given conflict column(s)
 async function upsert(table: string, rows: object[], conflict = 'id') {
   const { error } = await db.from(table).upsert(rows as any[], { onConflict: conflict });
   if (error) throw new Error(`[${table}] ${error.message}`);
   console.log(`  ✓ ${table} (${rows.length} row${rows.length !== 1 ? 's' : ''})`);
+}
+
+// Return the ID of an existing row matching nameField=name, or insert a new one
+async function findOrInsert(
+  table: string,
+  nameField: string,
+  name: string,
+  fallbackId: string,
+  fields: Record<string, unknown>,
+): Promise<string> {
+  const { data, error: findError } = await db
+    .from(table)
+    .select('id')
+    .eq(nameField, name)
+    .maybeSingle();
+  if (findError) throw new Error(`[${table}] lookup failed: ${findError.message}`);
+
+  if (data) {
+    console.log(`  → ${table} "${name}" exists (${data.id})`);
+    return data.id as string;
+  }
+
+  const row = { id: fallbackId, [nameField]: name, ...fields };
+  const { error: insertError } = await db.from(table).insert(row);
+  if (insertError) throw new Error(`[${table}] insert failed: ${insertError.message}`);
+  console.log(`  → ${table} "${name}" created (${fallbackId})`);
+  return fallbackId;
 }
 
 async function main() {
@@ -56,52 +84,44 @@ async function main() {
     { profile_id: CURATOR1_ID,     type: 'curator' },
   ], 'profile_id,type');
 
-  // 3 — Active period
+  // 3 — Active period (find by name to avoid duplicates)
   console.log('3. Period');
-  await upsert('periods', [{
-    id: PERIOD_ID,
-    name: 'Spring 2026',
+  const periodId = await findOrInsert('periods', 'name', 'Spring 2026', PERIOD_ID_FALLBACK, {
     season: 'Spring',
     year: 2026,
     start_date: '2026-03-01',
     end_date: '2026-05-31',
     is_active: true,
-  }]);
+  });
 
-  // 4 — Collab templates
+  // 4 — Collab templates (find by name to avoid duplicates)
   console.log('4. Collab templates');
-  await upsert('collab_templates', [
-    {
-      id: TEMPLATE_IDS[0],
-      name: 'One Hundred Mornings',
+  const templateIds = [
+    await findOrInsert('collab_templates', 'name', 'One Hundred Mornings', TEMPLATE_ID_FALLBACKS[0], {
       type: 'chain',
       display_text: 'A chain of morning scenes — each contributor photographs their first moments of waking.',
       instructions: 'Submit one image: something you see within the first 10 minutes of your morning. No staging.',
       is_active: true,
-    },
-    {
-      id: TEMPLATE_IDS[1],
-      name: 'Edges',
+    }),
+    await findOrInsert('collab_templates', 'name', 'Edges', TEMPLATE_ID_FALLBACKS[1], {
       type: 'theme',
       display_text: 'Where things meet. Coastlines, margins, doorways — any threshold between states.',
       instructions: 'Submit 1–3 images or a short poem (under 200 words) exploring an edge or boundary.',
       is_active: true,
-    },
-    {
-      id: TEMPLATE_IDS[2],
-      name: 'The Long Way Round',
+    }),
+    await findOrInsert('collab_templates', 'name', 'The Long Way Round', TEMPLATE_ID_FALLBACKS[2], {
       type: 'narrative',
       display_text: 'A collective travelogue. Each contributor adds a chapter to a journey with no fixed destination.',
       instructions: 'Build on the previous entry. Keep the journey continuous — in tone if not in geography.',
       is_active: true,
-    },
-  ]);
+    }),
+  ];
 
   // 5 — Period templates
   console.log('5. Period templates');
   await upsert(
     'period_templates',
-    TEMPLATE_IDS.map(tid => ({ period_id: PERIOD_ID, template_id: tid })),
+    templateIds.map(tid => ({ period_id: periodId, template_id: tid })),
     'period_id,template_id',
   );
 
@@ -116,9 +136,9 @@ async function main() {
       participation_mode: 'community',
       location: null,
       created_by: CONTRIBUTOR2_ID,
-      period_id: PERIOD_ID,
+      period_id: periodId,
       current_phase: 1,
-      metadata: { template_id: TEMPLATE_IDS[0], participation_mode: 'community' },
+      metadata: { template_id: templateIds[0], participation_mode: 'community' },
     },
     {
       id: COLLAB_IDS[1],
@@ -128,9 +148,9 @@ async function main() {
       participation_mode: 'local',
       location: 'Austin',
       created_by: CONTRIBUTOR1_ID,
-      period_id: PERIOD_ID,
+      period_id: periodId,
       current_phase: 1,
-      metadata: { template_id: TEMPLATE_IDS[1], participation_mode: 'local', location: 'Austin' },
+      metadata: { template_id: templateIds[1], participation_mode: 'local', location: 'Austin' },
     },
     {
       id: COLLAB_IDS[2],
@@ -140,9 +160,9 @@ async function main() {
       participation_mode: 'private',
       location: null,
       created_by: CURATOR1_ID,
-      period_id: PERIOD_ID,
+      period_id: periodId,
       current_phase: 1,
-      metadata: { template_id: TEMPLATE_IDS[2], participation_mode: 'private' },
+      metadata: { template_id: templateIds[2], participation_mode: 'private' },
     },
   ]);
 
@@ -162,8 +182,8 @@ async function main() {
     'ffffffff-ffff-ffff-ffff-ffffffffffff02',
   ];
   await upsert('content', [
-    { id: CONTENT_IDS[0], creator_id: CONTRIBUTOR1_ID, type: 'regular', status: 'submitted', period_id: PERIOD_ID, page_title: 'Street Light Studies' },
-    { id: CONTENT_IDS[1], creator_id: CONTRIBUTOR2_ID, type: 'regular', status: 'submitted', period_id: PERIOD_ID, page_title: 'Edges of Nothing' },
+    { id: CONTENT_IDS[0], creator_id: CONTRIBUTOR1_ID, type: 'regular', status: 'submitted', period_id: periodId, page_title: 'Street Light Studies' },
+    { id: CONTENT_IDS[1], creator_id: CONTRIBUTOR2_ID, type: 'regular', status: 'submitted', period_id: periodId, page_title: 'Edges of Nothing' },
   ]);
   await upsert('content_entries', [
     { id: 'gggggggg-gggg-gggg-gggg-gggggggggg01', content_id: CONTENT_IDS[0], title: 'Late at 6th & Lamar', caption: 'Waiting for the light to change.', order_index: 0, is_feature: true,  is_full_spread: false },
@@ -181,7 +201,7 @@ async function main() {
       subject: 'About my submission',
       content: 'Hi Lena — I wanted to give you context for the series I submitted this quarter. All shots were taken on a single evening walk. Let me know if you have questions.',
       status: 'submitted',
-      period_id: PERIOD_ID,
+      period_id: periodId,
       word_count: 38,
     },
     {
@@ -191,7 +211,7 @@ async function main() {
       subject: 'Collab idea for next season',
       content: 'Thinking about a chain collaboration centered on silence. Long exposures, quiet writing. Would you want to co-organize?',
       status: 'submitted',
-      period_id: PERIOD_ID,
+      period_id: periodId,
       word_count: 24,
     },
   ]);
@@ -204,7 +224,7 @@ async function main() {
       name: 'Moleskine',
       bio: 'Notebooks for those who still write by hand.',
       discount: '15% off with code SLOWMAG',
-      period_id: PERIOD_ID,
+      period_id: periodId,
       is_active: true,
     },
     {
@@ -212,7 +232,7 @@ async function main() {
       name: 'Risograph Press Co.',
       bio: 'Independent risograph printing for zines, books, and posters.',
       discount: 'Free shipping on first order',
-      period_id: PERIOD_ID,
+      period_id: periodId,
       is_active: true,
     },
   ]);
