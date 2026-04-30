@@ -45,20 +45,20 @@ test.describe('Contributor flows', () => {
 
   test('can browse collaborations library', async ({ page }) => {
     await page.goto('/collabs');
-    // If the user has already joined all collabs, cards are replaced with an empty
-    // state message. Accept either: a card name OR the empty state text.
-    const hasCards = await page.getByText('One Hundred Mornings').isVisible();
-    const hasEmptyState = await page.getByText('You have joined all available prompts for this period.').isVisible();
-    expect(hasCards || hasEmptyState).toBeTruthy();
+    // Maya has joined all available collabs, so the page shows an empty state instead
+    // of cards. Use .or() so the assertion retries until one of the two is visible —
+    // isVisible() must not be used here because it doesn't wait for the page to load.
+    const cards = page.getByText('One Hundred Mornings');
+    const emptyState = page.getByText('You have joined all available prompts for this period.');
+    await expect(cards.or(emptyState).first()).toBeVisible({ timeout: 10000 });
   });
 
   test('collab cards show participation mode join buttons', async ({ page }) => {
     await page.goto('/collabs');
-    // If cards are present each shows Community / Local / Private join buttons.
-    // If the user has already joined all, an empty state is shown instead — skip.
-    const hasCards = await page.getByRole('button', { name: 'Community' }).first().isVisible();
-    const hasEmptyState = await page.getByText('You have joined all available prompts for this period.').isVisible();
-    expect(hasCards || hasEmptyState).toBeTruthy();
+    // Same empty-state guard: wait for either a join button or the empty state.
+    const communityBtn = page.getByRole('button', { name: 'Community' }).first();
+    const emptyState = page.getByText('You have joined all available prompts for this period.');
+    await expect(communityBtn.or(emptyState).first()).toBeVisible({ timeout: 10000 });
   });
 
   // ── Communications ───────────────────────────────────────────────────────
