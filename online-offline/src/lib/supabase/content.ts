@@ -192,14 +192,26 @@ export async function saveContent(
       }
 
       // Delete all existing entries so we can insert fresh ones
-      const { error: deleteError } = await supabase
+      const { data: deletedEntries, error: deleteError } = await supabase
         .from('content_entries')
         .delete()
-        .eq('content_id', existingDraftId);
+        .eq('content_id', existingDraftId)
+        .select('id');
 
       if (deleteError) {
         console.error('Error deleting old entries:', deleteError);
         throw deleteError;
+      }
+
+      // If entries exist but none were deleted, RLS is silently blocking — abort rather than doubling
+      if (deletedEntries !== null && deletedEntries.length === 0) {
+        const { data: existingCount } = await supabase
+          .from('content_entries')
+          .select('id')
+          .eq('content_id', existingDraftId);
+        if (existingCount && existingCount.length > 0) {
+          throw new Error('Could not clear existing entries — check content_entries DELETE policy in Supabase');
+        }
       }
 
       contentId = existingDraftId;
@@ -256,14 +268,25 @@ export async function saveContent(
           if (contentError) throw contentError;
           contentId = contentData.id;
         } else {
-          const { error: deleteError } = await supabase
+          const { data: deletedEntries, error: deleteError } = await supabase
             .from('content_entries')
             .delete()
-            .eq('content_id', existingForPeriod.id);
+            .eq('content_id', existingForPeriod.id)
+            .select('id');
 
           if (deleteError) {
             console.error('Error deleting entries for existing content:', deleteError);
             throw deleteError;
+          }
+
+          if (deletedEntries !== null && deletedEntries.length === 0) {
+            const { data: existingCount } = await supabase
+              .from('content_entries')
+              .select('id')
+              .eq('content_id', existingForPeriod.id);
+            if (existingCount && existingCount.length > 0) {
+              throw new Error('Could not clear existing entries — check content_entries DELETE policy in Supabase');
+            }
           }
 
           contentId = existingForPeriod.id;
