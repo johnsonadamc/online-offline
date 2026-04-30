@@ -9,7 +9,8 @@ import NextImage from 'next/image';
 import {
   fetchCurrentPeriodDraft,
   getCurrentPeriod,
-  deleteContent
+  deleteContent,
+  withdrawContent
 } from '@/lib/supabase/content';
 import {
   getUserCollabs,
@@ -200,6 +201,17 @@ export default function Dashboard() {
     } catch {
       showError('Error deleting content');
       setShowDeleteContentConfirm(false);
+    }
+  };
+
+  const handleWithdrawContent = async () => {
+    if (!contentSubmission) return;
+    const result = await withdrawContent(contentSubmission.id);
+    if (result.success) {
+      setContentSubmission(prev => prev ? { ...prev, status: 'draft' } : null);
+      showSuccess('Submission withdrawn');
+    } else {
+      showError(result.error || 'Failed to withdraw submission');
     }
   };
 
@@ -744,12 +756,22 @@ export default function Dashboard() {
                           </>
                         )}
                       </div>
-                      {contentSubmission.status === 'submitted' && (
-                        <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12)' }}>submitted</span>
-                      )}
-                      {contentSubmission.status === 'published' && (
-                        <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>published</span>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {contentSubmission.status === 'submitted' && (
+                          <>
+                            <button
+                              onClick={e => { e.stopPropagation(); handleWithdrawContent(); }}
+                              style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            >
+                              withdraw
+                            </button>
+                            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12)' }}>submitted</span>
+                          </>
+                        )}
+                        {contentSubmission.status === 'published' && (
+                          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>published</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ) : (

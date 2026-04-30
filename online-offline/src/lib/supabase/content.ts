@@ -124,7 +124,7 @@ export async function fetchCurrentPeriodDraft() {
         )
       `)
       .eq('creator_id', user.id)
-      .eq('status', 'draft')
+      .in('status', ['draft', 'submitted'])
       .eq('period_id', period.id)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -501,6 +501,27 @@ export async function getPastContributions() {
     return { success: false, error: String(error) };
   }
 }
+export async function withdrawContent(contentId: string) {
+  const supabase = createClientComponentClient();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: 'Not authenticated' };
+
+    const { data: updated, error } = await supabase
+      .from('content')
+      .update({ status: 'draft', updated_at: new Date().toISOString() })
+      .eq('id', contentId)
+      .eq('creator_id', user.id)
+      .select('id');
+
+    if (error) return { success: false, error: error.message };
+    if (!updated || updated.length === 0) return { success: false, error: 'Could not withdraw submission' };
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: String(error) };
+  }
+}
+
 export async function deleteContent(contentId: string) {
   const supabase = createClientComponentClient();
   
