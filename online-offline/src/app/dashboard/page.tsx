@@ -32,6 +32,8 @@ interface ContentSubmission {
   date: string;
   type: string;
   imageCount: number;
+  format?: string;
+  textExcerpt?: string;
 }
 
 interface ActiveCollab {
@@ -236,6 +238,9 @@ export default function Dashboard() {
           let title = draft.page_title || '';
           if (!title && draft.content_entries?.length > 0) title = draft.content_entries[0].title || '';
           if (!title) title = 'Untitled';
+          const fmt: string = draft.format || 'image';
+          const rawBody: string = draft.content_entries?.[0]?.body || '';
+          const excerpt = rawBody.length > 80 ? rawBody.slice(0, 80).trimEnd() + '…' : rawBody;
           setContentSubmission({
             id: draft.id,
             title,
@@ -244,6 +249,8 @@ export default function Dashboard() {
             date: new Date(draft.updated_at).toLocaleDateString(),
             type: draft.type || 'photo',
             imageCount: (draft.content_entries || []).length,
+            format: fmt,
+            textExcerpt: fmt === 'text' ? excerpt : undefined,
           });
         } else {
           setContentSubmission(null);
@@ -700,11 +707,42 @@ export default function Dashboard() {
                     <div style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', color: 'var(--paper)', lineHeight: 1.05, marginBottom: '12px', letterSpacing: '-0.01em', opacity: 0.88 }}>
                       {contentSubmission.title}
                     </div>
+                    {contentSubmission.format === 'text' && contentSubmission.textExcerpt && (
+                      <div style={{
+                        background: 'var(--ground-3)',
+                        border: '1px solid var(--rule-mid)',
+                        borderRadius: 2,
+                        padding: '10px 12px',
+                        marginBottom: '12px',
+                        position: 'relative',
+                      }}>
+                        <span style={{
+                          position: 'absolute', top: 6, left: 8,
+                          fontFamily: 'var(--font-mono)', fontSize: '8px',
+                          letterSpacing: '0.14em', textTransform: 'uppercase',
+                          color: 'var(--paper-5)',
+                        }}>text</span>
+                        <p style={{
+                          marginTop: 14, marginBottom: 0,
+                          fontFamily: 'var(--font-serif)', fontStyle: 'italic',
+                          fontSize: '13px', color: 'var(--paper-4)',
+                          lineHeight: 1.5, whiteSpace: 'pre-wrap',
+                        }}>
+                          {contentSubmission.textExcerpt}
+                        </p>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
-                        <span style={{ color: 'var(--paper-5)' }}>·</span>
-                        <span style={{ textTransform: 'capitalize' }}>{contentSubmission.type}</span>
+                        {contentSubmission.format === 'text' ? (
+                          <span>text</span>
+                        ) : (
+                          <>
+                            <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
+                            <span style={{ color: 'var(--paper-5)' }}>·</span>
+                            <span style={{ textTransform: 'capitalize' }}>{contentSubmission.type}</span>
+                          </>
+                        )}
                       </div>
                       {contentSubmission.status === 'submitted' && (
                         <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12)' }}>submitted</span>

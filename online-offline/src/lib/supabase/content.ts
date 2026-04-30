@@ -7,6 +7,7 @@ interface ContentEntry {
   imageUrl: string | null;
   isFeature: boolean;
   isFullSpread: boolean;
+  body?: string | null;
 }
 
 interface Period {
@@ -157,7 +158,8 @@ export async function saveContent(
   status: 'draft' | 'submitted' | 'published',
   entries: ContentEntry[],
   existingDraftId?: string,
-  pageTitle?: string
+  pageTitle?: string,
+  format: 'image' | 'text' = 'image'
 ) {
   const supabase = createClientComponentClient();
   
@@ -182,6 +184,7 @@ export async function saveContent(
         status: currentStatus,
         period_id: period.id,
         page_title: pageTitle || '',
+        format,
         layout_preferences: {},
         content_dimensions: {},
         style_metadata: {}
@@ -209,12 +212,13 @@ export async function saveContent(
           .from('content_entries')
           .insert({
             content_id: contentData.id,
-            title: entry.title,
-            caption: entry.caption,
+            title: entry.title || null,
+            caption: entry.caption || null,
             media_url: entry.imageUrl,
-            is_feature: entry.isFeature,
+            is_feature: entry.isFeature || null,
             is_full_spread: entry.isFullSpread,
-            order_index: index
+            order_index: index,
+            body: entry.body || null,
           })
           .select()
           .single();
