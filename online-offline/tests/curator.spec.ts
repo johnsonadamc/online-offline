@@ -32,10 +32,11 @@ test.describe('Curator flows', () => {
 
   test('curate page shows slots counter', async ({ page }) => {
     await page.goto('/curate');
-    // Stats bar shows Selected / Remaining / Slots counts
-    await expect(page.getByText('Selected')).toBeVisible();
-    await expect(page.getByText('Remaining')).toBeVisible();
-    await expect(page.getByText('Slots')).toBeVisible();
+    // Stats bar labels are exact 7px mono divs. Use exact:true to avoid matching
+    // ancestor containers whose full text transitively includes these words.
+    await expect(page.getByText('Selected', { exact: true })).toBeVisible();
+    await expect(page.getByText('Remaining', { exact: true })).toBeVisible();
+    await expect(page.getByText('Slots', { exact: true })).toBeVisible();
   });
 
   test('Contributors tab is active by default', async ({ page }) => {
@@ -77,23 +78,22 @@ test.describe('Curator flows', () => {
 
   test('save button triggers confirmation dialog', async ({ page }) => {
     await page.goto('/curate');
-    // Save calls window.alert() — handle the dialog before clicking
-    const dialogPromise = page.waitForEvent('dialog');
-    // The save button uses a press mechanic; find it by class or text
-    const saveBtn = page.locator('.press-btn-green, button').filter({ hasText: /save/i }).first();
-    if (await saveBtn.isVisible()) {
-      await saveBtn.click();
-      const dialog = await dialogPromise;
-      expect(dialog.message()).toContain('saved');
-      await dialog.accept();
-    }
+    // Save button text is "Save selections" (from source: savingSelections ? 'Saving…' : 'Save selections')
+    const saveBtn = page.getByRole('button', { name: 'Save selections' });
+    await expect(saveBtn).toBeVisible();
+    // saveSelections() calls window.alert() on success — register the handler first,
+    // then click. Using page.on (not waitForEvent) so it fires even if dialog comes
+    // back asynchronously after a Supabase round-trip.
+    page.on('dialog', dialog => dialog.accept());
+    await saveBtn.click();
   });
 
   // ── Profile ──────────────────────────────────────────────────────────────
 
   test('curator profile page loads', async ({ page }) => {
     await page.goto('/profile');
-    await expect(page.getByText('Identity')).toBeVisible();
+    // exact: true — "Identity" is a card section header; avoids matching "Creative Identity Banner"
+    await expect(page.getByText('Identity', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save Changes' })).toBeVisible();
   });
 
