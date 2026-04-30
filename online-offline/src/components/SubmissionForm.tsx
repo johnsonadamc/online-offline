@@ -233,7 +233,10 @@ export default function SubmissionForm() {
     const hasTitle = pageTitle.trim() !== '' && pageTitle.trim() !== 'Untitled';
     const hasTextContent = format === 'text' && textBody.trim().length > 0;
     const hasImageContent = format === 'image' && entries.some(e => e.imageUrl !== null);
-    if (!hasTitle && !hasTextContent && !hasImageContent) return;
+    // Text submissions require BOTH a title and body content before saving
+    if (format === 'text' && (!hasTitle || !hasTextContent)) return;
+    // Image submissions require at least a title or an image
+    if (format === 'image' && !hasTitle && !hasImageContent) return;
     setSaveStatus('saving');
     try {
       let entriesToSave;
