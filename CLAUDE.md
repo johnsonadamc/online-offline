@@ -484,7 +484,8 @@ Located in `tests/` directory. Run with `npm test`. Requires `npm run dev` runni
 
 6. **`@supabase/ssr` migration** — standing priority.
 
-7. **End-to-end testing** — Playwright suite scaffolded, needs passwords filled in and full run verified.
+7. **End-to-end testing** — Playwright suite complete. The suite is running, 21/23 tests pass, the 2 remaining are known correct behavior (empty collab library because Maya joined everything).
+    - tests/helpers/auth.ts is gitignored — must be recreated manually in each new Codespaces instance using the credentials in the Seed Data section.
 
 ---
 
