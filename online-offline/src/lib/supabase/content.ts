@@ -204,29 +204,71 @@ export async function saveContent(
 
       contentId = existingDraftId;
     } else {
-      // ── Insert new content record ──────────────────────────────────────────
-      const { data: contentData, error: contentError } = await supabase
+      // ── Guard against duplicates: look up any existing record first ────────
+      const { data: existingForPeriod } = await supabase
         .from('content')
-        .insert({
-          creator_id: user.id,
-          type,
-          status,
-          period_id: period.id,
-          page_title: pageTitle || '',
-          format,
-          layout_preferences: {},
-          content_dimensions: {},
-          style_metadata: {}
-        })
-        .select()
-        .single();
+        .select('id')
+        .eq('creator_id', user.id)
+        .eq('period_id', period.id)
+        .in('status', ['draft', 'submitted'])
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (contentError) {
-        console.error('Error creating content:', contentError);
-        throw contentError;
+      if (existingForPeriod) {
+        // Update in place rather than creating a duplicate record
+        const { error: updateError } = await supabase
+          .from('content')
+          .update({
+            type,
+            status,
+            page_title: pageTitle || '',
+            format,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existingForPeriod.id);
+
+        if (updateError) {
+          console.error('Error updating existing content:', updateError);
+          throw updateError;
+        }
+
+        const { error: deleteError } = await supabase
+          .from('content_entries')
+          .delete()
+          .eq('content_id', existingForPeriod.id);
+
+        if (deleteError) {
+          console.error('Error deleting entries for existing content:', deleteError);
+          throw deleteError;
+        }
+
+        contentId = existingForPeriod.id;
+      } else {
+        // ── Insert new content record ────────────────────────────────────────
+        const { data: contentData, error: contentError } = await supabase
+          .from('content')
+          .insert({
+            creator_id: user.id,
+            type,
+            status,
+            period_id: period.id,
+            page_title: pageTitle || '',
+            format,
+            layout_preferences: {},
+            content_dimensions: {},
+            style_metadata: {}
+          })
+          .select()
+          .single();
+
+        if (contentError) {
+          console.error('Error creating content:', contentError);
+          throw contentError;
+        }
+
+        contentId = contentData.id;
       }
-
-      contentId = contentData.id;
     }
 
     // ── Insert entries ─────────────────────────────────────────────────────

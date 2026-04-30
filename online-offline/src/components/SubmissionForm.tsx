@@ -250,8 +250,8 @@ export default function SubmissionForm() {
       if (result.success) {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
-        // On first save (no existing draftId), update URL so subsequent saves update in place
-        if (!draftId && result.id) {
+        // Sync URL with the saved record's ID so subsequent saves update in place
+        if (result.id && result.id !== draftId) {
           router.replace(`/submit?draft=${result.id}`);
         }
       } else {
