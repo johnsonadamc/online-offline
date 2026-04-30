@@ -314,12 +314,10 @@ export default function CollabsLibrary() {
     background: state === 'pressing'
       ? (purple ? 'rgba(168,136,232,0.2)' : 'rgba(224,90,40,0.18)')
       : (purple ? 'rgba(168,136,232,0.1)' : 'var(--ground-3)'),
-    border: `1px solid ${state !== 'rest'
-      ? (purple ? 'rgba(168,136,232,0.5)' : 'rgba(224,90,40,0.5)')
-      : (purple ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)')}`,
-    borderBottom: `2px solid ${state === 'pressing'
-      ? (purple ? 'rgba(168,136,232,0.6)' : 'rgba(224,90,40,0.6)')
-      : (purple ? 'rgba(168,136,232,0.45)' : 'var(--ground-4)')}`,
+    borderTop: `1px solid ${state !== 'rest' ? (purple ? 'rgba(168,136,232,0.5)' : 'rgba(224,90,40,0.5)') : (purple ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)')}`,
+    borderRight: `1px solid ${state !== 'rest' ? (purple ? 'rgba(168,136,232,0.5)' : 'rgba(224,90,40,0.5)') : (purple ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)')}`,
+    borderLeft: `1px solid ${state !== 'rest' ? (purple ? 'rgba(168,136,232,0.5)' : 'rgba(224,90,40,0.5)') : (purple ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)')}`,
+    borderBottom: `2px solid ${state === 'pressing' ? (purple ? 'rgba(168,136,232,0.6)' : 'rgba(224,90,40,0.6)') : (purple ? 'rgba(168,136,232,0.45)' : 'var(--ground-4)')}`,
     borderRadius: 2,
     cursor: 'pointer',
     WebkitTapHighlightColor: 'transparent',
@@ -334,9 +332,9 @@ export default function CollabsLibrary() {
   });
 
   const typeStyle: Record<string, { color: string; bg: string; border: string }> = {
-    chain:     { color: 'rgba(129,140,248,0.9)', bg: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.25)' },
-    theme:     { color: 'rgba(245,169,63,0.9)',  bg: 'rgba(245,169,63,0.08)',  border: 'rgba(245,169,63,0.25)'  },
-    narrative: { color: 'rgba(52,211,153,0.9)',  bg: 'rgba(52,211,153,0.08)',  border: 'rgba(52,211,153,0.25)'  },
+    chain:     { color: 'var(--neon-purple)', bg: 'rgba(168,136,232,0.08)', border: 'rgba(168,136,232,0.25)' },
+    theme:     { color: 'var(--neon-amber)',  bg: 'rgba(224,168,48,0.08)',  border: 'rgba(224,168,48,0.25)'  },
+    narrative: { color: 'var(--neon-green)',  bg: 'rgba(78,196,122,0.08)',  border: 'rgba(78,196,122,0.25)'  },
   };
 
   const CollabCard = ({ collab }: { collab: CollabTemplate }) => {
@@ -348,16 +346,16 @@ export default function CollabsLibrary() {
         <div style={{ padding: 14 }}>
           {/* Title + type badge */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: 15, fontWeight: 500, color: 'var(--paper)', margin: 0, lineHeight: 1.3 }}>{collab.name}</h3>
+            <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 18, fontWeight: 400, color: 'var(--paper)', margin: 0, lineHeight: 1.2, opacity: 0.88 }}>{collab.name}</h3>
             <span style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: t.color, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 2, padding: '2px 7px' }}>{collab.type}</span>
           </div>
 
           {/* Description */}
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-3)', opacity: 0.75, lineHeight: 1.5, margin: '0 0 12px' }}>{collab.display_text}</p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-3)', lineHeight: 1.5, margin: '0 0 12px' }}>{collab.display_text}</p>
 
           {/* Instructions */}
           {collab.instructions && (
-            <div style={{ background: 'rgba(245,169,63,0.05)', border: '1px solid rgba(245,169,63,0.2)', borderLeft: '3px solid var(--neon-amber)', borderRadius: 2, padding: '10px 12px', marginBottom: 12 }}>
+            <div style={{ background: 'rgba(224,168,48,0.05)', borderTop: '1px solid rgba(224,168,48,0.2)', borderRight: '1px solid rgba(224,168,48,0.2)', borderBottom: '1px solid rgba(224,168,48,0.2)', borderLeft: '3px solid var(--neon-amber)', borderRadius: 2, padding: '10px 12px', marginBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                 <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ color: 'var(--neon-amber)', flexShrink: 0 }}><rect x="1.5" y="0.5" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M3.5 3.5h4M3.5 5.5h4M3.5 7.5h2.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)' }}>Instructions</span>
@@ -378,12 +376,12 @@ export default function CollabsLibrary() {
           {/* Participant counts */}
           <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'rgba(90,159,212,0.8)', flexShrink: 0 }}><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/><ellipse cx="6" cy="6" rx="2.5" ry="5" stroke="currentColor" strokeWidth="1"/><path d="M1 6h10" stroke="currentColor" strokeWidth="1"/></svg>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.7 }}><strong style={{ color: 'rgba(90,159,212,0.9)' }}>{collab.communityParticipantCount || 0}</strong> community</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--neon-blue)', flexShrink: 0 }}><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/><ellipse cx="6" cy="6" rx="2.5" ry="5" stroke="currentColor" strokeWidth="1"/><path d="M1 6h10" stroke="currentColor" strokeWidth="1"/></svg>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-4)' }}><strong style={{ color: 'var(--neon-blue)' }}>{collab.communityParticipantCount || 0}</strong> community</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'rgba(52,211,153,0.8)', flexShrink: 0 }}><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.7 }}><strong style={{ color: 'rgba(52,211,153,0.9)' }}>{collab.localParticipantCount || 0}</strong> local</span>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ color: 'var(--neon-green)', flexShrink: 0 }}><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-4)' }}><strong style={{ color: 'var(--neon-green)' }}>{collab.localParticipantCount || 0}</strong> local</span>
             </div>
           </div>
 
@@ -391,22 +389,22 @@ export default function CollabsLibrary() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
             {([
               {
-                mode: 'community' as const, label: 'Community', color: 'rgba(90,159,212,0.85)', bg: 'rgba(90,159,212,0.08)', border: 'rgba(90,159,212,0.25)',
+                mode: 'community' as const, label: 'Community', color: 'var(--neon-blue)', bg: 'rgba(90,159,212,0.08)', border: 'rgba(90,159,212,0.25)',
                 icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1"/><ellipse cx="6" cy="6" rx="2.5" ry="5" stroke="currentColor" strokeWidth="1"/><path d="M1 6h10" stroke="currentColor" strokeWidth="1"/></svg>,
               },
               {
-                mode: 'local' as const, label: 'Local', color: 'rgba(52,211,153,0.85)', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.25)',
+                mode: 'local' as const, label: 'Local', color: 'var(--neon-green)', bg: 'rgba(78,196,122,0.08)', border: 'rgba(78,196,122,0.25)',
                 icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M6 1C4.067 1 2.5 2.567 2.5 4.5C2.5 7 6 11 6 11s3.5-4 3.5-6.5C9.5 2.567 7.933 1 6 1Z" stroke="currentColor" strokeWidth="1"/><circle cx="6" cy="4.5" r="1.2" stroke="currentColor" strokeWidth="1"/></svg>,
               },
               {
-                mode: 'private' as const, label: 'Private', color: 'rgba(167,139,250,0.85)', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.25)',
+                mode: 'private' as const, label: 'Private', color: 'var(--neon-purple)', bg: 'rgba(168,136,232,0.08)', border: 'rgba(168,136,232,0.25)',
                 icon: <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="2" y="5.5" width="8" height="6" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M4 5.5V3.5C4 2.4 4.9 1.5 6 1.5C7.1 1.5 8 2.4 8 3.5V5.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>,
               },
             ] as { mode: ParticipationMode; label: string; icon: React.ReactNode; color: string; bg: string; border: string }[]).map(({ mode, label, icon, color, bg, border }) => (
               <button
                 key={mode}
                 onClick={() => handleJoinClick(collab.id, collab.name, mode)}
-                style={{ padding: '8px 4px', background: bg, border: `1px solid ${border}`, borderRadius: 2, color, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.07em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                style={{ padding: '8px 4px', background: bg, border: `1px solid ${border}`, borderRadius: 2, color, fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
               >
                 {icon}
                 {label}
@@ -419,51 +417,56 @@ export default function CollabsLibrary() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--ground)', fontFamily: 'var(--font-sans)' }}>
-      {/* Ambient glow */}
-      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,169,63,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+    <div style={{ minHeight: '100vh', background: 'var(--ground)' }}>
+      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--ground)', position: 'relative' }}>
 
-      <div style={{ position: 'relative', zIndex: 1, maxWidth: 640, margin: '0 auto', padding: 16 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-3)', textDecoration: 'none', opacity: 0.7 }}>← Dashboard</Link>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper)', letterSpacing: '-0.01em' }}>online//offline</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(245,169,63,0.1)', border: '1px solid rgba(245,169,63,0.25)', borderRadius: 2, padding: '3px 8px' }}>Collabs</span>
-        </div>
-        <div style={{ height: 1, background: 'var(--rule-mid)', opacity: 0.3, marginBottom: 20 }} />
-
-        {/* Season + subtitle */}
-        <div style={{ marginBottom: 20 }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 22, fontWeight: 400, color: 'var(--paper)', margin: '0 0 6px', letterSpacing: '-0.01em' }}>
-            {currentPeriod.season} {currentPeriod.year} Collab Prompts
-          </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-3)', opacity: 0.6, margin: 0 }}>
-            Join a template to participate in this quarter's creative collaborations.
-          </p>
+        {/* ── Header ── */}
+        <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-4)', textDecoration: 'none' }}>← Dashboard</Link>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, letterSpacing: '0.04em', color: 'var(--paper)', opacity: 0.88, textShadow: '0 0 20px var(--glow-paper)' }}>
+            online<span style={{ color: 'var(--paper-5)', margin: '0 1px' }}>//</span>offline
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>Collabs</span>
         </div>
 
-        {/* Error */}
-        {error.isVisible && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>{error.message}</span>
-          </div>
-        )}
+        {/* ── Thick rule ── */}
+        <div style={{ height: '1px', background: 'var(--paper)', margin: '13px 26px 0', opacity: 0.8, boxShadow: '0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08)', position: 'relative', zIndex: 10 }} />
 
-        {/* Loading */}
-        {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
-          </div>
-        ) : availablePrompts.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {availablePrompts.map(collab => <CollabCard key={collab.id} collab={collab} />)}
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', padding: '60px 0' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-3)', opacity: 0.5, marginBottom: 16 }}>You have joined all available prompts for this period.</div>
-            <button onClick={loadData} className="press-btn" style={{ padding: '10px 20px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Refresh</button>
-          </div>
-        )}
+        {/* ── Period strip ── */}
+        <div style={{ padding: '9px 26px 0', display: 'flex', alignItems: 'center', gap: '10px', position: 'relative', zIndex: 10 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-3)', whiteSpace: 'nowrap' }}>
+            {currentPeriod.season} {currentPeriod.year}
+          </span>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, var(--rule-mid), transparent)' }} />
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-5)', whiteSpace: 'nowrap' }}>Collab Prompts</span>
+        </div>
+
+        {/* ── Content ── */}
+        <div style={{ padding: '16px 26px 80px', position: 'relative', zIndex: 10 }}>
+
+          {/* Error */}
+          {error.isVisible && (
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(224,90,40,0.08)', borderTop: '1px solid rgba(224,90,40,0.25)', borderRight: '1px solid rgba(224,90,40,0.25)', borderBottom: '1px solid rgba(224,90,40,0.25)', borderLeft: '3px solid var(--neon-accent)', borderRadius: 2 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--neon-accent)' }}>{error.message}</span>
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px 0' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
+            </div>
+          ) : availablePrompts.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {availablePrompts.map(collab => <CollabCard key={collab.id} collab={collab} />)}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>You&apos;ve joined all available prompts for this period.</span>
+              <button onClick={loadData} className="press-btn" style={{ padding: '10px 20px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Refresh</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Invite modal */}
@@ -502,7 +505,7 @@ export default function CollabsLibrary() {
                   {selectedUsers.map(u => (
                     <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.25)', borderRadius: 2, padding: '3px 8px' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)' }}>{u.name}</span>
-                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(167,139,250,0.7)', padding: 0, display: 'flex', lineHeight: 0 }}><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M3 3L8 8M8 3L3 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg></button>
+                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-purple)', opacity: 0.6, padding: 0, display: 'flex', lineHeight: 0 }}><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M3 3L8 8M8 3L3 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg></button>
                     </div>
                   ))}
                 </div>
@@ -581,7 +584,7 @@ export default function CollabsLibrary() {
                   value={localCity}
                   onChange={e => setLocalCity(e.target.value)}
                   style={{ width: '100%', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px', outline: 'none', cursor: 'pointer', boxSizing: 'border-box' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(52,211,153,0.5)'; }}
+                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(78,196,122,0.5)'; }}
                   onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
                 >
                   <option value="">Select a city</option>
@@ -606,7 +609,7 @@ export default function CollabsLibrary() {
                   onPointerLeave={() => { if (localJoinPress === 'pressing') releasePress(setLocalJoinPress); }}
                   onClick={confirmLocalJoin}
                   disabled={!localCity}
-                  style={{ ...pressStyle(localJoinPress), color: localJoinPress === 'rest' ? 'rgba(52,211,153,0.9)' : 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', background: localJoinPress === 'pressing' ? 'rgba(52,211,153,0.2)' : 'rgba(52,211,153,0.1)', border: `1px solid ${localJoinPress !== 'rest' ? 'rgba(52,211,153,0.5)' : 'rgba(52,211,153,0.35)'}`, borderBottom: `2px solid ${localJoinPress === 'pressing' ? 'rgba(52,211,153,0.6)' : 'rgba(52,211,153,0.45)'}`, opacity: !localCity ? 0.4 : 1, cursor: !localCity ? 'not-allowed' : 'pointer' }}
+                  style={{ ...pressStyle(localJoinPress), color: 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', background: localJoinPress === 'pressing' ? 'rgba(78,196,122,0.2)' : 'rgba(78,196,122,0.1)', borderTop: `1px solid ${localJoinPress !== 'rest' ? 'rgba(78,196,122,0.5)' : 'rgba(78,196,122,0.35)'}`, borderRight: `1px solid ${localJoinPress !== 'rest' ? 'rgba(78,196,122,0.5)' : 'rgba(78,196,122,0.35)'}`, borderLeft: `1px solid ${localJoinPress !== 'rest' ? 'rgba(78,196,122,0.5)' : 'rgba(78,196,122,0.35)'}`, borderBottom: `2px solid ${localJoinPress === 'pressing' ? 'rgba(78,196,122,0.6)' : 'rgba(78,196,122,0.45)'}`, opacity: !localCity ? 0.4 : 1, cursor: !localCity ? 'not-allowed' : 'pointer' }}
                 >
                   Join Local
                 </button>
