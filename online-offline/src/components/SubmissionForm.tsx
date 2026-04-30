@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
+import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/constants/submission';
 import { uploadMedia } from '@/lib/supabase/storage';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -60,9 +61,11 @@ export default function SubmissionForm() {
   const draftId = searchParams.get('draft');
 
   // ── content state ────────────────────────────────────────────────────────────
+  const [format, setFormat]               = useState<'image' | 'text'>('image');
   const [submissionType, setSubmissionType] = useState<'regular' | 'fullSpread'>('regular');
   const [status, setStatus]               = useState<'draft' | 'submitted'>('draft');
   const [pageTitle, setPageTitle]         = useState('');
+  const [textBody, setTextBody]           = useState('');
   const [entries, setEntries]             = useState<Entry[]>([{
     id: generateUniqueId(),
     title: '', caption: '', selectedTags: [],
@@ -100,10 +103,14 @@ export default function SubmissionForm() {
           .eq('id', draftId)
           .single();
         if (error || !data) { console.error('Error loading draft:', error); return; }
+        if (data.format === 'text') setFormat('text');
         setSubmissionType(data.type);
         setStatus(data.status);
         if (data.page_title) setPageTitle(data.page_title);
-        if (data.content_entries?.length > 0) {
+        if (data.format === 'text') {
+          const bodyEntry = data.content_entries?.[0];
+          if (bodyEntry?.body) setTextBody(bodyEntry.body);
+        } else if (data.content_entries?.length > 0) {
           const loaded: Entry[] = data.content_entries.map((entry: ContentEntry) => ({
             id: entry.id,
             title: entry.title || '',
@@ -225,8 +232,13 @@ export default function SubmissionForm() {
   const handleSaveDraft = async () => {
     setSaveStatus('saving');
     try {
-      const entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
-      const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle);
+      let entriesToSave;
+      if (format === 'text') {
+        entriesToSave = [{ title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, body: textBody }];
+      } else {
+        entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
+      }
+      const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle, format);
       if (result.success) {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
@@ -244,8 +256,13 @@ export default function SubmissionForm() {
   // ── submit ───────────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     try {
-      const entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
-      const result = await saveContent(submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle);
+      let entriesToSave;
+      if (format === 'text') {
+        entriesToSave = [{ title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, body: textBody }];
+      } else {
+        entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
+      }
+      const result = await saveContent(submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle, format);
       if (result.success) setStatus('submitted');
       else alert('Error submitting: ' + (result.error || 'Unknown error'));
     } catch (err) {
@@ -261,6 +278,7 @@ export default function SubmissionForm() {
   };
 
   // ── derived ──────────────────────────────────────────────────────────────────
+  const textWordCount = textBody.trim() ? textBody.trim().split(/\s+/).filter(Boolean).length : 0;
   const entry = entries[currentSlide] ?? entries[0];
   const hasImage = !!entry?.imageUrl;
   const isFeature = entry?.id === featureEntryId;
@@ -325,43 +343,45 @@ export default function SubmissionForm() {
         {/* ── Scroll body ── */}
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 } as React.CSSProperties}>
 
-          {/* Mode selector */}
-          <div style={{ padding: '16px 22px 0' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {([
-                { value: 'regular' as const, label: 'Collection', desc: '1–8 images, one featured' },
-                { value: 'fullSpread' as const, label: 'Full Spread', desc: 'Single image, full page' },
-              ]).map(({ value, label, desc }) => {
-                const active = submissionType === value;
-                return (
-                  <button
-                    key={value}
-                    onClick={() => status !== 'submitted' && setSubmissionType(value)}
-                    style={{
-                      padding: '10px 12px', textAlign: 'left', cursor: status === 'submitted' ? 'default' : 'pointer',
-                      background: active ? 'rgba(224,90,40,0.08)' : 'var(--ground-3)',
-                      border: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
-                      borderRadius: 2,
-                      boxShadow: active ? '-3px 0 10px -2px var(--glow-accent)' : 'none',
-                      transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
-                    }}
-                  >
-                    <div style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
-                      textTransform: 'uppercase', marginBottom: 2,
-                      color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
-                      textShadow: active ? '0 0 6px var(--glow-accent)' : 'none',
-                    }}>
-                      {label}
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--paper-3)', fontWeight: 300 }}>
-                      {desc}
-                    </div>
-                  </button>
-                );
-              })}
+          {/* Mode selector — image only */}
+          {format === 'image' && (
+            <div style={{ padding: '16px 22px 0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {([
+                  { value: 'regular' as const, label: 'Collection', desc: '1–8 images, one featured' },
+                  { value: 'fullSpread' as const, label: 'Full Spread', desc: 'Single image, full page' },
+                ]).map(({ value, label, desc }) => {
+                  const active = submissionType === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => status !== 'submitted' && setSubmissionType(value)}
+                      style={{
+                        padding: '10px 12px', textAlign: 'left', cursor: status === 'submitted' ? 'default' : 'pointer',
+                        background: active ? 'rgba(224,90,40,0.08)' : 'var(--ground-3)',
+                        border: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
+                        borderRadius: 2,
+                        boxShadow: active ? '-3px 0 10px -2px var(--glow-accent)' : 'none',
+                        transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                        textTransform: 'uppercase', marginBottom: 2,
+                        color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
+                        textShadow: active ? '0 0 6px var(--glow-accent)' : 'none',
+                      }}>
+                        {label}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--paper-3)', fontWeight: 300 }}>
+                        {desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Collection title */}
           <div style={{ padding: '18px 22px 0' }}>
@@ -385,8 +405,109 @@ export default function SubmissionForm() {
           </div>
           <div style={{ height: 1, margin: '12px 22px 0', background: 'var(--rule-mid)' }} />
 
+          {/* Format toggle */}
+          <div style={{ padding: '14px 22px 0' }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {([
+                { value: 'image' as const, label: 'Image' },
+                { value: 'text'  as const, label: 'Text'  },
+              ]).map(({ value, label }) => {
+                const active = format === value;
+                return (
+                  <button
+                    key={value}
+                    onClick={() => status !== 'submitted' && setFormat(value)}
+                    style={{
+                      padding: '7px 16px',
+                      cursor: status === 'submitted' ? 'default' : 'pointer',
+                      fontFamily: 'var(--font-mono)', fontSize: 9,
+                      letterSpacing: '0.14em', textTransform: 'uppercase',
+                      borderRadius: 2,
+                      background: active ? 'rgba(224,90,40,0.08)' : 'var(--ground-3)',
+                      borderTop: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
+                      borderRight: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
+                      borderLeft: `2px solid ${active ? 'var(--neon-accent)' : 'var(--rule-mid)'}`,
+                      borderBottom: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
+                      color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
+                      textShadow: active ? '0 0 6px var(--glow-accent)' : 'none',
+                      boxShadow: active ? '-3px 0 10px -2px var(--glow-accent)' : 'none',
+                      transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s, color 0.15s',
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Text body area */}
+          {format === 'text' && (
+            <div style={{ margin: '16px 22px 0' }}>
+              <div style={{ position: 'relative' }}>
+                <textarea
+                  value={textBody}
+                  onChange={e => setTextBody(e.target.value)}
+                  onBlur={handleSaveDraft}
+                  disabled={status === 'submitted'}
+                  placeholder="Write your piece here…"
+                  style={{
+                    width: '100%', minHeight: 320,
+                    background: 'var(--ground-3)',
+                    borderTop: '1px solid var(--rule-mid)',
+                    borderRight: '1px solid var(--rule-mid)',
+                    borderLeft: '1px solid var(--rule-mid)',
+                    borderBottom: '1px solid var(--rule-mid)',
+                    borderRadius: 2,
+                    padding: '14px 16px 36px',
+                    outline: 'none',
+                    color: 'var(--paper)',
+                    fontFamily: 'var(--font-serif)', fontSize: 16,
+                    lineHeight: 1.7, resize: 'vertical',
+                    caretColor: 'var(--neon-accent)',
+                    whiteSpace: 'pre-wrap',
+                    boxSizing: 'border-box',
+                    transition: 'border-color 0.15s, box-shadow 0.15s',
+                  } as React.CSSProperties}
+                  onFocus={e => {
+                    e.currentTarget.style.borderTopColor = 'rgba(224,90,40,0.5)';
+                    e.currentTarget.style.borderRightColor = 'rgba(224,90,40,0.5)';
+                    e.currentTarget.style.borderLeftColor = 'rgba(224,90,40,0.5)';
+                    e.currentTarget.style.borderBottomColor = 'rgba(224,90,40,0.5)';
+                    e.currentTarget.style.boxShadow = '0 0 0 1px rgba(224,90,40,0.2), 0 0 16px rgba(224,90,40,0.08)';
+                  }}
+                  onBlurCapture={e => {
+                    e.currentTarget.style.borderTopColor = 'var(--rule-mid)';
+                    e.currentTarget.style.borderRightColor = 'var(--rule-mid)';
+                    e.currentTarget.style.borderLeftColor = 'var(--rule-mid)';
+                    e.currentTarget.style.borderBottomColor = 'var(--rule-mid)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                />
+                <div style={{
+                  position: 'absolute', bottom: 10, right: 12,
+                  fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em',
+                  pointerEvents: 'none',
+                  color: textWordCount >= TEXT_SUBMISSION_MAX_WORDS
+                    ? 'var(--neon-accent)'
+                    : textWordCount >= TEXT_SUBMISSION_WARN_WORDS
+                      ? 'var(--neon-amber)'
+                      : 'var(--paper-4)',
+                  textShadow: textWordCount >= TEXT_SUBMISSION_MAX_WORDS
+                    ? '0 0 6px var(--glow-accent)'
+                    : textWordCount >= TEXT_SUBMISSION_WARN_WORDS
+                      ? '0 0 6px var(--glow-amber)'
+                      : 'none',
+                  transition: 'color 0.15s',
+                }}>
+                  {textWordCount} / 800 words
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Image area */}
-          <div style={{ margin: '16px 22px 0' }}>
+          <div style={{ margin: '16px 22px 0', display: format === 'text' ? 'none' : undefined }}>
 
             {/* Main viewer */}
             <div style={{
@@ -589,8 +710,8 @@ export default function SubmissionForm() {
             )}
           </div>
 
-          {/* Per-image metadata */}
-          <div style={{ margin: '14px 22px 0', opacity: hasImage ? 1 : 0.4, transition: 'opacity 0.15s' }}>
+          {/* Per-image metadata — image format only */}
+          <div style={{ margin: '14px 22px 0', opacity: hasImage ? 1 : 0.4, transition: 'opacity 0.15s', display: format === 'text' ? 'none' : undefined }}>
 
             {entries.map((en, index) => (
               <div key={`meta-${en.id}`} style={{ display: currentSlide === index ? 'block' : 'none' }}>
@@ -812,32 +933,43 @@ export default function SubmissionForm() {
               </button>
 
               {/* Submit button */}
-              <button
-                onPointerDown={() => setSubmitPress('pressing')}
-                onPointerUp={() => releasePress(setSubmitPress, handleSubmit)}
-                onPointerLeave={() => submitPress === 'pressing' && releasePress(setSubmitPress, handleSubmit)}
-                style={{
-                  flex: 1,
-                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
-                  textTransform: 'uppercase', borderRadius: 2, cursor: 'pointer',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '9px 16px',
-                  background: submitPress === 'pressing' ? 'rgba(224,90,40,0.16)' : 'rgba(224,90,40,0.1)',
-                  borderTop: '1px solid rgba(224,90,40,0.35)',
-                  borderRight: '1px solid rgba(224,90,40,0.35)',
-                  borderLeft: '1px solid rgba(224,90,40,0.35)',
-                  borderBottom: submitPress === 'pressing' ? '2px solid rgba(224,90,40,0.6)' : '2px solid rgba(224,90,40,0.5)',
-                  color: 'var(--neon-accent)', textShadow: '0 0 6px var(--glow-accent)',
-                  boxShadow: `0 2px 0 rgba(224,90,40,0.3), 0 3px 6px rgba(0,0,0,0.4)`,
-                  transform: submitPress === 'pressing' ? 'translateY(2px)' : 'none',
-                  transition: submitPress === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.06s ease',
-                }}
-              >
-                Submit
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22,2 15,22 11,13 2,9" />
-                </svg>
-              </button>
+              {(() => {
+                const overLimit = format === 'text' && textWordCount > TEXT_SUBMISSION_MAX_WORDS;
+                return (
+                  <button
+                    disabled={overLimit}
+                    onPointerDown={() => !overLimit && setSubmitPress('pressing')}
+                    onPointerUp={() => !overLimit && releasePress(setSubmitPress, handleSubmit)}
+                    onPointerLeave={() => submitPress === 'pressing' && !overLimit && releasePress(setSubmitPress, handleSubmit)}
+                    style={{
+                      flex: 1,
+                      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                      textTransform: 'uppercase', borderRadius: 2,
+                      cursor: overLimit ? 'default' : 'pointer',
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                      padding: '9px 16px',
+                      background: overLimit ? 'rgba(224,90,40,0.06)' : submitPress === 'pressing' ? 'rgba(224,90,40,0.16)' : 'rgba(224,90,40,0.1)',
+                      borderTop: '1px solid rgba(224,90,40,0.35)',
+                      borderRight: '1px solid rgba(224,90,40,0.35)',
+                      borderLeft: '1px solid rgba(224,90,40,0.35)',
+                      borderBottom: submitPress === 'pressing' ? '2px solid rgba(224,90,40,0.6)' : '2px solid rgba(224,90,40,0.5)',
+                      color: overLimit ? 'rgba(224,90,40,0.45)' : 'var(--neon-accent)',
+                      textShadow: overLimit ? '0 0 8px var(--glow-accent)' : '0 0 6px var(--glow-accent)',
+                      boxShadow: overLimit
+                        ? '0 0 10px rgba(224,90,40,0.25)'
+                        : `0 2px 0 rgba(224,90,40,0.3), 0 3px 6px rgba(0,0,0,0.4)`,
+                      transform: submitPress === 'pressing' ? 'translateY(2px)' : 'none',
+                      transition: submitPress === 'releasing' ? 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1)' : 'transform 0.06s ease',
+                      opacity: overLimit ? 0.6 : 1,
+                    }}
+                  >
+                    Submit
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <line x1="22" y1="2" x2="11" y2="13" /><polygon points="22,2 15,22 11,13 2,9" />
+                    </svg>
+                  </button>
+                );
+              })()}
             </>
           )}
         </div>

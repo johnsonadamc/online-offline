@@ -317,6 +317,29 @@ SELECT
 ON CONFLICT (id) DO NOTHING;
 
 ------------------------------------------------------------------------
+-- 13. Text submission — Maya Torres "After the Rain" (Spring 2026)
+-- Requires content.format and content_entries.body columns to exist.
+------------------------------------------------------------------------
+INSERT INTO public.content (id, creator_id, type, format, status, period_id, page_title)
+SELECT
+  'cafe0003-0000-4000-a000-000000000000'::uuid,
+  '0889833d-d56a-4969-83b4-43c9585bcd92'::uuid,
+  'regular', 'text', 'submitted',
+  (SELECT val FROM _seed_ids WHERE key = 'period_id'),
+  'After the Rain'
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.content_entries
+  (id, content_id, title, caption, body, media_url, order_index, is_feature, is_full_spread)
+VALUES
+  ('cafe0013-0000-4000-a000-000000000000',
+   'cafe0003-0000-4000-a000-000000000000',
+   null, null,
+   E'The street has no memory of the hour before.\nPuddles hold the sky in pieces.\nEach car that passes rewrites the light.\n\nI keep looking for the moment\nbefore the concrete dried—\nsome proof the rain was here at all.\n\nThere is only the smell of it now,\nand my shoes,\nand the long way home.',
+   null, 0, null, false)
+ON CONFLICT (id) DO NOTHING;
+
+------------------------------------------------------------------------
 
 COMMIT;
 
