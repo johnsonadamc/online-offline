@@ -746,9 +746,7 @@ export default function Dashboard() {
                     )}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        {contentSubmission.format === 'text' ? (
-                          <span>text</span>
-                        ) : (
+                        {contentSubmission.format !== 'text' && (
                           <>
                             <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
                             <span style={{ color: 'var(--paper-5)' }}>·</span>
