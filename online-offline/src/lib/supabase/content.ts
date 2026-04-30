@@ -162,56 +162,80 @@ export async function saveContent(
   format: 'image' | 'text' = 'image'
 ) {
   const supabase = createClientComponentClient();
-  
+
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
     if (!user) throw new Error('No user found');
 
-    // Get current period
     const { period, error: periodError } = await getCurrentPeriod();
     if (!period || periodError) throw new Error('No active period found');
 
-    // Always use the status that was passed in - this will respect manual changes in both directions
-    const currentStatus = status;
+    let contentId: string;
 
-    // Always create a new content record, now including page_title
-    const { data: contentData, error: contentError } = await supabase
-      .from('content')
-      .insert({
-        creator_id: user.id,
-        type,
-        status: currentStatus,
-        period_id: period.id,
-        page_title: pageTitle || '',
-        format,
-        layout_preferences: {},
-        content_dimensions: {},
-        style_metadata: {}
-      })
-      .select()
-      .single();
-
-    if (contentError) {
-      console.error('Error creating content:', contentError);
-      throw contentError;
-    }
-
-    // If there was an old draft, mark it as archived
     if (existingDraftId) {
-      await supabase
+      // ── Update existing record in place ────────────────────────────────────
+      const { error: updateError } = await supabase
         .from('content')
-        .update({ status: 'archived' })
+        .update({
+          type,
+          status,
+          page_title: pageTitle || '',
+          format,
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', existingDraftId);
+
+      if (updateError) {
+        console.error('Error updating content:', updateError);
+        throw updateError;
+      }
+
+      // Delete all existing entries so we can insert fresh ones
+      const { error: deleteError } = await supabase
+        .from('content_entries')
+        .delete()
+        .eq('content_id', existingDraftId);
+
+      if (deleteError) {
+        console.error('Error deleting old entries:', deleteError);
+        throw deleteError;
+      }
+
+      contentId = existingDraftId;
+    } else {
+      // ── Insert new content record ──────────────────────────────────────────
+      const { data: contentData, error: contentError } = await supabase
+        .from('content')
+        .insert({
+          creator_id: user.id,
+          type,
+          status,
+          period_id: period.id,
+          page_title: pageTitle || '',
+          format,
+          layout_preferences: {},
+          content_dimensions: {},
+          style_metadata: {}
+        })
+        .select()
+        .single();
+
+      if (contentError) {
+        console.error('Error creating content:', contentError);
+        throw contentError;
+      }
+
+      contentId = contentData.id;
     }
 
-    // Create new entries
+    // ── Insert entries ─────────────────────────────────────────────────────
     const entriesPromises = entries.map(async (entry, index) => {
       try {
         const { data: entryData, error: entryError } = await supabase
           .from('content_entries')
           .insert({
-            content_id: contentData.id,
+            content_id: contentId,
             title: entry.title || null,
             caption: entry.caption || null,
             media_url: entry.imageUrl,
@@ -253,7 +277,7 @@ export async function saveContent(
     });
 
     await Promise.all(entriesPromises);
-    return { success: true, contentId: contentData.id, period };
+    return { success: true, id: contentId };
 
   } catch (error) {
     console.error('Error details:', {

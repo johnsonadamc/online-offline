@@ -4,7 +4,7 @@ import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/constants/submission';
 import { uploadMedia } from '@/lib/supabase/storage';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -57,6 +57,7 @@ const THEMES = [
 
 export default function SubmissionForm() {
   const supabase = createClientComponentClient();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draft');
 
@@ -249,6 +250,10 @@ export default function SubmissionForm() {
       if (result.success) {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
+        // On first save (no existing draftId), update URL so subsequent saves update in place
+        if (!draftId && result.id) {
+          router.replace(`/submit?draft=${result.id}`);
+        }
       } else {
         setSaveStatus('error');
         alert('Error saving: ' + (result.error || 'Unknown error'));
