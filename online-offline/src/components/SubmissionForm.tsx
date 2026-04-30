@@ -343,46 +343,6 @@ export default function SubmissionForm() {
         {/* ── Scroll body ── */}
         <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 } as React.CSSProperties}>
 
-          {/* Mode selector — image only */}
-          {format === 'image' && (
-            <div style={{ padding: '16px 22px 0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                {([
-                  { value: 'regular' as const, label: 'Collection', desc: '1–8 images, one featured' },
-                  { value: 'fullSpread' as const, label: 'Full Spread', desc: 'Single image, full page' },
-                ]).map(({ value, label, desc }) => {
-                  const active = submissionType === value;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => status !== 'submitted' && setSubmissionType(value)}
-                      style={{
-                        padding: '10px 12px', textAlign: 'left', cursor: status === 'submitted' ? 'default' : 'pointer',
-                        background: active ? 'rgba(224,90,40,0.08)' : 'var(--ground-3)',
-                        border: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
-                        borderRadius: 2,
-                        boxShadow: active ? '-3px 0 10px -2px var(--glow-accent)' : 'none',
-                        transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
-                      }}
-                    >
-                      <div style={{
-                        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
-                        textTransform: 'uppercase', marginBottom: 2,
-                        color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
-                        textShadow: active ? '0 0 6px var(--glow-accent)' : 'none',
-                      }}>
-                        {label}
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--paper-3)', fontWeight: 300 }}>
-                        {desc}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Collection title */}
           <div style={{ padding: '18px 22px 0' }}>
             <div style={{
@@ -440,6 +400,46 @@ export default function SubmissionForm() {
               })}
             </div>
           </div>
+
+          {/* Mode selector — image only */}
+          {format === 'image' && (
+            <div style={{ padding: '10px 22px 0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {([
+                  { value: 'regular' as const, label: 'Collection', desc: '1–8 images, one featured' },
+                  { value: 'fullSpread' as const, label: 'Full Spread', desc: 'Single image, full page' },
+                ]).map(({ value, label, desc }) => {
+                  const active = submissionType === value;
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => status !== 'submitted' && setSubmissionType(value)}
+                      style={{
+                        padding: '10px 12px', textAlign: 'left', cursor: status === 'submitted' ? 'default' : 'pointer',
+                        background: active ? 'rgba(224,90,40,0.08)' : 'var(--ground-3)',
+                        border: `1px solid ${active ? 'rgba(224,90,40,0.35)' : 'var(--rule-mid)'}`,
+                        borderRadius: 2,
+                        boxShadow: active ? '-3px 0 10px -2px var(--glow-accent)' : 'none',
+                        transition: 'background 0.15s, border-color 0.15s, box-shadow 0.15s',
+                      }}
+                    >
+                      <div style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em',
+                        textTransform: 'uppercase', marginBottom: 2,
+                        color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
+                        textShadow: active ? '0 0 6px var(--glow-accent)' : 'none',
+                      }}>
+                        {label}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--paper-3)', fontWeight: 300 }}>
+                        {desc}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Text body area */}
           {format === 'text' && (
