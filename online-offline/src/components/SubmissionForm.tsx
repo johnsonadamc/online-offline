@@ -230,6 +230,10 @@ export default function SubmissionForm() {
 
   // ── save draft ───────────────────────────────────────────────────────────────
   const handleSaveDraft = async () => {
+    const hasTitle = pageTitle.trim() !== '' && pageTitle.trim() !== 'Untitled';
+    const hasTextContent = format === 'text' && textBody.trim().length > 0;
+    const hasImageContent = format === 'image' && entries.some(e => e.imageUrl !== null);
+    if (!hasTitle && !hasTextContent && !hasImageContent) return;
     setSaveStatus('saving');
     try {
       let entriesToSave;
@@ -349,7 +353,7 @@ export default function SubmissionForm() {
               fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em',
               textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 5,
             }}>
-              {submissionType === 'fullSpread' ? 'Title' : 'Collection title'}
+              {format === 'text' ? 'Title' : submissionType === 'fullSpread' ? 'Title' : 'Collection title'}
             </div>
             <input
               value={pageTitle}
