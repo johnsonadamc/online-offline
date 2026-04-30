@@ -124,7 +124,7 @@ export async function fetchCurrentPeriodDraft() {
         )
       `)
       .eq('creator_id', user.id)
-      .in('status', ['draft', 'submitted'])
+      .eq('status', 'draft')
       .eq('period_id', period.id)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -210,14 +210,14 @@ export async function saveContent(
         .select('id')
         .eq('creator_id', user.id)
         .eq('period_id', period.id)
-        .in('status', ['draft', 'submitted'])
+        .eq('status', 'draft')
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (existingForPeriod) {
         // Update in place rather than creating a duplicate record
-        const { error: updateError } = await supabase
+        const { data: updatedRows, error: updateError } = await supabase
           .from('content')
           .update({
             type,
@@ -226,24 +226,48 @@ export async function saveContent(
             format,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingForPeriod.id);
+          .eq('id', existingForPeriod.id)
+          .select('id');
 
         if (updateError) {
           console.error('Error updating existing content:', updateError);
           throw updateError;
         }
 
-        const { error: deleteError } = await supabase
-          .from('content_entries')
-          .delete()
-          .eq('content_id', existingForPeriod.id);
+        // If RLS blocked the update silently, fall through to insert a fresh record
+        if (!updatedRows || updatedRows.length === 0) {
+          console.warn('Update returned 0 rows, inserting fresh record');
+          const { data: contentData, error: contentError } = await supabase
+            .from('content')
+            .insert({
+              creator_id: user.id,
+              type,
+              status,
+              period_id: period.id,
+              page_title: pageTitle || '',
+              format,
+              layout_preferences: {},
+              content_dimensions: {},
+              style_metadata: {}
+            })
+            .select()
+            .single();
 
-        if (deleteError) {
-          console.error('Error deleting entries for existing content:', deleteError);
-          throw deleteError;
+          if (contentError) throw contentError;
+          contentId = contentData.id;
+        } else {
+          const { error: deleteError } = await supabase
+            .from('content_entries')
+            .delete()
+            .eq('content_id', existingForPeriod.id);
+
+          if (deleteError) {
+            console.error('Error deleting entries for existing content:', deleteError);
+            throw deleteError;
+          }
+
+          contentId = existingForPeriod.id;
         }
-
-        contentId = existingForPeriod.id;
       } else {
         // ── Insert new content record ────────────────────────────────────────
         const { data: contentData, error: contentError } = await supabase
@@ -545,16 +569,22 @@ export async function deleteContent(contentId: string) {
     }
     
     // Finally delete the content record
-    const { error: contentDeleteError } = await supabase
+    const { data: deletedRows, error: contentDeleteError } = await supabase
       .from('content')
       .delete()
-      .eq('id', contentId);
-      
+      .eq('id', contentId)
+      .select('id');
+
     if (contentDeleteError) {
       console.error("Error deleting content:", contentDeleteError);
       return { success: false, error: 'Failed to delete content' };
     }
-    
+
+    if (!deletedRows || deletedRows.length === 0) {
+      console.error("Delete returned 0 rows — RLS may be blocking deletion");
+      return { success: false, error: 'Content could not be deleted (permission denied)' };
+    }
+
     console.log("Content successfully deleted");
     return { success: true };
     
