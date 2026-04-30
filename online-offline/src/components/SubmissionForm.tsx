@@ -460,7 +460,6 @@ export default function SubmissionForm() {
                 <textarea
                   value={textBody}
                   onChange={e => setTextBody(e.target.value)}
-                  onBlur={handleSaveDraft}
                   disabled={status === 'submitted'}
                   placeholder="Write your piece here…"
                   style={{
