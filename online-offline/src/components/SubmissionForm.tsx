@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/constants/submission';
 import { uploadMedia } from '@/lib/supabase/storage';
@@ -56,7 +56,7 @@ const THEMES = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SubmissionForm() {
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => createClientComponentClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draft');
@@ -230,14 +230,17 @@ export default function SubmissionForm() {
   }, [entries]);
 
   // ── save draft ───────────────────────────────────────────────────────────────
+  const isSavingRef = useRef(false);
   const handleSaveDraft = async () => {
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     const hasTitle = pageTitle.trim() !== '' && pageTitle.trim() !== 'Untitled';
     const hasTextContent = format === 'text' && textBody.trim().length > 0;
     const hasImageContent = format === 'image' && entries.some(e => e.imageUrl !== null);
     // Text submissions require BOTH a title and body content before saving
-    if (format === 'text' && (!hasTitle || !hasTextContent)) return;
+    if (format === 'text' && (!hasTitle || !hasTextContent)) { isSavingRef.current = false; return; }
     // Image submissions require at least a title or an image
-    if (format === 'image' && !hasTitle && !hasImageContent) return;
+    if (format === 'image' && !hasTitle && !hasImageContent) { isSavingRef.current = false; return; }
     setSaveStatus('saving');
     try {
       let entriesToSave;
@@ -262,6 +265,8 @@ export default function SubmissionForm() {
       console.error('Unexpected error saving draft:', err);
       setSaveStatus('error');
       alert('Error saving draft');
+    } finally {
+      isSavingRef.current = false;
     }
   };
 
