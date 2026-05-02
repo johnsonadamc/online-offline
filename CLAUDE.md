@@ -68,11 +68,28 @@ src/
 │       ├── curation.ts
 │       ├── profiles.ts
 │       └── subscriptions.ts
+├── magazine/                      # Magazine generation system ✅ (templates complete)
+│   ├── core/
+│   │   └── primitives.jsx         # Shared components: ImageFrame, Folio, GrainOverlay,
+│   │                              # RegistrationMark, BleedMarks, SectionMark, etc.
+│   ├── templates/
+│   │   └── base/
+│   │       ├── index.js           # Template registry + selection logic summary ✅
+│   │       ├── templates-1-4.jsx  # CoverA, SinglePhoto†, MultiPhoto2Stacked†, MultiPhoto2SideBySide†
+│   │       ├── templates-5-8.jsx  # MultiPhoto4Feature†, MultiPhoto4Grid†, TextSubmission, CollabPage†
+│   │       ├── templates-9-11.jsx # CommunicationsPage, CampaignPage, Spread
+│   │       ├── templates-12-17.jsx # Spread2, Spread4, Spread6, TextSpread, MusicPage, ColophonPage
+│   │       ├── templates-18-19.jsx # SpreadPanorama, SpreadMosaic
+│   │       └── templates-20-24.jsx # FrontMatter, PoetryPage, CollabSpreadCommunity,
+│   │                               # CollabSpreadLocal, CollabSpreadPrivate
+│   ├── previews/
+│   │   └── online-offline-magazine-v7.html  # Standalone browser preview of all templates
+│   └── SELECTION_LOGIC.md         # Full decision tree: data → template mapping ✅
 ├── scripts/
-│   ├── seed.ts                   # Seed script (run via npm run seed)
-│   ├── seed.sql                  # SQL equivalent — run in Supabase SQL editor
-│   └── seed.README.md            # Instructions for running seed
-└── _design/                      # HTML mockup reference files — read before implementing
+│   ├── seed.ts
+│   ├── seed.sql
+│   └── seed.README.md
+└── _design/                       # HTML mockup reference files
     ├── DESIGN_BRIEF.md
     ├── dashboard-final-v2.html
     ├── curate-page-v4.html
@@ -80,6 +97,7 @@ src/
     ├── submit-redesign-v3.html
     └── collab-submit-mockup.html
 ```
+† Deprecated — retained for reference only. Not used in generation pipeline.
 
 ---
 
@@ -109,10 +127,12 @@ content (id, creator_id, type, status, period_id, page_title, layout_preferences
 -- type: 'regular' | 'fullSpread'
 -- status: 'draft' | 'submitted' | 'archived'
 
-content_entries (id, content_id, title, caption, media_url, is_feature, is_full_spread, order_index)
+content_entries (id, content_id, title, caption, media_url, is_feature, is_full_spread, order_index, focal_x, focal_y, aspect_ratio)
 -- Up to 8 images per submission
 -- title: per-image title (separate from page_title on content table)
 -- is_feature: which image is the hero — can be null (no feature required)
+-- focal_x, focal_y: 0–100 float, crop center for print layout (NOT YET COLLECTED — next priority)
+-- aspect_ratio: float stored at upload time, used for adaptive layout decisions (NOT YET COLLECTED)
 
 content_tags (content_entry_id, tag, tag_type)
 ```
@@ -165,6 +185,73 @@ magazine_templates (id, name, type, description, file_path, frame_mapping, is_ac
 magazine_generation_jobs (id, curator_id, period_id, status, mapping_data, output_path, error_log)
 magazine_pages (id, generation_job_id, page_number, template_id, content_mapping, status)
 ```
+
+---
+
+## Magazine Generation System
+
+### Status: Templates complete ✅ — Pipeline not yet built ⚠️
+
+### Template File Structure
+All templates live in `src/magazine/templates/base/`. They are currently browser-standalone
+JSX files (loaded via script tags). When the Puppeteer pipeline is built they will be
+refactored into proper ES module React components.
+
+### Active Templates (18 total)
+| Template | File | Pages | Trigger |
+|---|---|---|---|
+| CoverA | templates-1-4 | 1 | Always — page 1 |
+| FrontMatter | templates-20-24 | 1 | Always — page 2 (TOC + curator name) |
+| SpreadPanorama | templates-18-19 | 2 | 1 image, caption ≤50 words |
+| Spread | templates-9-11 | 2 | 1 image, caption >50 words |
+| Spread2 | templates-12-17 | 2 | 2 images |
+| Spread4 | templates-12-17 | 2 | 3–4 images |
+| SpreadMosaic | templates-18-19 | 2 | 5–6 images, light background |
+| Spread6 | templates-12-17 | 2 | 7–8 images, dark image-dominant |
+| TextSubmission | templates-5-8 | 1 | Essay ≤500 words |
+| TextSpread | templates-12-17 | 2 | Essay 501–1800 words |
+| PoetryPage | templates-20-24 | 1 | Auto-detected poetry |
+| MusicPage | templates-12-17 | 1 | Music submissions |
+| CollabSpreadCommunity | templates-20-24 | 2 | Collab, mode=community |
+| CollabSpreadLocal | templates-20-24 | 2 | Collab, mode=local |
+| CollabSpreadPrivate | templates-20-24 | 2 | Collab, mode=private |
+| CommunicationsPage | templates-9-11 | 1 | Always (shared page, all comms) |
+| CampaignPage | templates-9-11 | 1 | One per selected campaign |
+| ColophonPage | templates-12-17 | 1 | Always — last page |
+
+### Deprecated Templates (retained for reference)
+SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, MultiPhoto4Feature,
+MultiPhoto4Grid, CollabPage — all replaced by spread-based equivalents.
+
+### Selection Logic
+Full decision tree documented in `src/magazine/SELECTION_LOGIC.md`.
+Summary: Photography/Art always gets a spread (variant chosen by image count).
+Text uses single page or spread based on word count. Poetry auto-detected by
+line break density. All collabs are two-page spreads differentiated by mode.
+
+### Key Design Constants (primitives.jsx)
+```javascript
+W=768, H=1032, BLEED=11
+AW=790, AH=1054  // full canvas with bleed
+ML=58, MR=58, MT=56, MB=56
+LIVEW=652  // live area width
+
+Colors: C.ground=#252119, C.paper=#f0ebe2,
+        C.terra=#e05a28 (identity/action),
+        C.gold=#e8a020 (structure/warmth)
+Fonts:  F.serif=Instrument Serif, F.sans=Instrument Sans,
+        F.mono=Courier Prime
+```
+
+### Known Pipeline Issues (fix before Puppeteer build)
+- `window._magazineSeason` global in `Folio` component — replace with prop/context
+- `focal_x` / `focal_y` not yet collected in submission form — defaults to 50/50
+- FrontMatter TOC page numbers must be assigned after full page sequence is known
+- `content_entries` missing `focal_x`, `focal_y`, `aspect_ratio` columns in DB
+
+### Puppeteer Scale Factor
+Render at `deviceScaleFactor: 4` to achieve ~300dpi at 768px page width.
+This produces a ~2300px wide render adequate for 7.68" print at 300dpi.
 
 ---
 
@@ -221,7 +308,6 @@ Every UI element participates in the neon color system or recedes into the warm 
 ```
 
 ### ⚠️ Invalid Variables — Never Use
-These are from an old system and resolve to undefined/transparent:
 - `var(--lt-surface)` → `var(--ground-2)`
 - `var(--ground-raised)` → `var(--ground-3)`
 - `var(--ground-base)` → `var(--ground)`
@@ -280,9 +366,7 @@ box-shadow: 0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08);
 ```
 
 **Loading state:** Courier Prime `loading…` in `--paper-4`. Never spinners.
-
 **Empty state:** Instrument Serif italic 14px `--paper-4`.
-
 **Grain overlay + registration marks:** Applied globally in layout.tsx.
 
 ### ⚠️ Lucide React — Never Use
@@ -291,7 +375,7 @@ Replace all lucide-react imports with inline SVGs. Standing rule.
 ---
 
 ## City List
-Defined in `src/lib/constants/cities.ts` as `CITIES` array. Single source of truth used everywhere:
+Defined in `src/lib/constants/cities.ts` as `CITIES` array. Single source of truth:
 ```
 Atlanta, Austin, Boston, Chicago, Dallas, Denver, Houston, Los Angeles,
 Miami, Nashville, New Orleans, New York, Pensacola, Philadelphia, Phoenix,
@@ -318,8 +402,6 @@ Portland, San Antonio, San Diego, San Francisco, Seattle
 - Selected city written to both `collabs.location` and `collab_participants.city`
 
 ### IntegratedCollabsSection — Curate Collabs Tab ✅
-Read `_design/curate-collabs-mockup-v6.html` for full visual spec.
-
 - Shows ALL templates active for current period (not just joined ones)
 - `★ you contribute` badge in amber on templates curator participates in
 - `★ yours` on the specific city row matching curator's `collab_participants.city`
@@ -328,40 +410,31 @@ Read `_design/curate-collabs-mockup-v6.html` for full visual spec.
 - Local = collapsible section, one row per city with active participants
 - Private = one row, only shown if curator has joined
 - Description panel toggles on template name click
-- Empty state: Instrument Serif italic "No collaborations this period."
 
 ---
 
 ## Page-by-Page Status
 
 ### Content Submission (`/submit`) ✅
-Read `_design/submit-redesign-v3.html` for full spec.
 - Two modes: Collection (1–8 images, optional feature) / Full Spread (single portrait image)
 - Three-level hierarchy: pageTitle → entry.title → entry.caption
 - Feature image: `featureEntryId` null by default, `☆/★` button on viewer
 - Filmstrip: 48×48px thumbnails, N/8 counter, add slot button
-- "Copy from image 1" tags button on images 2+
 - Caption char count, turns accent over 200
-- Save state: status pill cycles draft → saving… → saved
+- ⚠️ Focal point selector NOT YET BUILT — next priority task
 
 ### Collab Submission (`/collabs/[id]/submit`) ✅
-Read `_design/collab-submit-mockup.html` for full spec.
-- Prompt strip always visible (amber left border) — no floating FAB
+- Prompt strip always visible (amber left border)
 - Mode badge: community=blue, local=green+location, private=purple
 - Image title + caption + char count below viewer
 
 ### Communications (`/communicate/[id]` + `/communicate/new`) ✅
-- Selecting recipient goes directly to compose — no intermediate screen
-- Back arrow pre-fills search with recipient name
-- Search results: Instrument Serif 17px name + italic bio + amber "to" label
+- Selecting recipient goes directly to compose
 - Submitted communications open in read-only mode with Withdraw button
-- Withdraw updates status to draft and redirects to dashboard
 - Word count in amber, turns terracotta over 250
 
 ### Private Collab Invite Modal (`/collabs/page.tsx`) ✅
-- Real Supabase query on profiles (not hardcoded mock data)
-- Loads all public profiles on modal open (limit 20)
-- Result rows: Instrument Serif 17px name + italic bio (no "to" label)
+- Real Supabase query on profiles
 - Purple left border glow on selected, purple press mechanic on Send Invites
 
 ### Profile (`/profile`) ✅
@@ -372,7 +445,7 @@ Read `_design/collab-submit-mockup.html` for full spec.
 
 ## Seed Data
 
-### Test Auth Users (already created in Supabase)
+### Test Auth Users
 | Email | UUID | Name | Role |
 |---|---|---|---|
 | contributor1@test.com | `0889833d-d56a-4969-83b4-43c9585bcd92` | Maya Torres | contributor |
@@ -389,17 +462,13 @@ Read `_design/collab-submit-mockup.html` for full spec.
 - 2 communications from contributors to Lena
 - 2 campaigns: Moleskine, Risograph Press Co.
 
-### Running the seed
-SQL version (recommended): copy `scripts/seed.sql` into Supabase SQL Editor and run.
-Script version: requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, then `npm run seed` from `online-offline/` directory.
-
 ---
 
 ## Key Gotchas & Hard-Won Lessons
 
 ### Design
-- Never mix `border` shorthand with `borderBottom`/`borderBottomWidth` on same element — causes React style warning
-- Press mechanic buttons: use explicit `borderTop`, `borderRight`, `borderLeft`, `borderBottom` separately
+- Never mix `border` shorthand with `borderBottom`/`borderBottomWidth` on same element
+- Press mechanic buttons: use explicit `borderTop`, `borderRight`, `borderLeft`, `borderBottom`
 
 ### Database
 - `collab_templates` uses `name` not `title`
@@ -423,69 +492,97 @@ Script version: requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, then `npm 
 - `Array.isArray()` before mapping Supabase joins
 - Default fallbacks: `data || []`, `value || ''`
 
+### Magazine Templates
+- Never use `window._magazineSeason` global — replace with prop before pipeline build
+- All image frames use `object-fit: cover` with `object-position: {focal_x}% {focal_y}%`
+- Spread templates use `className="print-page-spread"` (1580×1054px), singles use `className="print-page"` (790×1054px)
+- BleedMarks wrapper uses `position:absolute, inset:-20px` to escape overflow:hidden parent
+
 ---
 
-## Magazine Generation — Planned Architecture
+## Magazine Generation — Architecture
 
-### Pipeline
+### Pipeline (To Build)
 ```
-Curator finalizes selections → API reads Supabase → React page templates
-→ Puppeteer renders with print CSS → PDF assembled per curator → Print fulfillment
+Curator finalizes selections
+→ Generation script reads Supabase (curator_creator_selections, curator_collab_selections,
+  curator_communication_selections, curator_campaign_selections)
+→ Selection logic maps each item to a template (see SELECTION_LOGIC.md)
+→ Page sequence assembled, page numbers assigned
+→ FrontMatter TOC built from assembled sequence
+→ Puppeteer renders each page at deviceScaleFactor:4
+→ PDF assembled per curator
+→ Manual upload to Magcloud (first season) → Mixam API (future)
 ```
-
-### Page Templates (To Build)
-1. Individual creator page — 1–8 images
-2. Collaboration grid — 8–10 pieces
-3. Communications page — text-heavy
-4. Campaign/ad page
-5. Cover — TBD
 
 ### Print Fulfillment
-Target: Mixam (has API). Variable data printing — each curator gets a different magazine.
+- **First season:** Magcloud (manual PDF upload, no API needed)
+- **Future:** Mixam API (automated, variable data per curator)
+- Print-on-demand handles RGB→CMYK — no CMYK output needed
+- Test terracotta (#e05a28) and gold (#e8a020) in print before full run
+
+### Magazine Pricing
+- Base price: $25.00 per curator edition
+- Each selected campaign: −$2.00 (shown live in curate interface)
+- Target page count: ~38–40 pages for 20 selections (all spreads for visual content)
 
 ---
 
 ## Testing
 
 ### Playwright test suite
-Located in `tests/` directory. Run with `npm test`. Requires `npm run dev` running locally.
-- `tests/contributor.spec.ts` — auth, dashboard, submit, communicate, collabs flows for Maya
-- `tests/curator.spec.ts` — auth, curate interface (all tabs), profile flows for Lena
-- `tests/helpers/auth.ts` — shared login helpers and TEST_USERS constants
+- `tests/contributor.spec.ts` — Maya flows
+- `tests/curator.spec.ts` — Lena flows
+- `tests/helpers/auth.ts` — gitignored, must be recreated per Codespaces instance
+- 21/23 tests pass (2 failing = known correct behavior)
 
 ---
 
-## Current Development Status (late April 2026)
+## Current Development Status
 
 ### Completed ✅
 - Full dark neon UI redesign across all pages
 - Complete CSS variable system in globals.css
-- Fonts, grain overlay, registration marks in layout.tsx
-- All main pages redesigned: dashboard, curate, profile, collabs, collab submit, communicate, submit
-- IntegratedCollabsSection — all-period templates, city rows, description panels, star indicators
-- Ads save error fixed — real campaigns query
-- Communications — direct to compose, read-only view for sent messages with Withdraw button
-- Private collab invite — real Supabase search, design system styling
+- All main pages: dashboard, curate, profile, collabs, collab submit, communicate, submit
+- IntegratedCollabsSection — all-period templates, city rows, star indicators
+- Communications — compose, read-only view, Withdraw button
+- Private collab invite — real Supabase search
 - City constant + profile city field + local collab join city selector
-- Seed data loaded: Spring 2026 period, 3 templates, test users, content, comms, campaigns
-- Playwright test suite scaffolded
+- Seed data: Spring 2026 period, 3 templates, test users, content, comms, campaigns
+- **Magazine template system — 18 active templates, fully designed and committed** ✅
+- Selection logic documented in `src/magazine/SELECTION_LOGIC.md` ✅
+- Template index in `src/magazine/templates/base/index.js` ✅
 
 ### Remaining / Known Issues ⚠️
 
-1. **Local city data in curate collabs tab** — city list should pull live from `collab_participants` grouped by city per template with real participant counts. May show placeholder data currently.
+1. **Focal point selector on `/submit`** — highest priority. Add clickable crop-center
+   selector to submission form. Store `focal_x` (float 0–100) and `focal_y` (float 0–100)
+   on `content_entries`. Also capture `aspect_ratio` at image upload time.
+   Without this, all print crops default to 50/50 center.
 
-2. **User onboarding** — no flow to set profile_type on new signup. New users land with no role assigned which will cause issues as real users join.
+2. **Music submission UI** — add Spotify/Bandcamp URL field to `/submit` when
+   content_type is Music. URL → QR code generation needed for MusicPage template.
 
-3. **Magazine generation system** — not yet built. Highest priority remaining feature.
+3. **Magazine generation pipeline** — not yet built. Build after focal points done.
+   Entry point: `src/magazine/core/generator.js`. See pipeline architecture above.
 
-4. **Print fulfillment integration** — not yet built.
+4. **`window._magazineSeason` global** — in `Folio` component in primitives.jsx.
+   Must be replaced with a prop or React context before Puppeteer pipeline is built.
 
-5. **Curator magazine preview** — not yet built.
+5. **`content_entries` schema** — add `focal_x float`, `focal_y float`,
+   `aspect_ratio float` columns to Supabase before building focal point selector.
 
-6. **`@supabase/ssr` migration** — standing priority.
+6. **User onboarding** — no flow to set profile_type on new signup.
 
-7. **End-to-end testing** — Playwright suite complete. The suite is running, 21/23 tests pass, the 2 remaining are known correct behavior (empty collab library because Maya joined everything).
-    - tests/helpers/auth.ts is gitignored — must be recreated manually in each new Codespaces instance using the credentials in the Seed Data section.
+7. **Local city data in curate collabs tab** — city list should pull live from
+   `collab_participants` grouped by city per template with real participant counts.
+
+8. **Curator magazine preview** — browser preview route not yet built.
+   Will use the same template system rendered via Next.js route.
+
+9. **Print fulfillment integration** — Magcloud manual first, Mixam API later.
+
+10. **`@supabase/ssr` migration** — standing priority, touches most of `src/lib/supabase/`.
 
 ---
 
