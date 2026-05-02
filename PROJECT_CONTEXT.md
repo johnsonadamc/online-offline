@@ -33,169 +33,205 @@ The app is warm, considered, and slightly industrial. Not tech. Not startup. Pri
 
 This matters beyond aesthetics — the design communicates to users that this is a serious creative platform, not another content mill. The deliberate darkness, the serif type, the grain texture, the registration marks: these signal that what happens here has weight.
 
+### Magazine Color System
+The magazine uses a two-color accent system distinct from but related to the app:
+- **Terracotta `#e05a28`** — identity and action. Contributor names, section marks, header rules, signal dots. Inspired by the Sun King Pensacola logo palette.
+- **Gold `#e8a020`** — structure and warmth. Index numbers on images, decorative rules, folio numbers, registration marks, pull quote borders, ad pages.
+
+These two colors never appear on the same element. On the cover, gold leads and terracotta accents — the inverse of interior pages.
+
 ---
 
 ## User Experience Principles
 
-These principles should guide every product and design decision:
-
 1. **Focus on participation** — prioritize calls to action that encourage participation in existing activities over creating new ones
-
-2. **Simplify primary actions** — make the most important action on any screen immediately obvious and accessible
-
-3. **Provide visual feedback** — use subtle color changes and the neon system to indicate state changes; never leave the user wondering if something worked
-
-4. **Reduce cognitive load** — break complex tasks into simpler steps; use progressive disclosure to reveal details as needed
-
-5. **Maintain context** — users should always know where they are in a process and how to get back
-
-6. **Prioritize content** — content should be the focus; UI elements support rather than distract
-
-7. **Implicit default states** — do not explicitly label draft status; assume it as default. Only show explicit labels for submitted or published content
-
+2. **Simplify primary actions** — make the most important action on any screen immediately obvious
+3. **Provide visual feedback** — use the neon system to indicate state changes
+4. **Reduce cognitive load** — break complex tasks into simpler steps; use progressive disclosure
+5. **Maintain context** — users should always know where they are in a process
+6. **Prioritize content** — UI elements support rather than distract
+7. **Implicit default states** — do not explicitly label draft status; only show submitted or published
 8. **Consistent icon color coding** — community=blue, local=green, private=purple, everywhere, always
-
-9. **Mobile-first** — primary usage is expected on phones; design for thumb reach and one-handed use before considering desktop
-
-10. **No flashy animations** — the app should feel calm and purposeful, not stimulating. Transitions should be functional, not decorative. The press mechanic button is the exception — it's a deliberate nod to print culture physicality
+9. **Mobile-first** — primary usage is expected on phones
+10. **No flashy animations** — the press mechanic button is the deliberate exception
 
 ---
 
 ## The Quarterly Rhythm
 
-The platform runs on quarterly periods (seasons). This is a feature, not a limitation. It means:
+The platform runs on quarterly periods (seasons). This is a feature, not a limitation:
 
 - Contributions have a deadline, which gives them weight
 - Curators make selections under time pressure, which makes curation feel real
 - The magazine has an edition structure, which makes each issue distinct
 - Contributors know when to expect their work to appear in print
 
-The countdown timer on the dashboard is intentional — it creates gentle urgency without being stressful. Days remaining, not hours and minutes.
+The countdown timer on the dashboard creates gentle urgency. Days remaining, not hours and minutes.
 
 ---
 
 ## Contributor and Curator Roles
 
-**Contributors** are the creative engine. They submit photos, art, poetry, essays, music. They join collaborations. They send private communications to curators they want to work with. They are not passive content producers — they are active participants in a creative community.
+**Contributors** are the creative engine. They submit photos, art, poetry, essays, music. They join collaborations. They send private communications to curators they want to work with.
 
-**Curators** are the editorial voice. They select which contributors, collaborations, communications, and campaigns appear in their personalized edition. Each curator's magazine is different. The curation interface (the "proof light table") is where this happens — it should feel like a serious editorial tool.
+**Curators** are the editorial voice. They select which contributors, collaborations, communications, and campaigns appear in their personalized edition. Each curator's magazine is different.
 
-**Users can be both.** This is common and should be fully supported. The dashboard's Contribute/Curate tab structure reflects this.
+**Users can be both.** A contributor can curate and a curator can contribute. The dashboard's tab structure reflects this.
+
+**A contributor can appear multiple times in one curator's magazine** — with a regular content spread, within a collab page, and in the communications page. Each appearance is treated as an independent entry.
 
 ---
 
 ## Collaboration System Philosophy
 
-Collaborations are not just a feature — they are one of the three main ways content enters the magazine (alongside individual submissions and communications).
-
 The three participation modes reflect different social dynamics:
 
-- **Community** — open to everyone, globally. Creates a sense of shared project across the whole platform. The magazine page shows a random selection, creating variety.
-
-- **Local** — city-specific. Creates genuine geographic communities. Contributors in Pensacola see work from other Pensacola contributors. This is intentional — the platform should have local texture, not just be a global content pool.
-
-- **Private** — invite-only. Creates intimate creative circles. The private collab page is identical for all members — it's a shared artifact, not a personalized selection.
+- **Community** — open to everyone, globally. Creates a shared project feel across the platform. The magazine collab page shows a random selection of submitted images.
+- **Local** — city-specific. Creates genuine geographic communities. The city is a design element in the magazine layout, not just metadata.
+- **Private** — invite-only, 8–10 members. Creates intimate creative circles. The private collab magazine page is identical for all members — a shared artifact.
 
 ---
 
-## Magazine Generation — Research and Approach
+## Magazine Generation — Current State and Architecture
+
+### Status
+Template design system is complete. Generation pipeline is the next major build.
+
+### Template System (completed May 2026)
+18 active templates designed in React+JSX, committed to `src/magazine/`:
+
+**Structure pages:** CoverA, FrontMatter (TOC + curator attribution), ColophonPage
+
+**Visual spreads (Photography / Art) — always two pages:**
+- SpreadPanorama — 1 image, full bleed, minimal caption band (≤50 word captions)
+- Spread — 1 image, full bleed left + generous text right (>50 word captions)
+- Spread2 — 2 images stacked left + indexed captions right
+- Spread4 — 4 images grid left + caption grid right
+- SpreadMosaic — 5–6 images integrated across both pages, light background
+- Spread6 — 7–8 images grid across both dark pages, image-dominant
+
+**Text submissions:**
+- TextSubmission — single page, essay ≤500 words
+- TextSpread — two pages, essay 501–1800 words
+- PoetryPage — single page, narrow centered column, auto-detected from line break density
+
+**Music:** MusicPage — single page with QR code placeholder (URL collection TBD)
+
+**Collaborations — always two pages, mode-differentiated:**
+- CollabSpreadCommunity — expansive, global feel, light background
+- CollabSpreadLocal — city watermark, dark left / light right, city as design element
+- CollabSpreadPrivate — fully dark both pages, intimate, members listed in header
+
+**Support:** CommunicationsPage (shared page, up to 4 message cards), CampaignPage (one per selected ad)
+
+### Template Selection Logic
+Full decision tree in `src/magazine/SELECTION_LOGIC.md`. Summary:
+
+| Content type | Condition | Template |
+|---|---|---|
+| Photography / Art | 1 image, caption ≤50 words | SpreadPanorama |
+| Photography / Art | 1 image, caption >50 words | Spread |
+| Photography / Art | 2 images | Spread2 |
+| Photography / Art | 3–4 images | Spread4 |
+| Photography / Art | 5–6 images | SpreadMosaic |
+| Photography / Art | 7–8 images | Spread6 |
+| Essay | ≤500 words | TextSubmission |
+| Essay | 501–1800 words | TextSpread |
+| Poetry (auto-detected) | any length | PoetryPage |
+| Music | any | MusicPage |
+| Collab, community mode | — | CollabSpreadCommunity |
+| Collab, local mode | — | CollabSpreadLocal |
+| Collab, private mode | — | CollabSpreadPrivate |
+| Communications | — | CommunicationsPage |
+| Campaign | — | CampaignPage |
+
+### Poetry Auto-Detection
+A text submission is classified as poetry if ALL of the following are true:
+- 3+ line breaks within any 100-word span
+- Average line length under 60 characters
+- At least one stanza break (double line break)
+
+Free verse without consistent line breaks falls through to essay treatment.
+
+### Page Ordering
+Cover → FrontMatter → Photography → Art → Essay/Poetry → Music → Collabs →
+Communications → Campaigns → Colophon
+
+FrontMatter TOC is built last (after page numbers are assigned to all other pages).
 
 ### The Decision: Web-to-Print, Not InDesign
-
-Early planning considered Adobe InDesign with scripted data merge as the generation approach. This was rejected for several reasons:
-- InDesign requires manual intervention and doesn't scale to variable data printing per curator
-- The scripting approach is brittle and requires InDesign licenses
-- A web-based approach keeps everything in the existing stack
-
-**The chosen approach: React components → Puppeteer → PDF.**
-
-React components ARE the page templates. The browser IS the preview system. Puppeteer renders them to print-ready PDFs. This means:
-- Curators can preview their magazine in the browser before it goes to print
+React components ARE the page templates. The browser IS the preview system.
+Puppeteer renders them to print-ready PDFs. Benefits:
+- Curators can preview in browser before printing
 - Templates are maintainable by anyone who knows React
-- The pipeline is fully automated and scalable
-- No external design software required
+- Pipeline is fully automated and scalable
+- No external design software
 
 ### Print Specifications
-- Target output: single PDF per curator, per period
-- Print-on-demand services handle RGB→CMYK conversion (no need to output CMYK)
-- Bleed and crop marks required for professional print
-- Target magazine size: TBD (likely A5 or 8.5×11)
-- Page count: up to 20 pages per curator (the slot limit in the curation interface)
+- Page size: 768×1032px + 11px bleed on all sides = 790×1054px canvas
+- Render scale: `deviceScaleFactor: 4` in Puppeteer (~300dpi equivalent)
+- Color: RGB output (print-on-demand services handle RGB→CMYK)
+- Bleed and crop marks: included in all templates via BleedMarks component
+- Target page count: ~38–40 pages for 20 curator selections
 
-### Print Fulfillment Research
-Three services evaluated:
+### Per-Issue Template Variation
+Each quarterly issue can have unique template variants while inheriting base infrastructure.
+Future folder structure: `src/magazine/templates/spring-2026/`, `autumn-2026/`, etc.
+Each issue exports a complete template set via `index.js` that the pipeline imports.
+The `periods` table will carry a `template_set_name` field mapping to the right set.
 
-**Mixam** — preferred option
-- Has a developer API for automated order submission
-- Supports variable data (different content per copy)
-- Good quality, reasonable pricing
-- UK-based but ships internationally
+### Print Fulfillment
+**First season:** Magcloud (manual PDF upload, no API integration needed)
+**Future:** Mixam API (automated order submission, variable data per curator)
 
-**Magcloud** (HP)
-- No automation API — manual upload required
-- Good for early stage before automation is needed
-- PDF upload workflow is straightforward
+Both handle RGB→CMYK. Test terracotta (#e05a28) and gold (#e8a020) in a test print
+before the first full run — warm colors can shift noticeably in CMYK.
 
-**Newspaper Club**
-- Strong aesthetic fit — editorial, print-culture feel
-- Limited automation
-- Better for newspaper format than magazine
+### Focal Points (Not Yet Implemented)
+Templates support `focal_x` and `focal_y` (0–100 float) on each image entry.
+These control CSS `object-position` for print crops. Currently defaults to 50/50.
+Must be added to:
+1. `content_entries` table (focal_x float, focal_y float, aspect_ratio float)
+2. `/submit` form (clickable image preview, contributor sets crop center)
+This is the highest-impact missing piece for print output quality.
 
-**Recommendation:** Start with Magcloud for the first season (manual upload, no API integration needed). Build toward Mixam API integration for automation once the generation pipeline is stable.
-
-### Page Template Types Required
-Each template type is a React component that receives content data and renders a print-ready page:
-
-1. **Individual creator page** — one creator's submission, 1–8 images with titles and captions. The feature image gets prominent placement. Layout varies based on image count.
-
-2. **Collaboration grid** — 8–10 pieces from collab contributors. Random selection for community/local collabs, all pieces for private. Multiple layout variants for visual variety.
-
-3. **Communications page** — text-heavy. The curator's selected communications from contributors. Editorial, letterpress aesthetic.
-
-4. **Campaign/ad page** — sponsor content. Clean, designed. The $2 discount per ad selected in the curation interface reflects the economics of the print run.
-
-5. **Cover** — TBD. Likely curator-specific with the season, period name, and a selected image.
-
-### Content Mapping Logic
-The pipeline must map curator selections to page templates:
-
-```
-curator_creator_selections → Individual creator pages (one per selected creator)
-curator_collab_selections  → Collaboration grid pages (one per selected collab)
-curator_communication_selections → Communications page (one page, all selected comms)
-curator_campaign_selections → Ad pages (one per selected campaign)
-```
-
-The frame naming convention within templates must be consistent — the mapper needs to know where `image_1`, `caption_1`, `title_1` etc. go in each template variant.
+### Music Submission Flow (Planned)
+Contributors submit a Spotify or Bandcamp URL with their music submission.
+The URL is converted to a QR code at generation time and printed on MusicPage.
+UI addition needed on `/submit` when content_type === 'Music'.
 
 ---
 
-## Pricing Model (Early Thinking)
+## Magazine Pricing Model
 
-The base magazine price to the curator is $25.00 per issue. Each ad campaign selected reduces the price by $2.00 (shown live in the curation interface). This creates a natural incentive for curators to include relevant campaigns.
+Base price to curator: **$25.00** per edition
+Each selected campaign: **−$2.00** (shown live in curate interface)
+Min price: $25 − (max campaigns × $2) — no floor set yet
 
-The actual print cost per copy from the fulfillment service will determine margin. At scale, the economics improve. For early stage, the priority is proving the model works, not optimizing margin.
+Unit print cost target: ~$8–10 at Magcloud for 40-page full-color saddle-stitched.
+Margin improves at volume. First season priority: prove the model, not optimize margin.
 
 ---
 
 ## Go-to-Market Notes
 
-**The platform is not yet open to real users.** Development is in progress with three test accounts. When ready to launch:
+**Not yet open to real users.** Development uses three test accounts.
 
-- Target first users: photographers, essayists, poets, visual artists who are dissatisfied with existing platforms
-- The physical magazine is the hook — "your work, printed" is a compelling pitch that no other platform offers
-- Local collab feature creates geographic community texture that makes the platform feel personal
-- Curator role is the editorial/curation-minded user who wants to make something rather than just consume
+When ready:
+- Target: photographers, essayists, poets, visual artists dissatisfied with existing platforms
+- The hook: "your work, printed" — no other platform offers this
+- Local collab creates geographic texture that makes the platform feel personal
+- Curator role appeals to editorial/curation-minded users who want to make something
 
-**The name:** online//offline — the `//` separator is intentional. It represents the translation between digital submission and physical print. The separator in the wordmark is rendered in `--paper-5` (the most muted text color) to be present but not prominent.
+**The name:** online//offline — the `//` represents the translation between digital submission and physical print. In the app wordmark, `//` renders in `--paper-5` (most muted). In the magazine, `//` always renders in terracotta `#e05a28`.
 
 ---
 
 ## What This Is Not
 
-- Not a social feed. There is no algorithmic timeline, no likes, no follower counts visible to contributors.
-- Not a content marketplace. Contributors don't sell their work directly.
-- Not a newsletter platform. The output is a physical magazine, not email.
-- Not Instagram for print. The deliberate pace and editorial layer are the product, not just the output format.
+- Not a social feed — no algorithmic timeline, no likes, no follower counts
+- Not a content marketplace — contributors don't sell their work directly
+- Not a newsletter platform — the output is a physical magazine, not email
+- Not Instagram for print — the deliberate pace and editorial layer are the product
 
 The clearest one-line description: **a curated, modular, printed social magazine — made quarterly, one per curator, from contributed creative work.**
