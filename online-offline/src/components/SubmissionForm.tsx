@@ -20,6 +20,9 @@ interface Entry {
   isFullSpread: boolean;
   isUploading?: boolean;
   fileType?: string | null;
+  focal_x: number;
+  focal_y: number;
+  aspect_ratio: number | null;
 }
 
 interface ContentTag {
@@ -35,6 +38,9 @@ interface ContentEntry {
   is_feature: boolean;
   is_full_spread: boolean;
   content_tags: ContentTag[];
+  focal_x: number | null;
+  focal_y: number | null;
+  aspect_ratio: number | null;
 }
 
 type PressState = 'rest' | 'pressing' | 'releasing';
@@ -71,6 +77,7 @@ export default function SubmissionForm() {
     id: generateUniqueId(),
     title: '', caption: '', selectedTags: [],
     imageUrl: null, isFeature: false, isFullSpread: false,
+    focal_x: 50, focal_y: 50, aspect_ratio: null,
   }]);
   const [featureEntryId, setFeatureEntryId] = useState<string | number | null>(null);
 
@@ -84,6 +91,7 @@ export default function SubmissionForm() {
   const [showTagsPanel, setShowTagsPanel] = useState(false);
   const [savePress, setSavePress]         = useState<PressState>('rest');
   const [submitPress, setSubmitPress]     = useState<PressState>('rest');
+  const [focalHovered, setFocalHovered]   = useState(false);
 
   // ── blob cleanup ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -121,6 +129,9 @@ export default function SubmissionForm() {
             isFeature: entry.is_feature || false,
             isFullSpread: entry.is_full_spread || false,
             fileType: 'stored',
+            focal_x: entry.focal_x ?? 50,
+            focal_y: entry.focal_y ?? 50,
+            aspect_ratio: entry.aspect_ratio ?? null,
           }));
           setEntries(loaded);
           setCurrentSlide(0);
@@ -172,8 +183,14 @@ export default function SubmissionForm() {
     if (!file) return;
     try {
       const previewUrl = URL.createObjectURL(file);
+      const aspect_ratio = await new Promise<number>((resolve) => {
+        const img = new window.Image();
+        img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+        img.onerror = () => resolve(1);
+        img.src = previewUrl;
+      });
       const updated = entries.map(en =>
-        en.id === entryId ? { ...en, imageUrl: previewUrl, isUploading: true, fileType: 'blob' } : en
+        en.id === entryId ? { ...en, imageUrl: previewUrl, isUploading: true, fileType: 'blob', aspect_ratio } : en
       );
       setEntries(updated);
       const idx = updated.findIndex(en => en.id === entryId);
@@ -199,7 +216,7 @@ export default function SubmissionForm() {
       const en = prev[idx];
       if (en.imageUrl?.startsWith('blob:') && en.fileType === 'blob') URL.revokeObjectURL(en.imageUrl);
       const filtered = prev.filter(en => en.id !== entryId);
-      if (filtered.length === 0) filtered.push({ id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false });
+      if (filtered.length === 0) filtered.push({ id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, focal_x: 50, focal_y: 50, aspect_ratio: null });
       if (idx <= currentSlide && currentSlide > 0) setTimeout(() => setCurrentSlide(c => Math.max(0, c - 1)), 0);
       return filtered;
     });
@@ -209,7 +226,7 @@ export default function SubmissionForm() {
   // ── add entry ─────────────────────────────────────────────────────────────────
   const handleAddEntry = useCallback(() => {
     if (entries.length >= MAX_ENTRIES) { alert(`Maximum ${MAX_ENTRIES} images per submission.`); return; }
-    const newEntry: Entry = { id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false };
+    const newEntry: Entry = { id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, focal_x: 50, focal_y: 50, aspect_ratio: null };
     setEntries(prev => [...prev, newEntry]);
     setCurrentSlide(entries.length);
   }, [entries]);
@@ -555,6 +572,65 @@ export default function SubmissionForm() {
                     </div>
                   )}
 
+                  {/* focal point selector */}
+                  {!entry.isUploading && status === 'draft' && (
+                    <div
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+                        const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+                        setEntries(prev => prev.map((en, i) =>
+                          i === currentSlide ? { ...en, focal_x: x, focal_y: y } : en
+                        ));
+                      }}
+                      onMouseEnter={() => setFocalHovered(true)}
+                      onMouseLeave={() => setFocalHovered(false)}
+                      style={{ position: 'absolute', inset: 0, cursor: 'crosshair', zIndex: 1 }}
+                    >
+                      {focalHovered && (
+                        <div style={{
+                          position: 'absolute', top: 8, left: '50%', transform: 'translateX(-50%)',
+                          fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.08em',
+                          color: 'var(--paper-3)', background: 'rgba(15,14,11,0.82)',
+                          padding: '3px 8px', borderRadius: 2, whiteSpace: 'nowrap',
+                          border: '1px solid var(--rule-mid)', pointerEvents: 'none', zIndex: 10,
+                        }}>
+                          click to set print crop center
+                        </div>
+                      )}
+                      <div style={{
+                        position: 'absolute',
+                        left: `${entry.focal_x ?? 50}%`,
+                        top: `${entry.focal_y ?? 50}%`,
+                        transform: 'translate(-50%, -50%)',
+                        width: 20, height: 20,
+                        pointerEvents: 'none',
+                      }}>
+                        <div style={{
+                          position: 'absolute', top: '50%', left: '50%',
+                          width: 8, height: 8,
+                          transform: 'translate(-50%, -50%)',
+                          borderRadius: '50%',
+                          background: 'rgba(224,90,40,0.25)',
+                          border: '1px solid var(--neon-accent)',
+                          boxShadow: '0 0 6px var(--glow-accent)',
+                        }} />
+                        <div style={{
+                          position: 'absolute', top: '50%', left: 0,
+                          width: '100%', height: 1,
+                          transform: 'translateY(-50%)',
+                          background: 'var(--neon-accent)', opacity: 0.55,
+                        }} />
+                        <div style={{
+                          position: 'absolute', top: 0, left: '50%',
+                          width: 1, height: '100%',
+                          transform: 'translateX(-50%)',
+                          background: 'var(--neon-accent)', opacity: 0.55,
+                        }} />
+                      </div>
+                    </div>
+                  )}
+
                   {/* remove button — top right */}
                   {status === 'draft' && (
                     <button
@@ -651,6 +727,17 @@ export default function SubmissionForm() {
                 </label>
               )}
             </div>
+
+            {/* Crop center label */}
+            {hasImage && status === 'draft' && !entry.isUploading && (
+              <div style={{
+                marginTop: 4, textAlign: 'right',
+                fontFamily: 'var(--font-mono)', fontSize: 7, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: 'var(--paper-4)',
+              }}>
+                crop center {Math.round(entry.focal_x ?? 50)}%, {Math.round(entry.focal_y ?? 50)}%
+              </div>
+            )}
 
             {/* Filmstrip — collection mode only, when entries exist */}
             {submissionType === 'regular' && (

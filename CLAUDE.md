@@ -197,6 +197,8 @@ All templates live in `src/magazine/templates/base/`. They are currently browser
 JSX files (loaded via script tags). When the Puppeteer pipeline is built they will be
 refactored into proper ES module React components.
 
+> **Note:** Template JSX files in `src/magazine/` are currently browser-standalone. They will be split into individual ES module files during the Puppeteer pipeline refactor — do not add new templates as monolithic files.
+
 ### Active Templates (18 total)
 | Template | File | Pages | Trigger |
 |---|---|---|---|
