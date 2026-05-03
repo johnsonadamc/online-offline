@@ -307,7 +307,7 @@ async function fetchCollabItems(
       .from('collabs')
       .select('id, title, participation_mode, location, template_id, description')
       .eq('id', sel.collab_id)
-      .single();
+      .maybesingle();
     if (!collab) continue;
 
     // Fetch display_text from collab_template if available
@@ -318,7 +318,7 @@ async function fetchCollabItems(
         .from('collab_templates')
         .select('display_text')
         .eq('id', templateId)
-        .single();
+        .maybesingle();
       if (tmpl) displayText = (tmpl as Record<string, unknown>).display_text as string ?? displayText;
     }
 
@@ -372,7 +372,7 @@ async function fetchCommunicationsItem(
     .select('include_communications')
     .eq('curator_id', curatorId)
     .eq('period_id', periodId)
-    .single();
+    .maybesingle();
 
   if (!(commSel as Record<string, unknown> | null)?.include_communications) return null;
 
