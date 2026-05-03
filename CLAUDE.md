@@ -52,7 +52,7 @@ src/
 │       └── page.tsx              # Content submission form ✅
 ├── components/
 │   ├── IntegratedCollabsSection.tsx   # Curate collabs tab ✅
-│   ├── SubmissionForm.tsx
+│   ├── SubmissionForm.tsx             # Focal point selector included ✅
 │   ├── auth/
 │   ├── layout/
 │   └── ui/
@@ -64,7 +64,7 @@ src/
 │       ├── collabLibrary.ts
 │       ├── collabs.ts
 │       ├── communications.ts
-│       ├── content.ts
+│       ├── content.ts            # focal_x, focal_y, aspect_ratio wired ✅
 │       ├── curation.ts
 │       ├── profiles.ts
 │       └── subscriptions.ts
@@ -84,7 +84,8 @@ src/
 │   │                               # CollabSpreadLocal, CollabSpreadPrivate
 │   ├── previews/
 │   │   └── online-offline-magazine-v7.html  # Standalone browser preview of all templates
-│   └── SELECTION_LOGIC.md         # Full decision tree: data → template mapping ✅
+│   ├── SELECTION_LOGIC.md         # Full decision tree: data → template mapping ✅
+│   └── TEMPLATE_DESIGN_GUIDE.md   # How to design + wire new templates ✅
 ├── scripts/
 │   ├── seed.ts
 │   ├── seed.sql
@@ -131,8 +132,9 @@ content_entries (id, content_id, title, caption, media_url, is_feature, is_full_
 -- Up to 8 images per submission
 -- title: per-image title (separate from page_title on content table)
 -- is_feature: which image is the hero — can be null (no feature required)
--- focal_x, focal_y: 0–100 float, crop center for print layout (NOT YET COLLECTED — next priority)
--- aspect_ratio: float stored at upload time, used for adaptive layout decisions (NOT YET COLLECTED)
+-- focal_x: float 0–100, crop center X, default 50 ✅ (in DB + UI)
+-- focal_y: float 0–100, crop center Y, default 50 ✅ (in DB + UI)
+-- aspect_ratio: float, stored at upload time ✅ (in DB + UI)
 
 content_tags (content_entry_id, tag, tag_type)
 ```
@@ -195,9 +197,11 @@ magazine_pages (id, generation_job_id, page_number, template_id, content_mapping
 ### Template File Structure
 All templates live in `src/magazine/templates/base/`. They are currently browser-standalone
 JSX files (loaded via script tags). When the Puppeteer pipeline is built they will be
-refactored into proper ES module React components.
+refactored into individual ES module React components — do not add new templates as
+monolithic batch files.
 
-> **Note:** Template JSX files in `src/magazine/` are currently browser-standalone. They will be split into individual ES module files during the Puppeteer pipeline refactor — do not add new templates as monolithic files.
+See `src/magazine/TEMPLATE_DESIGN_GUIDE.md` for the full design-to-pipeline workflow,
+Claude Design prompt boilerplate, and per-issue variation pattern.
 
 ### Active Templates (18 total)
 | Template | File | Pages | Trigger |
@@ -221,15 +225,16 @@ refactored into proper ES module React components.
 | CampaignPage | templates-9-11 | 1 | One per selected campaign |
 | ColophonPage | templates-12-17 | 1 | Always — last page |
 
-### Deprecated Templates (retained for reference)
+### Deprecated Templates (retained for reference, not used in pipeline)
 SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, MultiPhoto4Feature,
 MultiPhoto4Grid, CollabPage — all replaced by spread-based equivalents.
 
 ### Selection Logic
-Full decision tree documented in `src/magazine/SELECTION_LOGIC.md`.
-Summary: Photography/Art always gets a spread (variant chosen by image count).
-Text uses single page or spread based on word count. Poetry auto-detected by
-line break density. All collabs are two-page spreads differentiated by mode.
+Full decision tree in `src/magazine/SELECTION_LOGIC.md`. Summary:
+- Photography/Art → spread variant chosen by image count
+- Essay → single or two-page based on word count
+- Poetry → auto-detected by line break density → PoetryPage
+- All collabs → two-page spread differentiated by participation_mode
 
 ### Key Design Constants (primitives.jsx)
 ```javascript
@@ -247,13 +252,10 @@ Fonts:  F.serif=Instrument Serif, F.sans=Instrument Sans,
 
 ### Known Pipeline Issues (fix before Puppeteer build)
 - `window._magazineSeason` global in `Folio` component — replace with prop/context
-- `focal_x` / `focal_y` not yet collected in submission form — defaults to 50/50
 - FrontMatter TOC page numbers must be assigned after full page sequence is known
-- `content_entries` missing `focal_x`, `focal_y`, `aspect_ratio` columns in DB
 
 ### Puppeteer Scale Factor
-Render at `deviceScaleFactor: 4` to achieve ~300dpi at 768px page width.
-This produces a ~2300px wide render adequate for 7.68" print at 300dpi.
+Render at `deviceScaleFactor: 4` for ~300dpi at 768px page width.
 
 ---
 
@@ -423,7 +425,8 @@ Portland, San Antonio, San Diego, San Francisco, Seattle
 - Feature image: `featureEntryId` null by default, `☆/★` button on viewer
 - Filmstrip: 48×48px thumbnails, N/8 counter, add slot button
 - Caption char count, turns accent over 200
-- ⚠️ Focal point selector NOT YET BUILT — next priority task
+- Focal point selector: clickable reticle on image viewer, stores focal_x/focal_y ✅
+- Aspect ratio captured at upload time ✅
 
 ### Collab Submission (`/collabs/[id]/submit`) ✅
 - Prompt strip always visible (amber left border)
@@ -464,6 +467,10 @@ Portland, San Antonio, San Diego, San Francisco, Seattle
 - 2 communications from contributors to Lena
 - 2 campaigns: Moleskine, Risograph Press Co.
 
+### Running the seed
+SQL version (recommended): copy `scripts/seed.sql` into Supabase SQL Editor and run.
+Script version: requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, then `npm run seed`.
+
 ---
 
 ## Key Gotchas & Hard-Won Lessons
@@ -497,23 +504,36 @@ Portland, San Antonio, San Diego, San Francisco, Seattle
 ### Magazine Templates
 - Never use `window._magazineSeason` global — replace with prop before pipeline build
 - All image frames use `object-fit: cover` with `object-position: {focal_x}% {focal_y}%`
-- Spread templates use `className="print-page-spread"` (1580×1054px), singles use `className="print-page"` (790×1054px)
-- BleedMarks wrapper uses `position:absolute, inset:-20px` to escape overflow:hidden parent
+- Spread templates: `className="print-page-spread"` (1580×1054px)
+- Single page templates: `className="print-page"` (790×1054px)
+- BleedMarks wrapper uses `position:absolute, inset:-20px` to escape overflow:hidden
+- New templates: see `src/magazine/TEMPLATE_DESIGN_GUIDE.md` for full workflow
+
+### Git / Codespaces
+- Always confirm branch with `git branch` before starting — Claude Code has drifted
+  to feature branches before. If not on main: `git checkout main && git pull origin main`
+- Never use `git clean -fd` without first committing or stashing untracked files you want
+  to keep — this deletes untracked files permanently
+- After any Claude Code session: verify commits with `git log --oneline -3` in Codespaces
+  and confirm they appear on origin/main before proceeding
 
 ---
 
 ## Magazine Generation — Architecture
 
-### Pipeline (To Build)
+### Pipeline (To Build — next major task)
 ```
 Curator finalizes selections
-→ Generation script reads Supabase (curator_creator_selections, curator_collab_selections,
-  curator_communication_selections, curator_campaign_selections)
+→ Generation script reads Supabase:
+    curator_creator_selections → contributor content + entries
+    curator_collab_selections  → collab submissions + participant data
+    curator_communication_selections → communications
+    curator_campaign_selections → campaign/ad data
 → Selection logic maps each item to a template (see SELECTION_LOGIC.md)
 → Page sequence assembled, page numbers assigned
-→ FrontMatter TOC built from assembled sequence
+→ FrontMatter TOC built last from assembled sequence
 → Puppeteer renders each page at deviceScaleFactor:4
-→ PDF assembled per curator
+→ Pages assembled into single PDF per curator
 → Manual upload to Magcloud (first season) → Mixam API (future)
 ```
 
@@ -521,12 +541,12 @@ Curator finalizes selections
 - **First season:** Magcloud (manual PDF upload, no API needed)
 - **Future:** Mixam API (automated, variable data per curator)
 - Print-on-demand handles RGB→CMYK — no CMYK output needed
-- Test terracotta (#e05a28) and gold (#e8a020) in print before full run
+- Test terracotta (#e05a28) and gold (#e8a020) in a test print before full run
 
 ### Magazine Pricing
 - Base price: $25.00 per curator edition
 - Each selected campaign: −$2.00 (shown live in curate interface)
-- Target page count: ~38–40 pages for 20 selections (all spreads for visual content)
+- Target page count: ~38–40 pages for 20 selections
 
 ---
 
@@ -545,46 +565,43 @@ Curator finalizes selections
 ### Completed ✅
 - Full dark neon UI redesign across all pages
 - Complete CSS variable system in globals.css
+- Fonts, grain overlay, registration marks in layout.tsx
 - All main pages: dashboard, curate, profile, collabs, collab submit, communicate, submit
 - IntegratedCollabsSection — all-period templates, city rows, star indicators
 - Communications — compose, read-only view, Withdraw button
 - Private collab invite — real Supabase search
 - City constant + profile city field + local collab join city selector
 - Seed data: Spring 2026 period, 3 templates, test users, content, comms, campaigns
-- **Magazine template system — 18 active templates, fully designed and committed** ✅
-- Selection logic documented in `src/magazine/SELECTION_LOGIC.md` ✅
-- Template index in `src/magazine/templates/base/index.js` ✅
+- Playwright test suite (21/23 passing)
+- **Magazine template system — 18 active templates, committed to src/magazine/** ✅
+- **Selection logic: src/magazine/SELECTION_LOGIC.md** ✅
+- **Template index: src/magazine/templates/base/index.js** ✅
+- **Template design guide: src/magazine/TEMPLATE_DESIGN_GUIDE.md** ✅
+- **Focal point selector on /submit — UI + DB + content.ts wired** ✅
+- **content_entries: focal_x, focal_y, aspect_ratio columns added to Supabase** ✅
 
 ### Remaining / Known Issues ⚠️
 
-1. **Focal point selector on `/submit`** — highest priority. Add clickable crop-center
-   selector to submission form. Store `focal_x` (float 0–100) and `focal_y` (float 0–100)
-   on `content_entries`. Also capture `aspect_ratio` at image upload time.
-   Without this, all print crops default to 50/50 center.
+1. **Magazine generation pipeline** — next major task. Build `src/magazine/core/generator.ts`.
+   Reads curator selections from Supabase, maps to templates via SELECTION_LOGIC.md,
+   renders via Puppeteer at deviceScaleFactor:4, outputs PDF per curator.
 
-2. **Music submission UI** — add Spotify/Bandcamp URL field to `/submit` when
-   content_type is Music. URL → QR code generation needed for MusicPage template.
+2. **`window._magazineSeason` global** — in Folio component in primitives.jsx.
+   Must be replaced with a prop before Puppeteer pipeline is built.
 
-3. **Magazine generation pipeline** — not yet built. Build after focal points done.
-   Entry point: `src/magazine/core/generator.js`. See pipeline architecture above.
+3. **Music submission UI** — add Spotify/Bandcamp URL field to /submit when
+   content_type is Music. URL → QR code needed for MusicPage template.
 
-4. **`window._magazineSeason` global** — in `Folio` component in primitives.jsx.
-   Must be replaced with a prop or React context before Puppeteer pipeline is built.
+4. **User onboarding** — no flow to set profile_type on new signup.
 
-5. **`content_entries` schema** — add `focal_x float`, `focal_y float`,
-   `aspect_ratio float` columns to Supabase before building focal point selector.
+5. **Local city data in curate collabs tab** — city list should pull live from
+   collab_participants grouped by city with real participant counts.
 
-6. **User onboarding** — no flow to set profile_type on new signup.
+6. **Curator magazine preview** — browser preview route not yet built.
 
-7. **Local city data in curate collabs tab** — city list should pull live from
-   `collab_participants` grouped by city per template with real participant counts.
+7. **Print fulfillment integration** — Magcloud manual first, Mixam API later.
 
-8. **Curator magazine preview** — browser preview route not yet built.
-   Will use the same template system rendered via Next.js route.
-
-9. **Print fulfillment integration** — Magcloud manual first, Mixam API later.
-
-10. **`@supabase/ssr` migration** — standing priority, touches most of `src/lib/supabase/`.
+8. **`@supabase/ssr` migration** — standing priority, touches most of src/lib/supabase/.
 
 ---
 
