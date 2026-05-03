@@ -216,7 +216,7 @@ export default function SubmissionForm() {
       const en = prev[idx];
       if (en.imageUrl?.startsWith('blob:') && en.fileType === 'blob') URL.revokeObjectURL(en.imageUrl);
       const filtered = prev.filter(en => en.id !== entryId);
-      if (filtered.length === 0) filtered.push({ id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false });
+      if (filtered.length === 0) filtered.push({ id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, focal_x: 50, focal_y: 50, aspect_ratio: null });
       if (idx <= currentSlide && currentSlide > 0) setTimeout(() => setCurrentSlide(c => Math.max(0, c - 1)), 0);
       return filtered;
     });
