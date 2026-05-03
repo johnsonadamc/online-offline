@@ -47,7 +47,7 @@ function MultiPhoto4Feature({ data={}, showAnnotations=false }) {
         {/* Left: feature image */}
         <div style={{ width:leftColW, flexShrink:0 }}>
           <div style={{ position:'relative' }}>
-            <ImageFrame w={leftColW} h={contentH} label={entries[0]?.title||'feature image'} focal_x={entries[0]?.focal_x||50} focal_y={entries[0]?.focal_y||50}/>
+            <ImageFrame w={leftColW} h={contentH} label={entries[0]?.title||'feature image'} focal_x={entries[0]?.focal_x||50} focal_y={entries[0]?.focal_y||50} media_url={entries[0]?.media_url}/>
             {/* Gold index number overlay */}
             <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold, letterSpacing:'0.04em' }}>01</div>
             {showAnnotations && <Annotation label="content_entry[0] focal_x/y" style={{ top:8, left:8 }}/>}
@@ -67,6 +67,7 @@ function MultiPhoto4Feature({ data={}, showAnnotations=false }) {
                 w={rightColW} h={rightImgH}
                 label={entries[i]?.title||`supporting image ${i}`}
                 focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50}
+                media_url={entries[i]?.media_url}
               />
               <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:12, color:C.gold, letterSpacing:'0.04em' }}>
                 0{i+1}
@@ -155,7 +156,7 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
         <div style={{ display:'flex', gap:gutterSize, marginBottom:gutterSize }}>
           {[0,1].map(i => (
             <div key={i} style={{ position:'relative', width:cellW, height:cellH, flexShrink:0 }}>
-              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50}/>
+              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50} media_url={entries[i]?.media_url}/>
               <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:13, color:C.gold }}>0{i+1}</div>
               {showAnnotations && <Annotation label={`entry[${i}] focal`} style={{ top:4, left:4 }}/>}
             </div>
@@ -165,7 +166,7 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
         <div style={{ display:'flex', gap:gutterSize }}>
           {[2,3].map(i => (
             <div key={i} style={{ position:'relative', width:cellW, height:cellH, flexShrink:0 }}>
-              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50}/>
+              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50} media_url={entries[i]?.media_url}/>
               <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:13, color:C.gold }}>0{i+1}</div>
             </div>
           ))}
@@ -391,7 +392,7 @@ function CollabPage({ data={}, showAnnotations=false }) {
                 return (
                   <div key={col} style={{ width:colW, flexShrink:0 }}>
                     <div style={{ position:'relative' }}>
-                      <ImageFrame w={colW} h={imgH} label={c.name||'contributor'} focal_x={e.focal_x||50} focal_y={e.focal_y||50}/>
+                      <ImageFrame w={colW} h={imgH} label={c.name||'contributor'} focal_x={e.focal_x||50} focal_y={e.focal_y||50} media_url={e.media_url}/>
                       <div style={{ position:'absolute', top:5, left:6, fontFamily:F.mono, fontSize:9, color:C.gold }}>
                         {String(idx+1).padStart(2,'0')}
                       </div>
