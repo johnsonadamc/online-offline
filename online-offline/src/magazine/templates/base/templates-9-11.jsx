@@ -94,8 +94,8 @@ function CommunicationsPage({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB-14, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||16} side="left"/>
-        <Folio page={data.page||16} side="right"/>
+        <Folio page={data.page||16} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||16} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>
@@ -194,7 +194,7 @@ function Spread({ data={}, showAnnotations=false }) {
         <div style={{ position:'absolute', bottom:BLEED+MB-14, left:BLEED+ML, right:BLEED+MR }}>
           <div style={{ height:0.5, background:'rgba(240,235,226,0.14)', marginBottom:8 }}/>
           <div style={{ display:'flex', justifyContent:'space-between' }}>
-            <Folio page={(data.page||18)+1} side="right"/>
+            <Folio page={(data.page||18)+1} side="right" season={data.season||'Spring 2026'}/>
           </div>
         </div>
 
@@ -282,8 +282,8 @@ function CampaignPage({ data={}, showAnnotations=false }) {
             </span>
           </div>
           <div style={{ display:'flex', justifyContent:'flex-end', gap:16 }}>
-            <Folio page={data.page||22} side="left" dark={true}/>
-            <Folio page={data.page||22} side="right" dark={true}/>
+            <Folio page={data.page||22} side="left" dark={true} season={data.season||'Spring 2026'}/>
+            <Folio page={data.page||22} side="right" dark={true} season={data.season||'Spring 2026'}/>
           </div>
         </div>
       </div>

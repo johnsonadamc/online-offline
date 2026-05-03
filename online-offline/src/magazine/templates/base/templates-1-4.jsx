@@ -193,7 +193,7 @@ function SinglePhoto({ data={}, showAnnotations=false }) {
           {/* Right: section mark + folio */}
           <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, paddingTop:2 }}>
             <SectionMark>{data.type || 'Photography'}</SectionMark>
-            <Folio page={data.page||2} side="right"/>
+            <Folio page={data.page||2} side="right" season={data.season||'Spring 2026'}/>
           </div>
         </div>
       </div>
@@ -290,8 +290,8 @@ function MultiPhoto2Stacked({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||4} side="left"/>
-        <Folio page={data.page||4} side="right"/>
+        <Folio page={data.page||4} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||4} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>
@@ -375,8 +375,8 @@ function MultiPhoto2SideBySide({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||6} side="left"/>
-        <Folio page={data.page||6} side="right"/>
+        <Folio page={data.page||6} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||6} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>

@@ -88,8 +88,8 @@ function MultiPhoto4Feature({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB-14, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||8} side="left"/>
-        <Folio page={data.page||8} side="right"/>
+        <Folio page={data.page||8} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||8} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>
@@ -198,8 +198,8 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB-16, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||10} side="left" dark={true}/>
-        <Folio page={data.page||10} side="right" dark={true}/>
+        <Folio page={data.page||10} side="left" dark={true} season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||10} side="right" dark={true} season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>
@@ -305,8 +305,8 @@ function TextSubmission({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB-14, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||12} side="left"/>
-        <Folio page={data.page||12} side="right"/>
+        <Folio page={data.page||12} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||12} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>
@@ -427,8 +427,8 @@ function CollabPage({ data={}, showAnnotations=false }) {
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+4, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>
-        <Folio page={data.page||14} side="left"/>
-        <Folio page={data.page||14} side="right"/>
+        <Folio page={data.page||14} side="left" season={data.season||'Spring 2026'}/>
+        <Folio page={data.page||14} side="right" season={data.season||'Spring 2026'}/>
       </div>
 
       <RegistrationMark side="left"/>

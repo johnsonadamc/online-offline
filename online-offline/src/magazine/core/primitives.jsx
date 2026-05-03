@@ -92,7 +92,7 @@ function DoubleRule() {
 }
 
 // Folio
-function Folio({ page, side, dark=false }) {
+function Folio({ page, side, dark=false, season='Spring 2026' }) {
   const textColor = dark ? 'rgba(240,235,226,0.35)' : C.paper4;
   const goldColor = dark ? 'rgba(232,160,32,0.5)' : C.gold;
   const baseStyle = { fontFamily:F.mono, fontSize:8, letterSpacing:'0.10em', color:textColor, display:'flex', alignItems:'center', gap:4 };
@@ -106,7 +106,7 @@ function Folio({ page, side, dark=false }) {
   }
   return (
     <div style={{ ...baseStyle, justifyContent:'flex-end' }}>
-      <span>{page} / {window._magazineSeason || 'Spring 2026'}</span>
+      <span>{page} / {season}</span>
     </div>
   );
 }
