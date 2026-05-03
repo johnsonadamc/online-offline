@@ -8,6 +8,9 @@ interface ContentEntry {
   isFeature: boolean;
   isFullSpread: boolean;
   body?: string | null;
+  focal_x?: number | null;
+  focal_y?: number | null;
+  aspect_ratio?: number | null;
 }
 
 interface Period {
@@ -332,6 +335,9 @@ export async function saveContent(
             is_full_spread: entry.isFullSpread,
             order_index: index,
             body: entry.body || null,
+            focal_x: entry.focal_x ?? 50,
+            focal_y: entry.focal_y ?? 50,
+            aspect_ratio: entry.aspect_ratio ?? null,
           })
           .select()
           .single();
