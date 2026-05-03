@@ -76,15 +76,12 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
         {/* Terra rule at top of band */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 1.5, background: C.terra }}/>
 
-        {/* Band content — left margin of left page to right margin of right page */}
+        {/* Left page text — contributor name, city, title + caption — within left 790px */}
         <div style={{
           position: 'absolute', top: 0, bottom: 0,
-          left: BLEED + ML, right: BLEED + MR,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 16,
+          left: BLEED + ML, right: AW + BLEED + MR,
+          display: 'flex', alignItems: 'center', gap: 20,
         }}>
-
-          {/* Left: contributor name + city stacked, page title below */}
           <div style={{ flexShrink: 0, minWidth: 160 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 5 }}>
               <span style={{ fontFamily: F.mono, fontSize: 8, color: C.terra, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
@@ -99,26 +96,27 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
             </div>
             {showAnnotations && <Annotation label="contributor.name / city / page_title" style={{ top: 0, left: 0 }}/>}
           </div>
-
-          {/* Center: caption text */}
           <div style={{
             fontFamily: F.serif, fontStyle: 'italic', fontSize: 9.5, color: C.paper3,
-            maxWidth: 340, textAlign: 'center', lineHeight: 1.55, flexShrink: 1,
+            lineHeight: 1.55, flexShrink: 1, overflow: 'hidden',
           }}>
             {entry.caption || 'A caption describing the panoramic photograph and the moment it captures.'}
             {showAnnotations && <Annotation label="entry.caption" style={{ top: 0, left: 0 }}/>}
           </div>
+        </div>
 
-          {/* Right: SectionMark + GoldMark stacked, folio below */}
-          <div style={{ flexShrink: 0, minWidth: 120, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <SectionMark>{data.type || 'Photography'}</SectionMark>
-            <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
-            <div style={{ marginTop: 2 }}>
-              <Folio page={data.page || 30} side="right" dark={true} season={data.season || 'Spring 2026'}/>
-            </div>
-            {showAnnotations && <Annotation label="type / season / folio" style={{ top: 0, right: 0 }}/>}
+        {/* Right page text — section/gold marks + folio — within right 790px */}
+        <div style={{
+          position: 'absolute', top: 0, bottom: 0,
+          left: AW + BLEED + ML, right: BLEED + MR,
+          display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: 4,
+        }}>
+          <SectionMark>{data.type || 'Photography'}</SectionMark>
+          <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
+          <div style={{ marginTop: 2 }}>
+            <Folio page={data.page || 30} side="right" dark={true} season={data.season || 'Spring 2026'}/>
           </div>
-
+          {showAnnotations && <Annotation label="type / season / folio" style={{ top: 0, right: 0 }}/>}
         </div>
       </div>
 

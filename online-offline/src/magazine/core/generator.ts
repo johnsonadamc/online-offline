@@ -36,6 +36,7 @@ const PRIMITIVES_PATH = join(process.cwd(), 'src/magazine/core/primitives.jsx');
 // Maps template name → JSX file (null = not yet implemented, renders placeholder)
 const TEMPLATE_FILE_MAP: Record<string, string | null> = {
   CoverA:                'templates-1-4.jsx',
+  BlankPage:             null,
   SinglePhoto:           'templates-1-4.jsx',
   TextSubmission:        'templates-5-8.jsx',
   CommunicationsPage:    'templates-9-11.jsx',
@@ -88,6 +89,15 @@ function buildPageHtml(templateName: string, data: unknown): string {
 
   const templateCode = templateFile
     ? readFileSync(join(TEMPLATE_BASE, templateFile), 'utf-8')
+    : templateName === 'BlankPage'
+    ? `function BlankPage({ data={} }) {
+        return (
+          <div style={{
+            width: 790, height: 1054,
+            background: '#252119',
+          }}/>
+        );
+      }`
     : `function ${templateName}({ data={} }) {
         const label = String(data.templateName || '${templateName}');
         return (
@@ -473,8 +483,8 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
   ];
 
   // ── Assign page numbers ────────────────────────────────────────────────────
-  // Page 1 = Cover, Page 2 = FrontMatter (placeholder), then content, last = Colophon
-  let cursor = 3; // content starts at page 3
+  // Page 1 = Cover, Page 2 = Blank, Page 3 = FrontMatter, then content, last = Colophon
+  let cursor = 4; // content starts at page 4 (cover=1, blank=2, frontmatter=3)
   const contentAssignments: TemplateAssignment[] = selectionItems.map(item => {
     const assignment = selectTemplate(item, cursor);
     cursor += assignment.pageCount;
@@ -495,7 +505,7 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
     });
 
   const frontMatterData: FrontMatterData = {
-    page: 2, curator, season, toc,
+    page: 3, curator, season, toc,
   };
 
   // ── Build Colophon ─────────────────────────────────────────────────────────
@@ -512,6 +522,7 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
   type PageSpec = { templateName: string; data: unknown; pageCount: number };
   const pageSequence: PageSpec[] = [
     { templateName: 'CoverA',      data: coverData,       pageCount: 1 },
+    { templateName: 'BlankPage',   data: { season },      pageCount: 1 },
     { templateName: 'FrontMatter', data: frontMatterData, pageCount: 1 },
     ...contentAssignments.map(a => ({
       templateName: a.templateName, data: a.data, pageCount: a.pageCount,
