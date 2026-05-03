@@ -41,22 +41,19 @@ const TEMPLATE_FILE_MAP: Record<string, string | null> = {
   CommunicationsPage:    'templates-9-11.jsx',
   Spread:                'templates-9-11.jsx',
   CampaignPage:          'templates-9-11.jsx',
-  // templates-12-17.jsx not yet created:
-  Spread2:               null,
-  Spread4:               null,
-  Spread6:               null,
-  TextSpread:            null,
-  MusicPage:             null,
-  ColophonPage:          null,
-  // templates-18-19.jsx not yet created:
-  SpreadPanorama:        null,
-  SpreadMosaic:          null,
-  // templates-20-24.jsx not yet created:
-  FrontMatter:           null,
-  PoetryPage:            null,
-  CollabSpreadCommunity: null,
-  CollabSpreadLocal:     null,
-  CollabSpreadPrivate:   null,
+  Spread2:               'templates-12-17.jsx',
+  Spread4:               'templates-12-17.jsx',
+  Spread6:               'templates-12-17.jsx',
+  TextSpread:            'templates-12-17.jsx',
+  MusicPage:             'templates-12-17.jsx',
+  ColophonPage:          'templates-12-17.jsx',
+  SpreadPanorama:        'templates-18-19.jsx',
+  SpreadMosaic:          'templates-18-19.jsx',
+  FrontMatter:           'templates-20-24.jsx',
+  PoetryPage:            'templates-20-24.jsx',
+  CollabSpreadCommunity: 'templates-20-24.jsx',
+  CollabSpreadLocal:     'templates-20-24.jsx',
+  CollabSpreadPrivate:   'templates-20-24.jsx',
 };
 
 // Templates that render as double-width spreads (1580 × 1054 CSS pixels)
