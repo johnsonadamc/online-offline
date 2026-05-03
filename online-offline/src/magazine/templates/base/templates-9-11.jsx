@@ -119,7 +119,7 @@ function Spread({ data={}, showAnnotations=false }) {
       <div style={{ width:AW, height:AH, background:C.ground, position:'relative', flexShrink:0 }}>
         {/* Full-bleed image fills entire page */}
         <div style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}>
-          <ImageFrame w={AW} h={AH} label="spread full-bleed" focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+          <ImageFrame w={AW} h={AH} label="spread full-bleed" focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
         </div>
         {/* "online//offline" top-left */}
         <div style={{ position:'absolute', top:BLEED+MT-30, left:BLEED+ML, fontFamily:F.mono, fontSize:8, letterSpacing:'0.10em' }}>

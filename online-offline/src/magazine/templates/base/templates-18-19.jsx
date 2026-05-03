@@ -22,6 +22,7 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
             label="panorama image — full spread"
             focal_x={entry.focal_x || 42}
             focal_y={entry.focal_y || 38}
+            media_url={entry.media_url}
           />
         </div>
 
@@ -54,6 +55,7 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
             label="panorama image — full spread"
             focal_x={entry.focal_x || 42}
             focal_y={entry.focal_y || 38}
+            media_url={entry.media_url}
           />
         </div>
 
@@ -164,7 +166,7 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
 
         {/* Image 01 — fills top of left page */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: img01H }}>
-          <ImageFrame w={AW} h={img01H} label={entries[0]?.title || 'image 01'} focal_x={entries[0]?.focal_x || 50} focal_y={entries[0]?.focal_y || 50}/>
+          <ImageFrame w={AW} h={img01H} label={entries[0]?.title || 'image 01'} focal_x={entries[0]?.focal_x || 50} focal_y={entries[0]?.focal_y || 50} media_url={entries[0]?.media_url}/>
           <div style={{ position: 'absolute', bottom: 10, left: 12, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
           {showAnnotations && <Annotation label="entry[0] — primary" style={{ top: 8, left: 8 }}/>}
         </div>
@@ -246,12 +248,12 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
           {/* Left column: img02 tall + img03 short */}
           <div style={{ width: colW, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: gutter }}>
             <div style={{ position: 'relative' }}>
-              <ImageFrame w={colW} h={img02H} label={entries[1]?.title || 'image 02'} focal_x={entries[1]?.focal_x || 50} focal_y={entries[1]?.focal_y || 50}/>
+              <ImageFrame w={colW} h={img02H} label={entries[1]?.title || 'image 02'} focal_x={entries[1]?.focal_x || 50} focal_y={entries[1]?.focal_y || 50} media_url={entries[1]?.media_url}/>
               <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold }}>02</div>
               {showAnnotations && <Annotation label="entry[1]" style={{ top: 6, left: 6 }}/>}
             </div>
             <div style={{ position: 'relative' }}>
-              <ImageFrame w={colW} h={img03H} label={entries[2]?.title || 'image 03'} focal_x={entries[2]?.focal_x || 50} focal_y={entries[2]?.focal_y || 50}/>
+              <ImageFrame w={colW} h={img03H} label={entries[2]?.title || 'image 03'} focal_x={entries[2]?.focal_x || 50} focal_y={entries[2]?.focal_y || 50} media_url={entries[2]?.media_url}/>
               <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold }}>03</div>
               {showAnnotations && <Annotation label="entry[2]" style={{ top: 6, left: 6 }}/>}
             </div>
@@ -260,12 +262,12 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
           {/* Right column: img04 short + img05 tall */}
           <div style={{ width: colW, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: gutter }}>
             <div style={{ position: 'relative' }}>
-              <ImageFrame w={colW} h={img04H} label={entries[3]?.title || 'image 04'} focal_x={entries[3]?.focal_x || 50} focal_y={entries[3]?.focal_y || 50}/>
+              <ImageFrame w={colW} h={img04H} label={entries[3]?.title || 'image 04'} focal_x={entries[3]?.focal_x || 50} focal_y={entries[3]?.focal_y || 50} media_url={entries[3]?.media_url}/>
               <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold }}>04</div>
               {showAnnotations && <Annotation label="entry[3]" style={{ top: 6, left: 6 }}/>}
             </div>
             <div style={{ position: 'relative' }}>
-              <ImageFrame w={colW} h={img05H} label={entries[4]?.title || 'image 05'} focal_x={entries[4]?.focal_x || 50} focal_y={entries[4]?.focal_y || 50}/>
+              <ImageFrame w={colW} h={img05H} label={entries[4]?.title || 'image 05'} focal_x={entries[4]?.focal_x || 50} focal_y={entries[4]?.focal_y || 50} media_url={entries[4]?.media_url}/>
               <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold }}>05</div>
               {showAnnotations && <Annotation label="entry[4]" style={{ top: 6, left: 6 }}/>}
             </div>

@@ -368,7 +368,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:colW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={colW} h={imgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                    <ImageFrame w={colW} h={imgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                       {String(i+1).padStart(2,'0')}
                     </div>
@@ -411,7 +411,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:colW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={colW} h={rightImgH} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                    <ImageFrame w={colW} h={rightImgH} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                       {String(i+4).padStart(2,'0')}
                     </div>
@@ -549,7 +549,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:colW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={colW} h={imgHLeft} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                  <ImageFrame w={colW} h={imgHLeft} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                     {String(i+1).padStart(2,'0')}
                   </div>
@@ -604,7 +604,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:colW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={colW} h={imgHRight} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                  <ImageFrame w={colW} h={imgHRight} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                     {String(i+4).padStart(2,'0')}
                   </div>
@@ -739,7 +739,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:leftImgW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={leftImgW} h={leftImgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                  <ImageFrame w={leftImgW} h={leftImgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                     {String(i+1).padStart(2,'0')}
                   </div>
@@ -808,7 +808,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:rightCellW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                       {String(globalIdx+1).padStart(2,'0')}
                     </div>
@@ -829,7 +829,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:rightCellW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50}/>
+                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                       {String(globalIdx+1).padStart(2,'0')}
                     </div>
