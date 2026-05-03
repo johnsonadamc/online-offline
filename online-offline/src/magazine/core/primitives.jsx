@@ -29,13 +29,21 @@ const F = {
 };
 
 // ImageFrame
-function ImageFrame({ w, h, label='image', n='', focal_x=50, focal_y=50, style={} }) {
+function ImageFrame({ w, h, label='image', n='', focal_x=50, focal_y=50, media_url=null, style={} }) {
+  const isReal = media_url && media_url.startsWith('https://');
   return (
     <div style={{
       width: w, height: h, background: C.ground3,
       position: 'relative', overflow: 'hidden', flexShrink: 0,
       ...style,
     }}>
+      {isReal && (
+        <img src={media_url} style={{
+          position: 'absolute', inset: 0, width: '100%', height: '100%',
+          objectFit: 'cover',
+          objectPosition: `${focal_x}% ${focal_y}%`,
+        }}/>
+      )}
       {/* SVG crosshair */}
       <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.18 }} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
         <line x1={w/2} y1="0" x2={w/2} y2={h} stroke={C.paper} strokeWidth="0.5"/>
