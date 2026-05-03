@@ -9,7 +9,8 @@
     "lint": "next lint",
     "seed": "tsx scripts/seed.ts",
     "test": "playwright test",
-    "test:ui": "playwright test --ui"
+    "test:ui": "playwright test --ui",
+    "generate-test": "tsx scripts/test-generator.ts"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.1",
@@ -27,6 +28,8 @@
     "framer-motion": "^12.4.2",
     "lucide-react": "^0.474.0",
     "next": "^16.2.4",
+    "pdf-lib": "^1.17.1",
+    "puppeteer": "^24.42.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.2",
