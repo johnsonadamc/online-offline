@@ -359,6 +359,7 @@ async function fetchCollabItems(
       collabTitle: (collabRecord.title as string | undefined) ?? '',
       participationMode: (sel.participation_mode ?? 'community') as ParticipationMode,
       location: sel.location ?? undefined,
+      city: sel.location ?? '',
       displayText,
       entries,
       season,
@@ -442,7 +443,7 @@ async function fetchCampaignItems(
 
   const { data: campaigns } = await db
     .from('campaigns')
-    .select('id, name, bio, discount')
+    .select('id, name, bio, discount, avatar_url')
     .in('id', campaignIds);
 
   return ((campaigns ?? []) as Array<Record<string, unknown>>).map(c => ({
@@ -451,6 +452,7 @@ async function fetchCampaignItems(
     campaignName: (c.name as string | undefined) ?? '',
     tagline:      (c.bio as string | undefined) ?? '',
     discount:     typeof c.discount === 'number' ? c.discount : 2,
+    avatar_url:   (c.avatar_url as string | undefined) ?? undefined,
   }));
 }
 

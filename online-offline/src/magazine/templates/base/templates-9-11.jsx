@@ -214,7 +214,7 @@ function CampaignPage({ data={}, showAnnotations=false }) {
 
       {/* Full-bleed campaign image — fills entire page */}
       <div style={{ position:'absolute', inset:0 }}>
-        <ImageFrame w={AW} h={AH} label="campaign / brand image" focal_x={data.focal_x||50} focal_y={data.focal_y||50}/>
+        <ImageFrame w={AW} h={AH} label="campaign / brand image" focal_x={data.focal_x||50} focal_y={data.focal_y||50} media_url={data.avatar_url}/>
       </div>
 
       {/* Dark gradient scrim — bottom two-thirds, for text legibility */}
