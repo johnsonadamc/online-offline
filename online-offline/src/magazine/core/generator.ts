@@ -496,14 +496,26 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
   const colophonPage = cursor;
 
   // ── Build Cover ────────────────────────────────────────────────────────────
-  const coverData: CoverData = { page: 1, season };
+  const coverData: CoverData = { page: 1, season, volume: 'I', issue: 1 };
 
   // ── Build FrontMatter TOC (now that all page numbers are known) ────────────
+  function normalizeContentType(raw: string): string {
+    const map: Record<string, string> = {
+      photography: 'Photography',
+      art: 'Art',
+      essay: 'Essay',
+      writing: 'Essay',
+      poetry: 'Poetry',
+      music: 'Music',
+    };
+    return map[raw?.toLowerCase()] ?? raw;
+  }
+
   const toc: TocEntry[] = contentAssignments
     .filter(a => a.data && 'contributor' in a.data && 'page_title' in a.data)
     .map(a => {
       const d = a.data as { contributor: { name: string }; page_title: string; type: string; page: number };
-      return { page: d.page, contributor: d.contributor.name, type: d.type, title: d.page_title };
+      return { page: d.page, contributor: d.contributor.name, type: normalizeContentType(d.type), title: d.page_title };
     });
 
   const frontMatterData: FrontMatterData = {

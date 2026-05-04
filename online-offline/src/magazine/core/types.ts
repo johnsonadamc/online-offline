@@ -71,6 +71,8 @@ export interface CampaignPageData {
 export interface CoverData {
   page: number;
   season: string;
+  volume?: string;
+  issue?: number;
 }
 
 export interface TocEntry {
