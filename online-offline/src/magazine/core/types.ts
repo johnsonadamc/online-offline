@@ -40,6 +40,7 @@ export interface CollabPageData {
   season: string;
   display_text: string;
   location?: string;
+  city?: string;
   entries: CollabEntryData[];
 }
 
