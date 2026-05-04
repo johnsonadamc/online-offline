@@ -77,20 +77,8 @@ function CoverA({ data={}, showAnnotations=false }) {
           </span>
         </div>
         <span style={{ fontFamily:F.mono, fontSize:7.5, color:'rgba(240,235,226,0.28)', letterSpacing:'0.12em' }}>
-          Vol. IV · No. 13
+          Vol. {data.volume||'I'} · No. {data.issue||'1'}
         </span>
-      </div>
-
-      {/* ── Right-side vertical label — upper zone ── */}
-      <div style={{
-        position:'absolute', top:BLEED+MT, right:BLEED+MR,
-        display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6,
-        zIndex:4,
-      }}>
-        <div style={{ fontFamily:F.mono, fontSize:7.5, color:'rgba(240,235,226,0.2)', letterSpacing:'0.12em', textTransform:'uppercase' }}>
-          Quarterly Print
-        </div>
-        <div style={{ width:20, height:0.5, background:'rgba(232,160,32,0.3)' }}/>
       </div>
 
       {/* ── Bottom-left: season block ── */}
@@ -106,20 +94,7 @@ function CoverA({ data={}, showAnnotations=false }) {
         }}>
           {seasonWord}
         </div>
-        <div style={{ marginTop:5, fontFamily:F.mono, fontSize:7.5, color:'rgba(240,235,226,0.28)', letterSpacing:'0.10em' }}>
-          {season} — Quarterly Curated
-        </div>
         {showAnnotations && <Annotation label="period.season" style={{ top:-14, left:0 }}/>}
-      </div>
-
-      {/* ── Bottom-right: coordinate + issue ── */}
-      <div style={{
-        position:'absolute', bottom:BLEED+MB, right:BLEED+MR,
-        textAlign:'right', zIndex:4,
-      }}>
-        <div style={{ fontFamily:F.mono, fontSize:7.5, color:'rgba(240,235,226,0.18)', letterSpacing:'0.10em', lineHeight:1.9 }}>
-          2026.Q4<br/>48.8566° N · 2.3522° E
-        </div>
       </div>
 
       {/* ── Thin left-margin vertical rule ── */}
