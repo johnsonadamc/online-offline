@@ -119,7 +119,7 @@ export function selectTemplate(item: SelectionItem, pageStart: number): Template
     }
 
     case 'collab': {
-      const { collabTitle, participationMode, displayText, entries, location, season } = item;
+      const { collabTitle, participationMode, displayText, entries, location, city, season } = item;
       const templateMap: Record<string, string> = {
         community: 'CollabSpreadCommunity',
         local:     'CollabSpreadLocal',
@@ -128,7 +128,7 @@ export function selectTemplate(item: SelectionItem, pageStart: number): Template
       const data: CollabPageData = {
         page: pageStart, collab_title: collabTitle,
         mode: participationMode, season, display_text: displayText,
-        location, entries,
+        location, city, entries,
       };
       return {
         templateName: templateMap[participationMode] ?? 'CollabSpreadCommunity',

@@ -44,19 +44,18 @@ function ImageFrame({ w, h, label='image', n='', focal_x=50, focal_y=50, media_u
           objectPosition: `${focal_x}% ${focal_y}%`,
         }}/>
       )}
-      {/* SVG crosshair */}
-      <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.18 }} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
+      {/* SVG crosshair — only shown when no real image is present */}
+      {!isReal && <svg style={{ position:'absolute', inset:0, width:'100%', height:'100%', opacity:0.18 }} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid meet">
         <line x1={w/2} y1="0" x2={w/2} y2={h} stroke={C.paper} strokeWidth="0.5"/>
         <line x1="0" y1={h/2} x2={w} y2={h/2} stroke={C.paper} strokeWidth="0.5"/>
         <circle cx={w/2} cy={h/2} r="8" stroke={C.paper} strokeWidth="0.5" fill="none"/>
         <circle cx={w/2} cy={h/2} r="2" fill={C.paper} opacity="0.3"/>
-      </svg>
-      {/* Terra dot top-center */}
-      <div style={{ position:'absolute', top:8, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:C.terra }}/>
-      {/* Label bottom-left */}
-      <div style={{ position:'absolute', bottom:6, left:8, fontFamily:F.mono, fontSize:7, color:'rgba(240,235,226,0.2)', letterSpacing:'0.08em', textTransform:'uppercase' }}>
+      </svg>}
+      {/* Terra dot + label — only shown when no real image is present */}
+      {!isReal && <div style={{ position:'absolute', top:8, left:'50%', transform:'translateX(-50%)', width:4, height:4, borderRadius:'50%', background:C.terra }}/>}
+      {!isReal && <div style={{ position:'absolute', bottom:6, left:8, fontFamily:F.mono, fontSize:7, color:'rgba(240,235,226,0.2)', letterSpacing:'0.08em', textTransform:'uppercase' }}>
         {n ? `${n} · ` : ''}{label}
-      </div>
+      </div>}
     </div>
   );
 }
