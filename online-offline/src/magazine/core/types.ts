@@ -64,6 +64,7 @@ export interface CampaignPageData {
   discount: number;
   focal_x?: number;
   focal_y?: number;
+  avatar_url?: string;
 }
 
 export interface CoverData {
@@ -129,6 +130,7 @@ export interface SelectionItemCollab {
   collabTitle: string;
   participationMode: ParticipationMode;
   location?: string;
+  city?: string;
   displayText: string;
   entries: CollabEntryData[];
   season: string;
@@ -146,6 +148,7 @@ export interface SelectionItemCampaign {
   campaignName: string;
   tagline: string;
   discount: number;
+  avatar_url?: string;
 }
 
 export type SelectionItem =
