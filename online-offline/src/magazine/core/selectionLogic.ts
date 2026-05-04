@@ -145,9 +145,9 @@ export function selectTemplate(item: SelectionItem, pageStart: number): Template
     }
 
     case 'campaign': {
-      const { campaignName, tagline, discount } = item;
+      const { campaignName, tagline, discount, avatar_url } = item;
       const data: CampaignPageData = {
-        page: pageStart, campaign_name: campaignName, tagline, discount,
+        page: pageStart, campaign_name: campaignName, tagline, discount, avatar_url,
       };
       return { templateName: 'CampaignPage', pageCount: 1, data };
     }
