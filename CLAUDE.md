@@ -1,7 +1,7 @@
 # CLAUDE.md — online//offline
 
 ## Project Vision
-online//offline is "slowcial media" — the antithesis of dopamine-driven social platforms. Contributors submit creative work (photos, art, poetry, essays, music) quarterly. Curators select what goes into their personalized printed magazines. The physical magazine is the product. The app is the infrastructure that makes it possible.
+online//offline is "slowcial media" — the antithesis of dopamine-driven social platforms. Contributors submit creative work (photos, art, poetry, essays) quarterly. Curators select what goes into their personalized printed magazines. The physical magazine is the product. The app is the infrastructure that makes it possible.
 
 The philosophy: deliberate pace, thoughtful curation, real-world creative collaboration, and a beautiful printed artifact as the payoff. The app should feel calm and purposeful, not stimulating.
 
@@ -78,7 +78,7 @@ src/
 │   │       ├── templates-1-4.jsx  # CoverA, SinglePhoto†, MultiPhoto2Stacked†, MultiPhoto2SideBySide†
 │   │       ├── templates-5-8.jsx  # MultiPhoto4Feature†, MultiPhoto4Grid†, TextSubmission, CollabPage†
 │   │       ├── templates-9-11.jsx # CommunicationsPage, CampaignPage, Spread
-│   │       ├── templates-12-17.jsx # Spread2, Spread4, Spread6, TextSpread, MusicPage, ColophonPage
+│   │       ├── templates-12-17.jsx # Spread2, Spread4, Spread6, TextSpread, ColophonPage
 │   │       ├── templates-18-19.jsx # SpreadPanorama, SpreadMosaic
 │   │       └── templates-20-24.jsx # FrontMatter, PoetryPage, CollabSpreadCommunity,
 │   │                               # CollabSpreadLocal, CollabSpreadPrivate
@@ -108,7 +108,7 @@ src/
 ```sql
 profiles (id, first_name, last_name, avatar_url, identity_banner_url, content_type, is_public, bio, city, bank_info, curator_payment_info)
 -- identity_banner_url: separate from avatar_url, used as full-width card banner in curate interface
--- content_type: 'photography' | 'art' | 'poetry' | 'essay' | 'music'
+-- content_type: 'photography' | 'art' | 'poetry' | 'essay'
 -- city: text field, values from CITIES constant in src/lib/constants/cities.ts
 
 profile_types (profile_id, type)   -- 'contributor' or 'curator'
@@ -203,7 +203,7 @@ monolithic batch files.
 See `src/magazine/TEMPLATE_DESIGN_GUIDE.md` for the full design-to-pipeline workflow,
 Claude Design prompt boilerplate, and per-issue variation pattern.
 
-### Active Templates (18 total)
+### Active Templates (17 total)
 | Template | File | Pages | Trigger |
 |---|---|---|---|
 | CoverA | templates-1-4 | 1 | Always — page 1 |
@@ -217,7 +217,6 @@ Claude Design prompt boilerplate, and per-issue variation pattern.
 | TextSubmission | templates-5-8 | 1 | Essay ≤500 words |
 | TextSpread | templates-12-17 | 2 | Essay 501–1800 words |
 | PoetryPage | templates-20-24 | 1 | Auto-detected poetry |
-| MusicPage | templates-12-17 | 1 | Music submissions |
 | CollabSpreadCommunity | templates-20-24 | 2 | Collab, mode=community |
 | CollabSpreadLocal | templates-20-24 | 2 | Collab, mode=local |
 | CollabSpreadPrivate | templates-20-24 | 2 | Collab, mode=private |
@@ -228,6 +227,7 @@ Claude Design prompt boilerplate, and per-issue variation pattern.
 ### Deprecated Templates (retained for reference, not used in pipeline)
 SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, MultiPhoto4Feature,
 MultiPhoto4Grid, CollabPage — all replaced by spread-based equivalents.
+MusicPage — music is not a content type; deprecated by product decision.
 
 ### Selection Logic
 Full decision tree in `src/magazine/SELECTION_LOGIC.md`. Summary:
@@ -573,7 +573,7 @@ Curator finalizes selections
 - City constant + profile city field + local collab join city selector
 - Seed data: Spring 2026 period, 3 templates, test users, content, comms, campaigns
 - Playwright test suite (21/23 passing)
-- **Magazine template system — 18 active templates, committed to src/magazine/** ✅
+- **Magazine template system — 17 active templates, committed to src/magazine/** ✅
 - **Selection logic: src/magazine/SELECTION_LOGIC.md** ✅
 - **Template index: src/magazine/templates/base/index.js** ✅
 - **Template design guide: src/magazine/TEMPLATE_DESIGN_GUIDE.md** ✅
@@ -589,19 +589,22 @@ Curator finalizes selections
 2. **`window._magazineSeason` global** — in Folio component in primitives.jsx.
    Must be replaced with a prop before Puppeteer pipeline is built.
 
-3. **Music submission UI** — add Spotify/Bandcamp URL field to /submit when
-   content_type is Music. URL → QR code needed for MusicPage template.
+3. **User onboarding** — no flow to set profile_type on new signup.
 
-4. **User onboarding** — no flow to set profile_type on new signup.
-
-5. **Local city data in curate collabs tab** — city list should pull live from
+4. **Local city data in curate collabs tab** — city list should pull live from
    collab_participants grouped by city with real participant counts.
 
-6. **Curator magazine preview** — browser preview route not yet built.
+5. **Curator magazine preview** — browser preview route not yet built.
 
-7. **Print fulfillment integration** — Magcloud manual first, Mixam API later.
+6. **Print fulfillment integration** — Magcloud manual first, Mixam API later.
 
-8. **`@supabase/ssr` migration** — standing priority, touches most of src/lib/supabase/.
+7. **`@supabase/ssr` migration** — standing priority, touches most of src/lib/supabase/.
+
+---
+
+## Product Decisions
+
+> **Music is not a content type.** Musicians participate through Photography, Art, Essay, and Poetry. The subject of the work may be musical; the artifact must stand alone in print. QR codes linking to audio or streaming platforms are explicitly out of scope. This is explained during onboarding.
 
 ---
 

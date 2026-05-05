@@ -45,15 +45,6 @@ export function selectTemplate(item: SelectionItem, pageStart: number): Template
     case 'creator': {
       const { contentType, submissionType, entries, pageTitle, contributor, season } = item;
 
-      // ── Music ─────────────────────────────────────────────────────────────
-      if (contentType === 'music') {
-        const data: ContentPageData = {
-          page: pageStart, type: contentType, page_title: pageTitle,
-          season, contributor, entries,
-        };
-        return { templateName: 'MusicPage', pageCount: 1, data };
-      }
-
       // ── Essay / Poetry ────────────────────────────────────────────────────
       if (contentType === 'essay' || contentType === 'poetry') {
         const body = entries[0]?.caption ?? '';

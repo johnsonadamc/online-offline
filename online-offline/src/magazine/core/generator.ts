@@ -46,7 +46,6 @@ const TEMPLATE_FILE_MAP: Record<string, string | null> = {
   Spread4:               'templates-12-17.jsx',
   Spread6:               'templates-12-17.jsx',
   TextSpread:            'templates-12-17.jsx',
-  MusicPage:             'templates-12-17.jsx',
   ColophonPage:          'templates-12-17.jsx',
   SpreadPanorama:        'templates-18-19.jsx',
   SpreadMosaic:          'templates-18-19.jsx',
@@ -65,7 +64,7 @@ const SPREAD_TEMPLATES = new Set([
 
 // Content type ordering for page sequencing
 const CONTENT_TYPE_ORDER: Record<string, number> = {
-  photography: 0, art: 1, essay: 2, poetry: 3, music: 4,
+  photography: 0, art: 1, essay: 2, poetry: 3,
 };
 
 // ─── Supabase Client ──────────────────────────────────────────────────────────
@@ -282,7 +281,7 @@ async function fetchCreatorItems(
     });
   }
 
-  // Sort: photography → art → essay → poetry → music
+  // Sort: photography → art → essay → poetry
   return items.sort(
     (a, b) =>
       (CONTENT_TYPE_ORDER[a.contentType] ?? 99) - (CONTENT_TYPE_ORDER[b.contentType] ?? 99)
@@ -506,7 +505,6 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
       essay: 'Essay',
       writing: 'Essay',
       poetry: 'Poetry',
-      music: 'Music',
     };
     return map[raw?.toLowerCase()] ?? raw;
   }

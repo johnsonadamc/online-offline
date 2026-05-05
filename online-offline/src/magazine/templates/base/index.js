@@ -27,9 +27,6 @@
 // TextSpread        — two page essay (501–1800 words, truncated above 1800)
 // PoetryPage        — single page poetry, narrow centered column, stanza breaks
 
-// Music
-// MusicPage         — single page, QR code + description (Spotify/Bandcamp → QR TBD)
-
 // Collaborations
 // CollabSpreadCommunity  — two page, open global collab
 // CollabSpreadLocal      — two page, city-specific collab, city as design element
@@ -46,6 +43,7 @@
 // MultiPhoto4Feature — replaced by Spread4
 // MultiPhoto4Grid    — replaced by Spread4
 // CollabPage         — replaced by CollabSpreadCommunity/Local/Private
+// MusicPage          — music is not a content type; musicians participate through Photography, Art, Essay, or Poetry
 
 // ─── SELECTION LOGIC ─────────────────────────────────────────────────────────
 // See SELECTION_LOGIC.md in this directory for the full decision tree.
@@ -65,7 +63,6 @@
 //   >1800 words                 → TextSpread (truncated)
 //
 // Poetry (auto-detected):        → PoetryPage
-// Music:                         → MusicPage
 //
 // Collaborations:
 //   mode === 'community'         → CollabSpreadCommunity

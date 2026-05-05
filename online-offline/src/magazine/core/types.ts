@@ -113,7 +113,7 @@ export interface TemplateAssignment {
   data: TemplateData;
 }
 
-export type ContentType = 'photography' | 'art' | 'essay' | 'poetry' | 'music';
+export type ContentType = 'photography' | 'art' | 'essay' | 'poetry';
 export type ParticipationMode = 'community' | 'local' | 'private';
 
 export interface SelectionItemCreator {
