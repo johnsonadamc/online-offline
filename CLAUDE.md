@@ -518,6 +518,12 @@ Script version: requires `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`, then `npm 
 - After any Claude Code session: verify commits with `git log --oneline -3` in Codespaces
   and confirm they appear on origin/main before proceeding
 
+### Repository Hygiene
+- Never commit PDF files — generated PDFs go to `/tmp` only, never to the working directory
+- Never commit files over 50MB under any circumstances
+- Verify `.gitignore` covers generated artifacts before every commit
+- `magazine-test.pdf` and `/tmp/magazine-*.pdf` are in `.gitignore` — do not remove these entries
+
 ---
 
 ## Magazine Generation — Architecture
