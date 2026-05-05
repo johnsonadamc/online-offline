@@ -203,11 +203,12 @@ monolithic batch files.
 See `src/magazine/TEMPLATE_DESIGN_GUIDE.md` for the full design-to-pipeline workflow,
 Claude Design prompt boilerplate, and per-issue variation pattern.
 
-### Active Templates (17 total)
+### Active Templates (18 total)
 | Template | File | Pages | Trigger |
 |---|---|---|---|
 | CoverA | templates-1-4 | 1 | Always — page 1 |
-| FrontMatter | templates-20-24 | 1 | Always — page 2 (TOC + curator name) |
+| BlankPage | — | 1 | Always — page 2 (dark separator) |
+| FrontMatter | templates-20-24 | 1 | Always — page 3 (TOC + curator name) |
 | SpreadPanorama | templates-18-19 | 2 | 1 image, caption ≤50 words |
 | Spread | templates-9-11 | 2 | 1 image, caption >50 words |
 | Spread2 | templates-12-17 | 2 | 2 images |
@@ -573,7 +574,7 @@ Curator finalizes selections
 - City constant + profile city field + local collab join city selector
 - Seed data: Spring 2026 period, 3 templates, test users, content, comms, campaigns
 - Playwright test suite (21/23 passing)
-- **Magazine template system — 17 active templates, committed to src/magazine/** ✅
+- **Magazine template system — 18 active templates (17 + BlankPage), committed to src/magazine/** ✅
 - **Selection logic: src/magazine/SELECTION_LOGIC.md** ✅
 - **Template index: src/magazine/templates/base/index.js** ✅
 - **Template design guide: src/magazine/TEMPLATE_DESIGN_GUIDE.md** ✅
