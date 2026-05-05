@@ -44,3 +44,5 @@ next-env.d.ts
 test-results/
 playwright-report/
 tests/helpers/auth.ts
+magazine-test.pdf
+/tmp/magazine-*.pdf
