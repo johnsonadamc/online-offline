@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 interface SubscriptionStats {
   currentPeriodStats: {
@@ -28,7 +23,7 @@ interface HistoricalStatRecord {
   [key: string]: unknown; // Allow for other properties
 }
 
-export async function getSubscriptionStats(): Promise<SubscriptionStats> {
+export async function getSubscriptionStats(supabase: ReturnType<typeof getSupabaseClient>): Promise<SubscriptionStats> {
   try {
     // Get current period
     const { data: currentPeriod } = await supabase

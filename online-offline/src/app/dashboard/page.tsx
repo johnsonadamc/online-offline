@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NextImage from 'next/image';
@@ -103,7 +103,7 @@ interface ConfirmActionState {
 
 export default function Dashboard() {
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   // ── Existing state (unchanged) ──────────────────────────────────────────────
   const [showConfirm, setShowConfirm] = useState(false);
@@ -145,7 +145,7 @@ export default function Dashboard() {
   const handleConfirmAction = async () => {
     try {
       if (confirmAction.action === 'leave') {
-        const result = await leaveCollab(confirmAction.id);
+        const result = await leaveCollab(supabase, confirmAction.id);
         if (result.success) {
           setActiveCollabs(prev => prev.filter(c => c.id !== confirmAction.id));
           showSuccess('Successfully left collaboration');
@@ -153,7 +153,7 @@ export default function Dashboard() {
           showError(result.error || 'Failed to leave collaboration');
         }
       } else if (confirmAction.action === 'withdraw') {
-        const result = await withdrawCommunication(confirmAction.id);
+        const result = await withdrawCommunication(supabase, confirmAction.id);
         if (result.success) {
           setCommunications(prev =>
             prev.map(c => c.id === confirmAction.id ? { ...c, status: 'draft' } : c)
@@ -172,7 +172,7 @@ export default function Dashboard() {
 
   const handleDeleteCommunication = async () => {
     try {
-      const result = await deleteDraftCommunication(deleteCommId);
+      const result = await deleteDraftCommunication(supabase, deleteCommId);
       if (result.success) {
         setCommunications(prev => prev.filter(c => c.id !== deleteCommId));
         showSuccess('Communication deleted successfully');
@@ -189,7 +189,7 @@ export default function Dashboard() {
 
   const handleDeleteContent = async () => {
     try {
-      const result = await deleteContent(deleteContentId);
+      const result = await deleteContent(supabase, deleteContentId);
       if (result.success) {
         setContentSubmission(null);
         showSuccess('Content deleted successfully');
@@ -206,7 +206,7 @@ export default function Dashboard() {
 
   const handleWithdrawContent = async () => {
     if (!contentSubmission) return;
-    const result = await withdrawContent(contentSubmission.id);
+    const result = await withdrawContent(supabase, contentSubmission.id);
     if (result.success) {
       setContentSubmission(prev => prev ? { ...prev, status: 'draft' } : null);
       showSuccess('Submission withdrawn');
@@ -239,12 +239,12 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
 
-        const periodResult = await getCurrentPeriod();
+        const periodResult = await getCurrentPeriod(supabase);
         if (periodResult?.success && periodResult.period) {
           setCurrentPeriod(periodResult.period as Period);
         }
 
-        const draftResult = await fetchCurrentPeriodDraft();
+        const draftResult = await fetchCurrentPeriodDraft(supabase);
         if (draftResult.success && draftResult.draft) {
           const draft = draftResult.draft;
           let title = draft.page_title || '';
@@ -268,7 +268,7 @@ export default function Dashboard() {
           setContentSubmission(null);
         }
 
-        const collabsResult = await getUserCollabs();
+        const collabsResult = await getUserCollabs(supabase);
         if (collabsResult) {
           const combined = [
             ...(collabsResult.private || []),
@@ -303,8 +303,8 @@ export default function Dashboard() {
         }
 
         const [draftComms, submittedComms] = await Promise.all([
-          getDraftCommunications(),
-          getSubmittedCommunications(),
+          getDraftCommunications(supabase),
+          getSubmittedCommunications(supabase),
         ]);
         const allComms: Communication[] = [];
         if (draftComms.success && draftComms.drafts) {

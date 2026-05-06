@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import { saveCommunication } from '@/lib/supabase/communications';
 import { canCommunicateWith } from '@/lib/supabase/profiles';
@@ -23,7 +23,7 @@ export default function CommunicateEditorPage() {
   const communicationId = id && id !== 'new' ? id : null;
 
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
@@ -74,7 +74,7 @@ export default function CommunicateEditorPage() {
               avatar_url: data.profiles.avatar_url,
             };
             setSelectedRecipient(p);
-            const result = await canCommunicateWith(p.id);
+            const result = await canCommunicateWith(supabase, p.id);
             setHasPermission(result.allowed);
             setPermissionCheckComplete(true);
             setCurrentStage('compose');
@@ -136,7 +136,7 @@ export default function CommunicateEditorPage() {
     if (!hasPermission) { setError('You do not have permission to communicate with this user'); return; }
     setSaving(true); setError(null);
     try {
-      const result = await saveCommunication({
+      const result = await saveCommunication(supabase, {
         id: communicationId || undefined,
         recipient_id: selectedRecipient.id,
         subject: subject.trim(),
@@ -159,7 +159,7 @@ export default function CommunicateEditorPage() {
     if (!hasPermission) { setError('You do not have permission to communicate with this user'); return; }
     setSubmitting(true); setError(null);
     try {
-      const saveResult = await saveCommunication({
+      const saveResult = await saveCommunication(supabase, {
         id: communicationId || undefined,
         recipient_id: selectedRecipient.id,
         subject: subject.trim(),

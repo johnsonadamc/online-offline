@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 
 type ContentType = 'photography' | 'art' | 'poetry' | 'essay' | null;
@@ -28,7 +28,7 @@ function usePressState() {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   const [step, setStep] = useState(1);
   const [firstName, setFirstName] = useState('');

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import IntegratedCollabsSection from '@/components/IntegratedCollabsSection';
@@ -132,7 +132,7 @@ function extractPeriodData(response: unknown): Period | null {
 
 export default function CurationInterface() {
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
   const baseQuarterlyPrice = 25;
   const adDiscountAmount = 2;
   const maxContentPieces = 20;
@@ -208,7 +208,7 @@ export default function CurationInterface() {
   const getPeriodId = async (): Promise<string | null> => {
     if (currentPeriod?.id) return currentPeriod.id;
     try {
-      const periodData = await getCurrentPeriod();
+      const periodData = await getCurrentPeriod(supabase);
       const extracted = extractPeriodData(periodData);
       if (extracted?.id) {
         setCurrentPeriod(extracted);
@@ -274,7 +274,7 @@ export default function CurationInterface() {
 
   const handleRequestFollow = async (creatorId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    const result = await sendFollowRequest(creatorId);
+    const result = await sendFollowRequest(supabase, creatorId);
     if (result.success) {
       setPendingRequestMap(prev => ({ ...prev, [creatorId]: true }));
       alert('Follow request sent!');
@@ -306,7 +306,7 @@ export default function CurationInterface() {
       const periodId = await getPeriodId();
       if (!periodId) throw new Error('No active period found');
 
-      const result = await saveCuratorSelections({
+      const result = await saveCuratorSelections(supabase, {
         curator_id: userData.user.id,
         period_id: periodId,
         selected_contributors: selectedCreators,
@@ -422,7 +422,7 @@ export default function CurationInterface() {
 
         let activePeriodId: string | null = null;
         try {
-          const periodData = await getCurrentPeriod();
+          const periodData = await getCurrentPeriod(supabase);
           const extracted = extractPeriodData(periodData);
           if (extracted) {
             setCurrentPeriod(extracted);

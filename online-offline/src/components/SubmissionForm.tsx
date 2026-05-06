@@ -1,11 +1,11 @@
 'use client';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { saveContent, getCurrentPeriod } from '@/lib/supabase/content';
 import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/constants/submission';
 import { uploadMedia } from '@/lib/supabase/storage';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ const THEMES = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SubmissionForm() {
-  const supabase = useMemo(() => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!), []);
+  const supabase = useSupabase();
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draft');
@@ -147,7 +147,7 @@ export default function SubmissionForm() {
   useEffect(() => {
     const loadPeriod = async () => {
       try {
-        const { period, error } = await getCurrentPeriod();
+        const { period, error } = await getCurrentPeriod(supabase);
         if (error || !period) { console.error('Error fetching period:', error); return; }
         const pstNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
         const pstEnd = new Date(period.end_date);
@@ -195,7 +195,7 @@ export default function SubmissionForm() {
       setEntries(updated);
       const idx = updated.findIndex(en => en.id === entryId);
       if (idx !== -1) setCurrentSlide(idx);
-      const { url } = await uploadMedia(file);
+      const { url } = await uploadMedia(supabase, file);
       setEntries(prev => prev.map(en =>
         en.id === entryId ? { ...en, permanentUrl: url, isUploading: false } : en
       ));
@@ -266,7 +266,7 @@ export default function SubmissionForm() {
       } else {
         entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
       }
-      const result = await saveContent(submissionType, status, entriesToSave, draftId || undefined, pageTitle, format);
+      const result = await saveContent(supabase, submissionType, status, entriesToSave, draftId || undefined, pageTitle, format);
       if (result.success) {
         setSaveStatus('saved');
         setTimeout(() => setSaveStatus(''), 2000);
@@ -296,7 +296,7 @@ export default function SubmissionForm() {
       } else {
         entriesToSave = entries.map(en => ({ ...en, imageUrl: en.permanentUrl || en.imageUrl }));
       }
-      const result = await saveContent(submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle, format);
+      const result = await saveContent(supabase, submissionType, 'submitted', entriesToSave, draftId || undefined, pageTitle, format);
       if (result.success) setStatus('submitted');
       else alert('Error submitting: ' + (result.error || 'Unknown error'));
     } catch (err) {

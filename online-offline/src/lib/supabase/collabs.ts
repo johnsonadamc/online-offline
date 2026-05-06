@@ -1,10 +1,5 @@
 // lib/supabase/collabs.ts
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 // Define typed participant interface
 interface Participant {
@@ -95,7 +90,7 @@ function getNameFromProfile(profile: unknown): string {
 }
 
 // getUserCollabs function with improved private/community/local detection
-export async function getUserCollabs(): Promise<UserCollabsResponse> {  
+export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClient>): Promise<UserCollabsResponse> {
   // Get current user ID
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -257,7 +252,7 @@ export async function getUserCollabs(): Promise<UserCollabsResponse> {
 }
 
 // Leave a collab by deleting the participant record
-export async function leaveCollab(collabId: string): Promise<LeaveCollabResponse> {  
+export async function leaveCollab(supabase: ReturnType<typeof getSupabaseClient>, collabId: string): Promise<LeaveCollabResponse> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -305,7 +300,7 @@ export async function leaveCollab(collabId: string): Promise<LeaveCollabResponse
 }
 
 // Get detailed information about a specific collaboration
-export async function getCollabById(collabId: string): Promise<CollabDetailResponse> {  
+export async function getCollabById(supabase: ReturnType<typeof getSupabaseClient>, collabId: string): Promise<CollabDetailResponse> {
   try {
     // First, check if the collab exists with a simpler query
     const { data: collabExists, error: existsError } = await supabase

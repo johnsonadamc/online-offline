@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { CITIES } from '@/lib/constants/cities';
 
 interface CollabTemplate {
@@ -38,6 +38,7 @@ type PressState = 'rest' | 'pressing' | 'releasing';
 
 export default function CollabsLibrary() {
   const router = useRouter();
+  const supabase = useSupabase();
   const [availablePrompts, setAvailablePrompts] = useState<CollabTemplate[]>([]);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [selectedCollabTitle, setSelectedCollabTitle] = useState('');
@@ -63,7 +64,6 @@ export default function CollabsLibrary() {
   };
 
   const loadData = useCallback(async () => {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     setLoading(true);
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -149,7 +149,6 @@ export default function CollabsLibrary() {
   useEffect(() => { loadData(); }, [loadData]);
 
   const searchProfiles = async (term: string) => {
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
     try {
       let query = supabase
         .from('profiles')
@@ -187,7 +186,6 @@ export default function CollabsLibrary() {
         return;
       }
       if (mode === 'local') {
-        const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw new Error(userError.message);
         if (!user) { showError('You must be logged in'); return; }
@@ -200,7 +198,6 @@ export default function CollabsLibrary() {
       }
       const template = availablePrompts.find(p => p.id === collabId);
       if (!template) { showError('Error: Template not found'); return; }
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw new Error(userError.message);
       if (!user) { showError('You must be logged in to join a collaboration'); return; }
@@ -226,7 +223,6 @@ export default function CollabsLibrary() {
 
   const createPrivateCollab = async () => {
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw new Error(userError.message);
       if (!user) { showError('You must be logged in'); return; }
@@ -262,7 +258,6 @@ export default function CollabsLibrary() {
 
   const confirmLocalJoin = async () => {
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError) throw new Error(userError.message);
       if (!user) { showError('You must be logged in'); return; }

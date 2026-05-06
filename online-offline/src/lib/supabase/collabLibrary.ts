@@ -1,10 +1,5 @@
 // src/lib/supabase/collabLibrary.ts
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 import { getUserCollabs } from './collabs';
 
 /**
@@ -66,19 +61,19 @@ interface UserCollabItem {
 /**
  * Get all collaborations for the current period organized by type
  */
-export async function getCollaborationsForCuration(): Promise<{
+export async function getCollaborationsForCuration(supabase: ReturnType<typeof getSupabaseClient>): Promise<{
   success: boolean;
   error?: string;
   joinedCollabs?: CollabData[];
 }> {
   try {
     // First, get the user's joined collabs using the existing function
-    const userCollabsResult = await getUserCollabs();
-    
+    const userCollabsResult = await getUserCollabs(supabase);
+
     if (!userCollabsResult) {
       return { success: false, error: "Failed to fetch user collaborations" };
     }
-    
+
     // Safely extract data from each array with type assertions
     const privateCollabs = userCollabsResult.private || [];
     const communityCollabs = userCollabsResult.community || [];
@@ -152,7 +147,7 @@ export async function getCollaborationsForCuration(): Promise<{
 /**
  * Get collaboration templates available for the period
  */
-export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
+export async function getCollabTemplatesForPeriod(supabase: ReturnType<typeof getSupabaseClient>, periodId: string): Promise<{
   success: boolean;
   error?: string;
   templates?: CollabTemplate[];
@@ -222,6 +217,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
  * Get curator's selected collaborations for a period
  */
 export async function getCuratorCollabSelections(
+  supabase: ReturnType<typeof getSupabaseClient>,
   curatorId: string,
   periodId: string
 ): Promise<{
@@ -258,6 +254,7 @@ export async function getCuratorCollabSelections(
  * Get all available collaborations for a period (that the user hasn't already joined)
  */
 export async function getAvailableCollabsForPeriod(
+  supabase: ReturnType<typeof getSupabaseClient>,
   periodId: string
 ): Promise<{
   success: boolean;
@@ -272,11 +269,11 @@ export async function getAvailableCollabsForPeriod(
     }
     
     // Get collabs that user has already joined
-    const userCollabsResult = await getUserCollabs();
+    const userCollabsResult = await getUserCollabs(supabase);
     if (!userCollabsResult) {
       return { success: false, error: "Failed to fetch user collaborations" };
     }
-    
+
     // Extract IDs of joined collabs
     const joinedCollabIds: string[] = [];
     
@@ -353,7 +350,7 @@ export async function getAvailableCollabsForPeriod(
 /**
  * Get cities with participant counts for local collaborations
  */
-export async function getCitiesWithParticipantCounts(): Promise<{
+export async function getCitiesWithParticipantCounts(supabase: ReturnType<typeof getSupabaseClient>): Promise<{
   success: boolean;
   error?: string;
   cities?: CityParticipantData[];

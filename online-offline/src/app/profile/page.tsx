@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -100,7 +100,7 @@ export default function ProfilePage() {
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{
@@ -397,7 +397,7 @@ export default function ProfilePage() {
 
   const handleFollowRequest = async (profileId: string) => {
     try {
-      const result = await sendFollowRequest(profileId);
+      const result = await sendFollowRequest(supabase, profileId);
       if (result.success) {
         setPendingRequestMap(prev => ({ ...prev, [profileId]: true }));
         showSuccess(result.status === 'pending' ? 'Access request sent!' : 'Access granted to public profile.');
@@ -413,7 +413,7 @@ export default function ProfilePage() {
 
   const handleApproveRequest = async (requestId: string) => {
     try {
-      const result = await approveFollowRequest(requestId);
+      const result = await approveFollowRequest(supabase, requestId);
       if (result.success) {
         await loadFollowRequests();
         await loadConnectionsData();
@@ -429,7 +429,7 @@ export default function ProfilePage() {
 
   const handleDenyRequest = async (requestId: string) => {
     try {
-      const result = await rejectFollowRequest(requestId);
+      const result = await rejectFollowRequest(supabase, requestId);
       if (result.success) {
         await loadFollowRequests();
         showSuccess('Access request denied');

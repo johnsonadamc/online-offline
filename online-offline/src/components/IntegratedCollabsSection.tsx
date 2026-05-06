@@ -1,7 +1,7 @@
 'use client';
 // IntegratedCollabsSection.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { getCitiesWithParticipantCounts } from '@/lib/supabase/collabLibrary';
 
 interface CollabData {
@@ -62,7 +62,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   onPrivateCollabMap,
   searchTerm = '',
 }) => {
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   // ── data state ──────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
@@ -257,7 +257,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
         // STEP 3: available cities
         try {
-          const result = await getCitiesWithParticipantCounts();
+          const result = await getCitiesWithParticipantCounts(supabase);
           if (result.success && result.cities?.length) {
             setAvailableCities(result.cities);
           } else throw new Error('no cities');

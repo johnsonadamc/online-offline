@@ -1,13 +1,8 @@
 // src/lib/supabase/profiles.ts
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 // Function to send a follow request
-export async function sendFollowRequest(followedId: string) {  
+export async function sendFollowRequest(supabase: ReturnType<typeof getSupabaseClient>, followedId: string) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Not authenticated" };
@@ -73,7 +68,7 @@ export async function sendFollowRequest(followedId: string) {
 }
 
 // Function to check if user can send communications to another user
-export async function canCommunicateWith(recipientId: string) {  
+export async function canCommunicateWith(supabase: ReturnType<typeof getSupabaseClient>, recipientId: string) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { allowed: false, error: "Not authenticated" };
@@ -115,7 +110,7 @@ export async function canCommunicateWith(recipientId: string) {
 }
 
 // Function to get all pending follow requests for the current user
-export async function getPendingFollowRequests() {  
+export async function getPendingFollowRequests(supabase: ReturnType<typeof getSupabaseClient>) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Not authenticated" };
@@ -163,7 +158,7 @@ export async function getPendingFollowRequests() {
 /**
  * Approves a follow request
  */
-export async function approveFollowRequest(requesterId: string): Promise<{
+export async function approveFollowRequest(supabase: ReturnType<typeof getSupabaseClient>, requesterId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
@@ -211,7 +206,7 @@ export async function approveFollowRequest(requesterId: string): Promise<{
 /**
  * Rejects a follow request
  */
-export async function rejectFollowRequest(requesterId: string): Promise<{
+export async function rejectFollowRequest(supabase: ReturnType<typeof getSupabaseClient>, requesterId: string): Promise<{
   success: boolean;
   error?: string;
 }> {

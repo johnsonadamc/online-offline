@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 
 export default function Home() {
@@ -9,7 +9,7 @@ export default function Home() {
   const [loading, setLoading] = React.useState(false);
   const [isSignUp, setIsSignUp] = React.useState(false);
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();

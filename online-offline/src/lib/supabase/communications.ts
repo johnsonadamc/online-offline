@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 // Define TypeScript interfaces for our data structures
 interface Communication {
@@ -55,7 +50,7 @@ interface CommunicationRecord {
 }
 
 // Get all draft communications for the current user
-export const getDraftCommunications = async () => {
+export const getDraftCommunications = async (supabase: ReturnType<typeof getSupabaseClient>) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -105,7 +100,7 @@ export const getDraftCommunications = async () => {
 };
 
 // Get all submitted communications for the current user
-export const getSubmittedCommunications = async () => {
+export const getSubmittedCommunications = async (supabase: ReturnType<typeof getSupabaseClient>) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -148,7 +143,7 @@ export const getSubmittedCommunications = async () => {
 };
 
 // Get all communications received by the current curator
-export const getReceivedCommunications = async (periodId: string) => {
+export const getReceivedCommunications = async (supabase: ReturnType<typeof getSupabaseClient>, periodId: string) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -183,7 +178,7 @@ export const getReceivedCommunications = async (periodId: string) => {
 };
 
 // Create or update a communication draft
-export const saveCommunication = async (communication: Communication) => {
+export const saveCommunication = async (supabase: ReturnType<typeof getSupabaseClient>, communication: Communication) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -259,7 +254,7 @@ export const saveCommunication = async (communication: Communication) => {
 };
 
 // Submit a communication for publication
-export const submitCommunication = async (id: string) => {
+export const submitCommunication = async (supabase: ReturnType<typeof getSupabaseClient>, id: string) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -305,7 +300,7 @@ export const submitCommunication = async (id: string) => {
 };
 
 // Withdraw a submitted communication back to draft status
-export async function withdrawCommunication(communicationId: string): Promise<{
+export async function withdrawCommunication(supabase: ReturnType<typeof getSupabaseClient>, communicationId: string): Promise<{
   success: boolean;
   error?: string;
   communication?: CommunicationRecord;
@@ -360,7 +355,7 @@ export async function withdrawCommunication(communicationId: string): Promise<{
 }
 
 // Get list of contributors for recipient selection
-export const getContributors = async () => {
+export const getContributors = async (supabase: ReturnType<typeof getSupabaseClient>) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -400,8 +395,9 @@ export const getContributors = async () => {
 
 // For curators: select communications to include
 export const selectCommunications = async (
-  communicationIds: string[], 
-  selectionMethod: 'all' | 'random' | 'select', 
+  supabase: ReturnType<typeof getSupabaseClient>,
+  communicationIds: string[],
+  selectionMethod: 'all' | 'random' | 'select',
   periodId: string
 ) => {
   try {    const { data: { user } } = await supabase.auth.getUser();
@@ -460,8 +456,8 @@ export const selectCommunications = async (
 };
 
 // Get a count of communications for a specific curator
-export const getCommunicationCount = async (curatorId: string) => {
-  try {    
+export const getCommunicationCount = async (supabase: ReturnType<typeof getSupabaseClient>, curatorId: string) => {
+  try {
     // Get active period
     const { data: activePeriod, error: periodError } = await supabase
       .from('periods')
@@ -497,7 +493,7 @@ export const getCommunicationCount = async (curatorId: string) => {
  * Delete a draft communication
  * Only draft communications can be deleted
  */
-export async function deleteDraftCommunication(communicationId: string) {  
+export async function deleteDraftCommunication(supabase: ReturnType<typeof getSupabaseClient>, communicationId: string) {
   try {
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();

@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import { getCollabById } from '@/lib/supabase/collabs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ export default function CollabSubmissionPage() {
 function CollabSubmissionContent() {
   const router       = useRouter();
   const params       = useParams();
-  const supabase     = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase     = useSupabase();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── state ────────────────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@ function CollabSubmissionContent() {
         if (!user) { router.push('/auth/signin'); return; }
         setSubmission(prev => ({ ...prev, contributor_id: user.id }));
 
-        const collabResult = await getCollabById(collabId);
+        const collabResult = await getCollabById(supabase, collabId);
         if (!collabResult.success || !collabResult.collab) {
           setError(`Failed to load collaboration details: ${collabResult.error}`);
           return;

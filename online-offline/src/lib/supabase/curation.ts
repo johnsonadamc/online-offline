@@ -1,10 +1,5 @@
 // src/lib/supabase/curation.ts
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 // Type definitions
 interface Period {
@@ -148,7 +143,7 @@ interface TemplatesResult {
 /**
  * Get all curation data for the current period
  */
-export async function getCurationData(): Promise<CurationResult> {  
+export async function getCurationData(supabase: ReturnType<typeof getSupabaseClient>): Promise<CurationResult> {
   try {
     console.log("Starting getCurationData");
     
@@ -598,7 +593,7 @@ function getIconForContentType(contentType: string): string {
 /**
  * Get available collaboration templates
  */
-export async function getAvailableCollabTemplates(periodId: string): Promise<TemplatesResult> {  
+export async function getAvailableCollabTemplates(supabase: ReturnType<typeof getSupabaseClient>, periodId: string): Promise<TemplatesResult> {
   try {
     // Get templates assigned to this period
     const { data, error } = await supabase
@@ -664,7 +659,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
 /**
  * Get available community and local collaborations for the period
  */
-export async function getAvailableCollaborations(): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {  
+export async function getAvailableCollaborations(supabase: ReturnType<typeof getSupabaseClient>): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {
   try {
     // Get user for checking joins
     const { data: { user } } = await supabase.auth.getUser();
@@ -742,14 +737,14 @@ export async function getAvailableCollaborations(): Promise<{ success: boolean; 
 /**
  * Save all curation selections to the database
  */
-export async function saveCuratorSelections({
+export async function saveCuratorSelections(supabase: ReturnType<typeof getSupabaseClient>, {
   curator_id,
   period_id,
   selected_contributors,
   selected_collaborations,
   selected_communications,
   selected_ads
-}: SaveSelectionsInput): Promise<{ success: boolean; error?: string }> {  
+}: SaveSelectionsInput): Promise<{ success: boolean; error?: string }> {
   try {
     console.log("Starting to save selections with:", {
       curator_id,

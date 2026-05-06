@@ -1,13 +1,8 @@
 // src/lib/supabase/storage.ts
 
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from './client'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-export async function uploadMedia(file: File) {  
+export async function uploadMedia(supabase: ReturnType<typeof getSupabaseClient>, file: File) {
   try {
     // Create unique filename
     const fileExt = file.name.split('.').pop();

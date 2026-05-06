@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+import { useSupabase } from '@/lib/supabase/useSupabase';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,7 @@ function extractProfileData(profiles: unknown): ProfileData {
 
 export default function CuratorCommunicationsPage() {
   const router = useRouter();
-  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+  const supabase = useSupabase();
   
   const [receivedComms, setReceivedComms] = useState<ReceivedCommunication[]>([]);
   const [selectedComms, setSelectedComms] = useState<string[]>([]);
@@ -124,7 +124,7 @@ export default function CuratorCommunicationsPage() {
         setCurrentPeriod(periodData);
         
         // Get received communications for this period
-        const result = await getReceivedCommunications(periodData.id);
+        const result = await getReceivedCommunications(supabase, periodData.id);
         
         if (!result.success) {
           throw new Error(result.error ? String(result.error) : 'Failed to load communications');
@@ -240,8 +240,9 @@ export default function CuratorCommunicationsPage() {
       
       // Save the selection to the database
       const result = await selectCommunications(
-        commIds, 
-        selectionMethod, 
+        supabase,
+        commIds,
+        selectionMethod,
         currentPeriod.id
       );
       

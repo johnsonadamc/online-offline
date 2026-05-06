@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabaseClient } from './client'
 
 interface ContentEntry {
   title: string;
@@ -28,7 +23,7 @@ interface Period {
   is_active: boolean;
 }
 
-export async function getCurrentPeriod() {  
+export async function getCurrentPeriod(supabase: ReturnType<typeof getSupabaseClient>) {
   try {
     console.log("Fetching current period...");
     
@@ -100,7 +95,7 @@ export async function getCurrentPeriod() {
   }
 }
 
-export async function fetchCurrentPeriodDraft() {  
+export async function fetchCurrentPeriodDraft(supabase: ReturnType<typeof getSupabaseClient>) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -109,7 +104,7 @@ export async function fetchCurrentPeriodDraft() {
     }
 
     // Get current period
-    const { period, error: periodError } = await getCurrentPeriod();
+    const { period, error: periodError } = await getCurrentPeriod(supabase);
     if (!period || periodError) {
       console.error("No active period found:", periodError);
       return { success: false, error: "No active period found" };
@@ -158,6 +153,7 @@ export async function fetchCurrentPeriodDraft() {
 }
 
 export async function saveContent(
+  supabase: ReturnType<typeof getSupabaseClient>,
   type: 'regular' | 'fullSpread',
   status: 'draft' | 'submitted' | 'published',
   entries: ContentEntry[],
@@ -170,7 +166,7 @@ export async function saveContent(
     if (userError) throw userError;
     if (!user) throw new Error('No user found');
 
-    const { period, error: periodError } = await getCurrentPeriod();
+    const { period, error: periodError } = await getCurrentPeriod(supabase);
     if (!period || periodError) throw new Error('No active period found');
 
     let contentId: string;
@@ -386,7 +382,7 @@ export async function saveContent(
   }
 }
 
-export async function getPastContributions() {  
+export async function getPastContributions(supabase: ReturnType<typeof getSupabaseClient>) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -527,7 +523,7 @@ export async function getPastContributions() {
     return { success: false, error: String(error) };
   }
 }
-export async function withdrawContent(contentId: string) {  try {
+export async function withdrawContent(supabase: ReturnType<typeof getSupabaseClient>, contentId: string) { try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: 'Not authenticated' };
 
@@ -546,7 +542,7 @@ export async function withdrawContent(contentId: string) {  try {
   }
 }
 
-export async function deleteContent(contentId: string) {  
+export async function deleteContent(supabase: ReturnType<typeof getSupabaseClient>, contentId: string) {
   try {
     console.log("Deleting content with ID:", contentId);
     
