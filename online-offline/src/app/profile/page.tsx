@@ -53,6 +53,7 @@ interface ProfileState {
   isPublic: boolean;
   city: string;
   contentType: string;
+  address: string;
   bankInfo: {
     accountNumber: string;
     routingNumber: string;
@@ -74,6 +75,7 @@ export default function ProfilePage() {
     isPublic: true,
     city: '',
     contentType: 'photo',
+    address: '',
     bankInfo: { accountNumber: '', routingNumber: '', accountType: 'checking' },
     curatorPaymentInfo: { cardNumber: '', expiryDate: '', cvv: '' },
   });
@@ -86,6 +88,7 @@ export default function ProfilePage() {
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [addingRole, setAddingRole] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -143,6 +146,7 @@ export default function ProfilePage() {
             isPublic: data.is_public ?? true,
             city: data.city || '',
             contentType: data.content_type || 'photo',
+            address: data.address || '',
             bankInfo: data.bank_info || { accountNumber: '', routingNumber: '', accountType: 'checking' },
             curatorPaymentInfo: data.curator_payment_info || { cardNumber: '', expiryDate: '', cvv: '' },
           });
@@ -352,12 +356,42 @@ export default function ProfilePage() {
       if (!user) throw new Error('No user');
       const { error } = await supabase
         .from('profiles')
-        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, identity_banner_url: bannerUrl, content_type: profile.contentType, city: profile.city, is_public: profile.isPublic, updated_at: new Date().toISOString() });
+        .upsert({ id: user.id, first_name: profile.firstName, last_name: profile.lastName, avatar_url: avatarUrl, identity_banner_url: bannerUrl, content_type: profile.contentType, city: profile.city, is_public: profile.isPublic, address: profile.address || null, updated_at: new Date().toISOString() });
       if (error) throw error;
       showSuccess('Profile updated successfully');
     } catch (error) {
       console.error('Error updating profile:', error);
       showError('Error updating profile');
+    }
+  };
+
+  const addRole = async (type: string) => {
+    setAddingRole(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('No user');
+      const { data: existing } = await supabase
+        .from('profile_types')
+        .select('profile_id')
+        .eq('profile_id', user.id)
+        .eq('type', type)
+        .maybeSingle();
+      if (!existing) {
+        const { error } = await supabase
+          .from('profile_types')
+          .insert({ profile_id: user.id, type });
+        if (error) throw error;
+      }
+      setProfile(prev => ({
+        ...prev,
+        profileTypes: prev.profileTypes.includes(type) ? prev.profileTypes : [...prev.profileTypes, type],
+      }));
+      showSuccess(`${type.charAt(0).toUpperCase() + type.slice(1)} role added`);
+    } catch (err) {
+      console.error('Error adding role:', err);
+      showError('Failed to add role');
+    } finally {
+      setAddingRole(false);
     }
   };
 
@@ -681,24 +715,53 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                {/* Profile type checkboxes */}
+                {/* Roles — read current, add-only */}
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-secondary)', opacity: 0.6, marginBottom: 8 }}>Profile Type</div>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    {['contributor', 'curator'].map(type => (
-                      <label key={type} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={profile.profileTypes.includes(type)}
-                          onChange={e => {
-                            const newTypes = e.target.checked ? [...profile.profileTypes, type] : profile.profileTypes.filter(t => t !== type);
-                            setProfile(prev => ({ ...prev, profileTypes: newTypes }));
-                          }}
-                          style={{ accentColor: 'var(--neon-amber)', width: 14, height: 14 }}
-                        />
-                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper-primary)', textTransform: 'capitalize' }}>{type}</span>
-                      </label>
-                    ))}
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 10 }}>Your roles</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {(['contributor', 'curator'] as const).map(type => {
+                      const has = profile.profileTypes.includes(type);
+                      const accentRgb = type === 'contributor' ? '224,90,40' : '224,168,48';
+                      return (
+                        <div key={type} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          background: has ? `rgba(${accentRgb},0.06)` : 'var(--ground-3)',
+                          border: has ? `1px solid rgba(${accentRgb},0.3)` : '1px solid var(--rule-mid)',
+                          borderRadius: 2,
+                        }}>
+                          <div>
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: has ? 'var(--paper)' : 'var(--paper-3)', textTransform: 'capitalize', fontWeight: has ? 400 : 300 }}>{type}</div>
+                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: has ? `rgba(${accentRgb},0.8)` : 'var(--paper-5)', marginTop: 2, textTransform: 'uppercase' }}>
+                              {has ? 'active' : 'not set'}
+                            </div>
+                          </div>
+                          {!has && (
+                            <button
+                              onClick={() => addRole(type)}
+                              disabled={addingRole}
+                              style={{
+                                padding: '5px 10px',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '9px',
+                                letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                color: `rgba(${accentRgb},0.9)`,
+                                background: `rgba(${accentRgb},0.1)`,
+                                border: `1px solid rgba(${accentRgb},0.35)`,
+                                borderRadius: 2,
+                                cursor: addingRole ? 'not-allowed' : 'pointer',
+                                opacity: addingRole ? 0.6 : 1,
+                              }}
+                            >
+                              {addingRole ? 'loading…' : '+ Add'}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -749,6 +812,53 @@ export default function ProfilePage() {
                       ))}
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mailing address — required for curators */}
+            {profile.profileTypes.includes('curator') && (
+              <div style={{
+                background: 'var(--ground-2)',
+                border: '1px solid rgba(224,90,40,0.3)',
+                borderLeft: '2px solid rgba(224,90,40,0.7)',
+                borderRadius: 2,
+                boxShadow: '-3px 0 10px -2px rgba(224,90,40,0.15)',
+              }}>
+                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-accent)' }}>
+                    Mailing Address
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: profile.address?.trim() ? 'var(--neon-green)' : 'var(--neon-accent)', textTransform: 'uppercase' }}>
+                    {profile.address?.trim() ? 'on file' : 'required'}
+                  </div>
+                </div>
+                <div style={{ padding: 14 }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-3)', margin: '0 0 12px', lineHeight: 1.5 }}>
+                    Required to receive your printed edition. Enter your full shipping address including city, state, and zip.
+                  </p>
+                  <textarea
+                    value={profile.address}
+                    onChange={e => setProfile(prev => ({ ...prev, address: e.target.value }))}
+                    rows={3}
+                    placeholder="123 Main St&#10;City, State 00000"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      background: 'var(--ground-3)',
+                      border: '1px solid var(--rule-mid)',
+                      borderRadius: 2,
+                      color: 'var(--paper)',
+                      fontFamily: 'var(--font-sans)',
+                      fontSize: 13,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      resize: 'vertical',
+                      lineHeight: 1.5,
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = 'rgba(224,90,40,0.5)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
+                  />
                 </div>
               </div>
             )}

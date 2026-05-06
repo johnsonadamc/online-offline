@@ -151,6 +151,7 @@ export default function CurationInterface() {
   const [searchTerm, setSearchTerm] = useState('');
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState(false);
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [accessibleProfiles, setAccessibleProfiles] = useState<string[]>([]);
@@ -284,10 +285,23 @@ export default function CurationInterface() {
 
   // ── Save handler ───────────────────────────────────────────────────────────
   const saveSelections = async () => {
+    setAddressError(false);
     setSavingSelections(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error('User not authenticated');
+
+      // Gate: curator must have a mailing address on file
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('address')
+        .eq('id', userData.user.id)
+        .maybeSingle();
+      if (!profileData?.address || !String(profileData.address).trim()) {
+        setAddressError(true);
+        setSavingSelections(false);
+        return;
+      }
 
       const periodId = await getPeriodId();
       if (!periodId) throw new Error('No active period found');
@@ -1046,6 +1060,24 @@ export default function CurationInterface() {
           >
             Reset
           </button>
+
+          {/* Address gate message */}
+          {addressError && (
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              letterSpacing: '0.04em',
+              color: 'var(--neon-accent)',
+              lineHeight: 1.6,
+              maxWidth: '260px',
+              textAlign: 'right',
+            }}>
+              Your mailing address is required before we can print your edition.{' '}
+              <a href="/profile" style={{ color: 'var(--neon-accent)', textDecoration: 'underline' }}>
+                Add it in your profile →
+              </a>
+            </div>
+          )}
 
           {/* Save — press-btn-green mechanic */}
           <button
