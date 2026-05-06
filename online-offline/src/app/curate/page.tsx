@@ -501,6 +501,7 @@ export default function CurationInterface() {
 
         try {
           const saved = localStorage.getItem('magazine_selections');
+          console.log('selections source: localStorage, key=magazine_selections, value:', saved, 'user:', debugUser?.id);
           if (saved) {
             const parsed = JSON.parse(saved);
             if (parsed.contributors) setSelectedCreators(parsed.contributors);

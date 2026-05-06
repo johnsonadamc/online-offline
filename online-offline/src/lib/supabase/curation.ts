@@ -481,6 +481,7 @@ export async function getCurationData(supabase: ReturnType<typeof getSupabaseCli
     let includeCommunications = false;
     
     try {
+      console.log('fetching selections for curator:', user.id, 'period:', periodData.id);
       const [creatorSelections, campaignSelections, collabSelections, commSettings] = await Promise.all([
         // Get creator selections
         supabase
