@@ -9,7 +9,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const accessToken = request.cookies.get('sb-access-token')?.value
+  const cookieValue = request.cookies.get('sb-cbdiujvqpirrvzodfujm-auth-token')?.value
+
+  if (!cookieValue) {
+    return NextResponse.next()
+  }
+
+  let accessToken: string | undefined
+  try {
+    const session = JSON.parse(decodeURIComponent(cookieValue))
+    accessToken = session?.access_token
+  } catch {
+    return NextResponse.next()
+  }
 
   if (!accessToken) {
     return NextResponse.next()

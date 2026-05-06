@@ -7,10 +7,19 @@ export function useSupabase() {
     if (typeof document === 'undefined') {
       return getSupabaseClient()
     }
-    const token = document.cookie
+    const cookieValue = document.cookie
       .split('; ')
-      .find(r => r.startsWith('sb-access-token='))
-      ?.split('=')[1]
+      .find(r => r.startsWith('sb-cbdiujvqpirrvzodfujm-auth-token='))
+      ?.split('=')
+      .slice(1)
+      .join('=')
+
+    let token: string | undefined
+    try {
+      const session = JSON.parse(decodeURIComponent(cookieValue || ''))
+      token = session?.access_token
+    } catch {}
+
     return getSupabaseClient(token)
   })
   return supabase
