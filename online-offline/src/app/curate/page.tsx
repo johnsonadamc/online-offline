@@ -317,7 +317,7 @@ export default function CurationInterface() {
 
       if (!result.success) throw new Error(result.error || 'Failed to save selections');
 
-      localStorage.setItem('magazine_selections', JSON.stringify({
+      localStorage.setItem(`magazine_selections_${userData.user.id}`, JSON.stringify({
         contributors: selectedCreators,
         collaborations: selectedCollabs,
         communications: selectedCommunications,
@@ -355,11 +355,11 @@ export default function CurationInterface() {
     setSelectedAds([]);
     setSelectedCommunications([]);
     localStorage.removeItem('temp_selected_collabs');
-    localStorage.removeItem('magazine_selections');
     localStorage.removeItem('selected_cities');
 
     const cleanupDB = async () => {
       const { data: { user } } = await supabase.auth.getUser();
+      if (user) localStorage.removeItem(`magazine_selections_${user.id}`);
       if (user && currentPeriod?.id) {
         await supabase.from('curator_collab_selections').delete()
           .eq('curator_id', user.id).eq('period_id', currentPeriod.id);
@@ -499,18 +499,21 @@ export default function CurationInterface() {
           { id: 'comm2', subject: 'Collaboration opportunity', sender_id: 'user2', profiles: { first_name: 'Marcus', last_name: 'Johnson', avatar_url: '/api/placeholder/400/400?text=MJ' } },
         ]);
 
-        try {
-          const saved = localStorage.getItem('magazine_selections');
-          console.log('selections source: localStorage, key=magazine_selections, value:', saved, 'user:', debugUser?.id);
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.contributors) setSelectedCreators(parsed.contributors);
-            if (parsed.campaigns) setSelectedAds(parsed.campaigns);
-            if (parsed.communications) setSelectedCommunications(parsed.communications);
-            if (parsed.collaborations) setSelectedCollabs(parsed.collaborations);
+        if (debugUser && activePeriodId) {
+          try {
+            const [creatorSel, campaignSel, collabSel, commSel] = await Promise.all([
+              supabase.from('curator_creator_selections').select('creator_id').eq('curator_id', debugUser.id).eq('period_id', activePeriodId),
+              supabase.from('curator_campaign_selections').select('campaign_id').eq('curator_id', debugUser.id).eq('period_id', activePeriodId),
+              supabase.from('curator_collab_selections').select('collab_id, source_id').eq('curator_id', debugUser.id).eq('period_id', activePeriodId),
+              supabase.from('curator_communication_selections').select('include_communications').eq('curator_id', debugUser.id).eq('period_id', activePeriodId).maybeSingle(),
+            ]);
+            if (creatorSel.data) setSelectedCreators(creatorSel.data.map((s: { creator_id: string }) => s.creator_id).filter(Boolean));
+            if (campaignSel.data) setSelectedAds(campaignSel.data.map((s: { campaign_id: string }) => s.campaign_id).filter(Boolean));
+            if (collabSel.data) setSelectedCollabs(collabSel.data.map((s: { source_id?: string; collab_id: string }) => s.source_id || s.collab_id).filter(Boolean));
+            if (commSel.data?.include_communications) setSelectedCommunications(['communications']);
+          } catch (err) {
+            console.error('Error loading selections from DB:', err);
           }
-        } catch (err) {
-          console.error('Error loading saved selections:', err);
         }
 
         setLoading(false);
