@@ -1,6 +1,7 @@
+'use client';
 // IntegratedCollabsSection.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { getCitiesWithParticipantCounts } from '@/lib/supabase/collabLibrary';
 
 interface CollabData {
@@ -61,7 +62,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   onPrivateCollabMap,
   searchTerm = '',
 }) => {
-  const supabase = createClientComponentClient();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
   // ── data state ──────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(true);

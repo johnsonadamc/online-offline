@@ -5,7 +5,7 @@ import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/con
 import { uploadMedia } from '@/lib/supabase/storage';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ const THEMES = [
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SubmissionForm() {
-  const supabase = useMemo(() => createClientComponentClient(), []);
+  const supabase = useMemo(() => createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draft');

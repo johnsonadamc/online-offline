@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NextImage from 'next/image';
@@ -103,7 +103,7 @@ interface ConfirmActionState {
 
 export default function Dashboard() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
   // ── Existing state (unchanged) ──────────────────────────────────────────────
   const [showConfirm, setShowConfirm] = useState(false);

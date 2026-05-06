@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, ChangeEvent, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { saveCommunication } from '@/lib/supabase/communications';
 import { canCommunicateWith } from '@/lib/supabase/profiles';
@@ -23,10 +23,7 @@ export default function CommunicateEditorPage() {
   const communicationId = id && id !== 'new' ? id : null;
 
   const router = useRouter();
-  const supabase = createClientComponentClient({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  });
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');

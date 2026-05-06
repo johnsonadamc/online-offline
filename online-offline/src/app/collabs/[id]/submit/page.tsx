@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { getCollabById } from '@/lib/supabase/collabs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ export default function CollabSubmissionPage() {
 function CollabSubmissionContent() {
   const router       = useRouter();
   const params       = useParams();
-  const supabase     = createClientComponentClient();
+  const supabase     = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── state ────────────────────────────────────────────────────────────────────

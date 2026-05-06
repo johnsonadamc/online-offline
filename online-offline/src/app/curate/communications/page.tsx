@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,7 @@ function extractProfileData(profiles: unknown): ProfileData {
 
 export default function CuratorCommunicationsPage() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   
   const [receivedComms, setReceivedComms] = useState<ReceivedCommunication[]>([]);
   const [selectedComms, setSelectedComms] = useState<string[]>([]);

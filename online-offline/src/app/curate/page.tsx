@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import IntegratedCollabsSection from '@/components/IntegratedCollabsSection';
@@ -132,7 +132,7 @@ function extractPeriodData(response: unknown): Period | null {
 
 export default function CurationInterface() {
   const router = useRouter();
-  const supabase = createClientComponentClient();
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
   const baseQuarterlyPrice = 25;
   const adDiscountAmount = 2;
   const maxContentPieces = 20;
