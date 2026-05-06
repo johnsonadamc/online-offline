@@ -94,18 +94,34 @@ export default function OnboardingPage() {
       if (isCurator) types.push('curator');
 
       for (const type of types) {
-        const { data: existing } = await supabase
+        // Check for existing row — ignore read errors (RLS may block SELECT)
+        const { data: existing, error: selectError } = await supabase
           .from('profile_types')
           .select('profile_id')
           .eq('profile_id', user.id)
           .eq('type', type)
           .maybeSingle();
 
+        if (selectError) {
+          // RLS may block SELECT — log it but still attempt the insert
+          console.warn('[onboarding] profile_types SELECT error (will attempt insert anyway):', selectError);
+        }
+
         if (!existing) {
           const { error: insertError } = await supabase
             .from('profile_types')
             .insert({ profile_id: user.id, type });
-          if (insertError) throw insertError;
+
+          if (insertError) {
+            console.error('[onboarding] profile_types INSERT failed for type:', type, insertError);
+            throw new Error(
+              `Failed to set role "${type}": ${insertError.message}. ` +
+              `Code: ${insertError.code}. Check RLS policies on profile_types.`
+            );
+          }
+          console.log('[onboarding] profile_types INSERT succeeded for type:', type, 'user:', user.id);
+        } else {
+          console.log('[onboarding] profile_types row already exists for type:', type, 'user:', user.id);
         }
       }
 
@@ -117,6 +133,7 @@ export default function OnboardingPage() {
       }
     } catch (err) {
       setSaving(false);
+      console.error('[onboarding] handleEnter failed:', err);
       setError(err instanceof Error ? err.message : 'Something went wrong.');
     }
   };
