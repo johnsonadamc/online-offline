@@ -235,7 +235,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
           setJoinedCollabs([]);
           try {
             const { getUserCollabs } = await import('@/lib/supabase/collabs');
-            const raw = await getUserCollabs();
+            const raw = await getUserCollabs(supabase);
             if (raw) {
               const all = [
                 ...(raw.private || []) as unknown as ImportedCollab[],
