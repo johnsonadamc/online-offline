@@ -124,7 +124,7 @@ export default function CommunicateEditorPage() {
     setSearchTerm('');
     setSearchResults([]);
     setShowSearchResults(false);
-    const result = await canCommunicateWith(recipient.id);
+    const result = await canCommunicateWith(supabase, recipient.id);
     setHasPermission(result.allowed);
     setPermissionCheckComplete(true);
     setCurrentStage('compose');
