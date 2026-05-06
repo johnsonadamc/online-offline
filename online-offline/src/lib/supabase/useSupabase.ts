@@ -17,7 +17,7 @@ export function useSupabase() {
     let token: string | undefined
     try {
       const session = JSON.parse(decodeURIComponent(cookieValue || ''))
-      token = session?.access_token
+      token = Array.isArray(session) ? session[0] : session?.access_token
     } catch {}
 
     return getSupabaseClient(token)

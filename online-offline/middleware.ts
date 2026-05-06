@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
   let accessToken: string | undefined
   try {
     const session = JSON.parse(decodeURIComponent(cookieValue))
-    accessToken = session?.access_token
+    accessToken = Array.isArray(session) ? session[0] : session?.access_token
   } catch {
     return NextResponse.next()
   }
