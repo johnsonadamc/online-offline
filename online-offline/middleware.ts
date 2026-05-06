@@ -1,64 +1,44 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
+export async function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  const { pathname } = req.nextUrl;
-
-  // Exempt routes — never redirect these
-  if (
-    pathname === '/' ||
-    pathname.startsWith('/onboarding') ||
-    pathname.startsWith('/auth') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/_next') ||
-    pathname === '/favicon.ico'
-  ) {
-    return res;
+  const exemptPaths = ['/onboarding', '/auth', '/api', '/_next', '/favicon.ico']
+  if (exemptPaths.some(p => pathname.startsWith(p))) {
+    return NextResponse.next()
   }
 
-  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = request.cookies.get('sb-access-token')?.value
 
-  // Not authenticated — let the page handle it
-  if (!session) {
-    return res;
+  if (!accessToken) {
+    return NextResponse.next()
   }
 
-  // Check for at least one profile_types row.
-  // Capture error separately — if the query itself fails (e.g. RLS blocks the
-  // anon/service read), we fail open and let the user through rather than
-  // incorrectly bouncing them back to onboarding.
-  const { data: profileTypes, error: ptError } = await supabase
-    .from('profile_types')
-    .select('type')
-    .eq('profile_id', session.user.id)
-    .limit(1);
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/profile_types?select=type`,
+      {
+        headers: {
+          'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+          'Authorization': `Bearer ${accessToken}`,
+        }
+      }
+    )
 
-  console.log(
-    '[middleware]',
-    pathname,
-    '| user:', session.user.id,
-    '| profileTypes:', JSON.stringify(profileTypes),
-    '| error:', ptError ? JSON.stringify(ptError) : null,
-  );
-
-  // If the query errored (RLS, network, etc.) do NOT redirect — fail open so
-  // a completed onboarding user is never bounced back to /onboarding.
-  if (ptError) {
-    console.error('[middleware] profile_types query error — failing open:', ptError);
-    return res;
+    if (res.ok) {
+      const rows = await res.json()
+      if (Array.isArray(rows) && rows.length === 0) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+    }
+  } catch (e) {
+    console.error('middleware profile_types check failed:', e)
   }
 
-  if (!profileTypes || profileTypes.length === 0) {
-    return NextResponse.redirect(new URL('/onboarding', req.url));
-  }
-
-  return res;
+  return NextResponse.next()
 }
 
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+}
