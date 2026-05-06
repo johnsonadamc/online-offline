@@ -30,14 +30,16 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  console.log('middleware:', pathname, 'user:', user?.id, 'error:', userError)
 
   if (!user) {
     return supabaseResponse
   }
 
   try {
-    const { data: rows } = await supabase.from('profile_types').select('type')
+    const { data: rows, error: ptError } = await supabase.from('profile_types').select('type')
+    console.log('profile_types result:', rows, ptError)
     if (Array.isArray(rows) && rows.length === 0) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
     }

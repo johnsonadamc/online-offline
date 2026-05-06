@@ -146,8 +146,9 @@ interface TemplatesResult {
 export async function getCurationData(supabase: ReturnType<typeof getSupabaseClient>): Promise<CurationResult> {
   try {
     console.log("Starting getCurationData");
-    
+
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('getCurationData user:', user?.id);
     if (!user) {
       return { success: false, error: "User not authenticated" };
     }
