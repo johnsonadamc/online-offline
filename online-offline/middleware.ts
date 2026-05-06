@@ -38,9 +38,13 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    const { data: rows, error: ptError } = await supabase.from('profile_types').select('type')
-    console.log('profile_types result:', rows, ptError)
-    if (Array.isArray(rows) && rows.length === 0) {
+    const { data: profileTypes, error: ptError } = await supabase
+      .from('profile_types')
+      .select('type')
+      .eq('profile_id', user.id)
+      .limit(1)
+    console.log('profile_types result:', profileTypes, 'user:', user.id, 'error:', ptError)
+    if (!profileTypes || profileTypes.length === 0) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
     }
   } catch (e) {

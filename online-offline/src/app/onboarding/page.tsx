@@ -127,9 +127,9 @@ export default function OnboardingPage() {
 
       // Redirect
       if (isCurator && !isContributor) {
-        router.push('/curate');
+        window.location.href = '/curate';
       } else {
-        router.push('/submit');
+        window.location.href = '/submit';
       }
     } catch (err) {
       setSaving(false);

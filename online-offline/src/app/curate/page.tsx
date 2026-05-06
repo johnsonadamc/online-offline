@@ -416,6 +416,9 @@ export default function CurationInterface() {
   useEffect(() => {
     async function loadData() {
       try {
+        const { data: { user: debugUser } } = await supabase.auth.getUser();
+        console.log('curate page user:', debugUser?.id);
+
         setLoading(true);
         setCreators([]);
         setAds([]);
