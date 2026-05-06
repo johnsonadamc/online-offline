@@ -1,4 +1,9 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface ContentEntry {
   title: string;
@@ -23,9 +28,7 @@ interface Period {
   is_active: boolean;
 }
 
-export async function getCurrentPeriod() {
-  const supabase = createClientComponentClient();
-  
+export async function getCurrentPeriod() {  
   try {
     console.log("Fetching current period...");
     
@@ -97,9 +100,7 @@ export async function getCurrentPeriod() {
   }
 }
 
-export async function fetchCurrentPeriodDraft() {
-  const supabase = createClientComponentClient();
-  
+export async function fetchCurrentPeriodDraft() {  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -164,8 +165,6 @@ export async function saveContent(
   pageTitle?: string,
   format: 'image' | 'text' = 'image'
 ) {
-  const supabase = createClientComponentClient();
-
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
@@ -387,9 +386,7 @@ export async function saveContent(
   }
 }
 
-export async function getPastContributions() {
-  const supabase = createClientComponentClient();
-  
+export async function getPastContributions() {  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -530,9 +527,7 @@ export async function getPastContributions() {
     return { success: false, error: String(error) };
   }
 }
-export async function withdrawContent(contentId: string) {
-  const supabase = createClientComponentClient();
-  try {
+export async function withdrawContent(contentId: string) {  try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: 'Not authenticated' };
 
@@ -551,9 +546,7 @@ export async function withdrawContent(contentId: string) {
   }
 }
 
-export async function deleteContent(contentId: string) {
-  const supabase = createClientComponentClient();
-  
+export async function deleteContent(contentId: string) {  
   try {
     console.log("Deleting content with ID:", contentId);
     

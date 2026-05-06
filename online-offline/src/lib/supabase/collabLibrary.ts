@@ -1,5 +1,10 @@
 // src/lib/supabase/collabLibrary.ts
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 import { getUserCollabs } from './collabs';
 
 /**
@@ -151,9 +156,7 @@ export async function getCollabTemplatesForPeriod(periodId: string): Promise<{
   success: boolean;
   error?: string;
   templates?: CollabTemplate[];
-}> {
-  const supabase = createClientComponentClient();
-  
+}> {  
   try {
     // Get templates assigned to this period
     const { data, error } = await supabase
@@ -225,9 +228,7 @@ export async function getCuratorCollabSelections(
   success: boolean;
   error?: string;
   selectedCollabIds?: string[];
-}> {
-  const supabase = createClientComponentClient();
-  
+}> {  
   try {
     // Updated to fetch source_id as well
     const { data, error } = await supabase
@@ -262,9 +263,7 @@ export async function getAvailableCollabsForPeriod(
   success: boolean;
   error?: string;
   availableCollabs?: CollabData[];
-}> {
-  const supabase = createClientComponentClient();
-  
+}> {  
   try {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -358,9 +357,7 @@ export async function getCitiesWithParticipantCounts(): Promise<{
   success: boolean;
   error?: string;
   cities?: CityParticipantData[];
-}> {
-  const supabase = createClientComponentClient();
-  
+}> {  
   try {
     // Fetch cities from collab_participants table
     const { data: cityData, error: cityError } = await supabase

@@ -1,5 +1,10 @@
 // src/lib/supabase/curation.ts
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Type definitions
 interface Period {
@@ -143,9 +148,7 @@ interface TemplatesResult {
 /**
  * Get all curation data for the current period
  */
-export async function getCurationData(): Promise<CurationResult> {
-  const supabase = createClientComponentClient();
-  
+export async function getCurationData(): Promise<CurationResult> {  
   try {
     console.log("Starting getCurationData");
     
@@ -595,9 +598,7 @@ function getIconForContentType(contentType: string): string {
 /**
  * Get available collaboration templates
  */
-export async function getAvailableCollabTemplates(periodId: string): Promise<TemplatesResult> {
-  const supabase = createClientComponentClient();
-  
+export async function getAvailableCollabTemplates(periodId: string): Promise<TemplatesResult> {  
   try {
     // Get templates assigned to this period
     const { data, error } = await supabase
@@ -663,9 +664,7 @@ export async function getAvailableCollabTemplates(periodId: string): Promise<Tem
 /**
  * Get available community and local collaborations for the period
  */
-export async function getAvailableCollaborations(): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {
-  const supabase = createClientComponentClient();
-  
+export async function getAvailableCollaborations(): Promise<{ success: boolean; error?: string; collaborations?: Collaboration[] }> {  
   try {
     // Get user for checking joins
     const { data: { user } } = await supabase.auth.getUser();
@@ -750,9 +749,7 @@ export async function saveCuratorSelections({
   selected_collaborations,
   selected_communications,
   selected_ads
-}: SaveSelectionsInput): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClientComponentClient();
-  
+}: SaveSelectionsInput): Promise<{ success: boolean; error?: string }> {  
   try {
     console.log("Starting to save selections with:", {
       curator_id,

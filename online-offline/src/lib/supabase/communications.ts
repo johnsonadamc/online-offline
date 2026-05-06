@@ -1,4 +1,9 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Define TypeScript interfaces for our data structures
 interface Communication {
@@ -51,9 +56,7 @@ interface CommunicationRecord {
 
 // Get all draft communications for the current user
 export const getDraftCommunications = async () => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -103,9 +106,7 @@ export const getDraftCommunications = async () => {
 
 // Get all submitted communications for the current user
 export const getSubmittedCommunications = async () => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -148,9 +149,7 @@ export const getSubmittedCommunications = async () => {
 
 // Get all communications received by the current curator
 export const getReceivedCommunications = async (periodId: string) => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -185,9 +184,7 @@ export const getReceivedCommunications = async (periodId: string) => {
 
 // Create or update a communication draft
 export const saveCommunication = async (communication: Communication) => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -263,9 +260,7 @@ export const saveCommunication = async (communication: Communication) => {
 
 // Submit a communication for publication
 export const submitCommunication = async (id: string) => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -314,9 +309,7 @@ export async function withdrawCommunication(communicationId: string): Promise<{
   success: boolean;
   error?: string;
   communication?: CommunicationRecord;
-}> {
-  const supabase = createClientComponentClient();
-  
+}> {  
   try {
     // First, update the communication status back to 'draft'
     const { error: updateError } = await supabase
@@ -368,9 +361,7 @@ export async function withdrawCommunication(communicationId: string): Promise<{
 
 // Get list of contributors for recipient selection
 export const getContributors = async () => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -413,9 +404,7 @@ export const selectCommunications = async (
   selectionMethod: 'all' | 'random' | 'select', 
   periodId: string
 ) => {
-  try {
-    const supabase = createClientComponentClient();
-    const { data: { user } } = await supabase.auth.getUser();
+  try {    const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
       return { success: false, error: 'User not authenticated' };
@@ -472,9 +461,7 @@ export const selectCommunications = async (
 
 // Get a count of communications for a specific curator
 export const getCommunicationCount = async (curatorId: string) => {
-  try {
-    const supabase = createClientComponentClient();
-    
+  try {    
     // Get active period
     const { data: activePeriod, error: periodError } = await supabase
       .from('periods')
@@ -510,9 +497,7 @@ export const getCommunicationCount = async (curatorId: string) => {
  * Delete a draft communication
  * Only draft communications can be deleted
  */
-export async function deleteDraftCommunication(communicationId: string) {
-  const supabase = createClientComponentClient();
-  
+export async function deleteDraftCommunication(communicationId: string) {  
   try {
     // Get the current user
     const { data: { user } } = await supabase.auth.getUser();

@@ -1,10 +1,13 @@
 // src/lib/supabase/profiles.ts
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // Function to send a follow request
-export async function sendFollowRequest(followedId: string) {
-  const supabase = createClientComponentClient();
-  
+export async function sendFollowRequest(followedId: string) {  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Not authenticated" };
@@ -70,9 +73,7 @@ export async function sendFollowRequest(followedId: string) {
 }
 
 // Function to check if user can send communications to another user
-export async function canCommunicateWith(recipientId: string) {
-  const supabase = createClientComponentClient();
-  
+export async function canCommunicateWith(recipientId: string) {  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { allowed: false, error: "Not authenticated" };
@@ -114,9 +115,7 @@ export async function canCommunicateWith(recipientId: string) {
 }
 
 // Function to get all pending follow requests for the current user
-export async function getPendingFollowRequests() {
-  const supabase = createClientComponentClient();
-  
+export async function getPendingFollowRequests() {  
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "Not authenticated" };
@@ -168,8 +167,6 @@ export async function approveFollowRequest(requesterId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const supabase = createClientComponentClient();
-
   try {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();
@@ -218,8 +215,6 @@ export async function rejectFollowRequest(requesterId: string): Promise<{
   success: boolean;
   error?: string;
 }> {
-  const supabase = createClientComponentClient();
-
   try {
     // Get current user
     const { data: { user } } = await supabase.auth.getUser();

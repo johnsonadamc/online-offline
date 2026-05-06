@@ -1,4 +1,9 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 interface SubscriptionStats {
   currentPeriodStats: {
@@ -24,8 +29,6 @@ interface HistoricalStatRecord {
 }
 
 export async function getSubscriptionStats(): Promise<SubscriptionStats> {
-  const supabase = createClientComponentClient();
-
   try {
     // Get current period
     const { data: currentPeriod } = await supabase
