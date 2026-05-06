@@ -1,15 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
-export function getSupabaseClient(accessToken?: string) {
-  return createClient(
+export function getSupabaseClient() {
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    accessToken ? {
-      global: {
-        headers: {
-          Authorization: `Bearer ${accessToken}`
-        }
-      }
-    } : undefined
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
