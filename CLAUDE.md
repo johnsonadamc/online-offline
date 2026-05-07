@@ -60,7 +60,7 @@ src/
 │   ├── dashboard/
 │   │   └── page.tsx              # Main user hub ✅
 │   ├── onboarding/
-│   │   └── page.tsx              # 3-step onboarding flow ✅ NEW
+│   │   └── page.tsx              # 3-step onboarding flow ✅
 │   ├── profile/
 │   │   └── page.tsx              # User profile + privacy settings ✅
 │   └── submit/
@@ -200,7 +200,7 @@ profile_types table has RLS enabled. Required policies (both must exist):
   - "Users can insert own profile_types": FOR INSERT WITH CHECK (auth.uid() = profile_id)
 If middleware incorrectly redirects authenticated users to /onboarding, check these policies first.
 
-Onboarding Flow — NEW (May 2026)
+Onboarding Flow
 Route: /onboarding
 Guard: middleware.ts redirects any authenticated user with zero profile_types rows to /onboarding
 Exempt routes: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico
@@ -232,13 +232,19 @@ Curate Page — Address Gate
 - Banner is dismissible per session (not permanently)
 - hasAddress check: !!profile.address_line1
 
-Email Confirmation
-- Email confirmation is currently DISABLED in Supabase Auth settings (toggled off for development)
-- Must be re-enabled before opening to real users
-- When enabled, the confirmation link routes through /auth/callback which uses @supabase/ssr
-- Supabase rate limit for emails: 2/hour on free tier (cannot be changed on free plan)
-  → Use + alias trick for test emails: johnson.adamc+N@gmail.com
-  → Or temporarily disable email confirmation for dev testing
+Email Confirmation ✅ COMPLETE
+- Email confirmation is ENABLED in Supabase Auth settings ✅
+- Custom SMTP configured via Resend — bypasses Supabase rate limits entirely ✅
+- Resend domain: onlineoffline.online — DNS verified ✅
+- SMTP settings in Supabase Auth → Email:
+  - Host: smtp.resend.com
+  - Port: 465
+  - Username: resend
+  - Sender email: noreply@onlineoffline.online
+  - Sender name: online//offline
+- Confirmation link routes through /auth/callback which uses @supabase/ssr ✅
+- Full signup → confirm → onboarding → destination flow tested and working ✅
+- Supabase is on Pro plan — rate limits adjustable, but moot with custom SMTP
 
 Magazine Generation System
 Status: ✅ FULLY OPERATIONAL
@@ -470,6 +476,30 @@ Key Gotchas & Hard-Won Lessons
 - Supabase session cookie name: sb-cbdiujvqpirrvzodfujm-auth-token (array format, token at index [0])
 - Middleware reads this cookie — if format changes, middleware breaks
 
+### User Deletion (test accounts)
+- Supabase dashboard delete will fail with "Database error deleting user"
+  if dependent rows exist in other tables
+- Always run SQL cleanup first, then delete from Authentication → Users in dashboard
+- Run this in SQL Editor, replacing the UUID:
+
+DO $$
+DECLARE uid uuid := 'paste-uuid-here';
+BEGIN
+  DELETE FROM curator_communication_selections WHERE curator_id = uid;
+  DELETE FROM curator_campaign_selections WHERE curator_id = uid;
+  DELETE FROM curator_collab_selections WHERE curator_id = uid;
+  DELETE FROM curator_creator_selections WHERE curator_id = uid OR creator_id = uid;
+  DELETE FROM communications WHERE sender_id = uid OR recipient_id = uid;
+  DELETE FROM collab_participants WHERE profile_id = uid;
+  DELETE FROM collab_submissions WHERE contributor_id = uid;
+  DELETE FROM content_entries WHERE content_id IN (SELECT id FROM content WHERE creator_id = uid);
+  DELETE FROM content WHERE creator_id = uid;
+  DELETE FROM subscriptions WHERE subscriber_id = uid OR creator_id = uid;
+  DELETE FROM profile_connections WHERE follower_id = uid OR followed_id = uid;
+  DELETE FROM profile_types WHERE profile_id = uid;
+  DELETE FROM profiles WHERE id = uid;
+END $$;
+
 ### Design
 - Never mix border shorthand with borderBottom/borderBottomWidth on same element
 - Never use lucide-react — inline SVGs only
@@ -549,23 +579,25 @@ Completed ✅
 - Focal point selector on /submit
 - Playwright test suite (21/23 passing)
 - Music removed as content type (product decision)
-- @supabase/auth-helpers-nextjs fully removed — migrated to @supabase/ssr ✅ NEW
-- User onboarding flow — 3 steps, middleware guard, DB writes ✅ NEW
-- Curate address gate — warns but never blocks, persistent banner ✅ NEW
-- Profile page restructured — 5 sections, structured address fields, mobile-first ✅ NEW
-- Structured mailing address fields added to profiles table ✅ NEW
-- Curate selections load from DB (not localStorage), user-scoped localStorage ✅ NEW
+- @supabase/auth-helpers-nextjs fully removed — migrated to @supabase/ssr ✅
+- User onboarding flow — 3 steps, middleware guard, DB writes ✅
+- Curate address gate — warns but never blocks, persistent banner ✅
+- Profile page restructured — 5 sections, structured address fields, mobile-first ✅
+- Structured mailing address fields added to profiles table ✅
+- Curate selections load from DB (not localStorage), user-scoped localStorage ✅
+- Email confirmation enabled + custom SMTP via Resend configured ✅ NEW
+- onlineoffline.online domain verified in Resend, DNS records live ✅ NEW
+- Full signup → confirm → onboarding → destination flow tested end-to-end ✅ NEW
 
 Remaining / Known Issues ⚠️
-1. Email confirmation disabled — must be re-enabled before opening to real users. /auth/callback route is built and working with @supabase/ssr.
-2. Local city data in curate collabs tab — city list should pull live from collab_participants grouped by city with real participant counts.
-3. Curator magazine preview — browser preview route not yet built.
-4. Print fulfillment integration — Magcloud manual first, Mixam API later.
-5. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
-6. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
-7. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
-8. Subscription cancellation UI — blocked on Stripe integration.
-9. Playwright test suite — needs update to cover onboarding flow and new profile structure.
+1. Local city data in curate collabs tab — city list should pull live from collab_participants grouped by city with real participant counts.
+2. Curator magazine preview — browser preview route not yet built.
+3. Print fulfillment integration — Magcloud manual first, Mixam API later.
+4. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
+5. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+6. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
+7. Subscription cancellation UI — blocked on Stripe integration.
+8. Playwright test suite — needs update to cover onboarding flow and new profile structure.
 
 User Roles
 - Contributors: Submit content, join collaborations, send communications to curators
