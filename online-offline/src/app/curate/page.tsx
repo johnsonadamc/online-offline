@@ -316,8 +316,8 @@ export default function CurationInterface() {
       localStorage.removeItem('temp_selected_collabs');
 
       const { data: addrData } = await supabase
-        .from('profiles').select('address').eq('id', userData.user.id).maybeSingle();
-      const addrOk = !!(addrData?.address && String(addrData.address).trim());
+        .from('profiles').select('address_line1').eq('id', userData.user.id).maybeSingle();
+      const addrOk = !!(addrData?.address_line1 && String(addrData.address_line1).trim());
       setHasAddress(addrOk);
 
       if (!addrOk) {
@@ -421,8 +421,8 @@ export default function CurationInterface() {
 
         if (debugUser) {
           const { data: addrData } = await supabase
-            .from('profiles').select('address').eq('id', debugUser.id).maybeSingle();
-          setHasAddress(!!(addrData?.address && String(addrData.address).trim()));
+            .from('profiles').select('address_line1').eq('id', debugUser.id).maybeSingle();
+          setHasAddress(!!(addrData?.address_line1 && String(addrData.address_line1).trim()));
         }
 
         setLoading(true);
