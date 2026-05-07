@@ -1,4 +1,6 @@
 CLAUDE.md — online//offline
+Last updated: May 2026
+
 Project Vision
 online//offline is "slowcial media" — the antithesis of dopamine-driven social platforms. Contributors submit creative work (photos, art, poetry, and essays) quarterly. Curators select what goes into their personalized printed magazines. The physical magazine is the product. The app is the infrastructure that makes it possible.
 The philosophy: deliberate pace, thoughtful curation, real-world creative collaboration, and a beautiful printed artifact as the payoff. The app should feel calm and purposeful, not stimulating.
@@ -12,22 +14,37 @@ Dev environment: GitHub Codespaces
 Deployment: Vercel
 Language: TypeScript throughout
 
-⚠️ Known Dependency Issue — High Priority
-@supabase/auth-helpers-nextjs and @supabase/auth-helpers-shared are deprecated. The entire codebase should be migrated to @supabase/ssr. This is a significant refactor touching most data-fetching files in src/lib/supabase/. Do not introduce new usage of the old helpers. Flag this migration as a standing priority.
+⚠️ Auth Package — COMPLETED MIGRATION
+@supabase/auth-helpers-nextjs and @supabase/auth-helpers-shared have been fully removed from the codebase. The project now uses @supabase/ssr throughout. Do not reintroduce @supabase/auth-helpers-nextjs under any circumstances — it is incompatible with Next.js 16 and will cause a fatal server crash.
+
+Current auth pattern:
+- Browser/client components: createBrowserClient from @supabase/ssr via useSupabase() hook in src/lib/supabase/useSupabase.ts
+- Middleware: createServerClient from @supabase/ssr with cookies API
+- Auth callback: createServerClient from @supabase/ssr in src/app/auth/callback/route.ts
+- All lib functions in src/lib/supabase/*.ts accept supabase as their first parameter — do not remove this pattern
 
 ⚠️ Branch Discipline
-All work goes directly on main unless explicitly instructed otherwise. Always confirm with git branch before starting any work. After any session confirm with git log --oneline -3 that commits landed on main. If diverged: git fetch origin && git merge origin/claude/[branch-name] && git push origin main.
+All work goes directly on main unless explicitly instructed otherwise. Always confirm with git branch before starting any work. After any session confirm with git log --oneline -3 that commits landed on main. If diverged: git fetch origin && git merge origin/claude/[branch-name] && git push origin HEAD:main.
 Claude Code has a persistent pattern of claiming "main does not exist" and working on feature branches instead. This is always wrong. Main exists. Always merge feature branch work to main immediately after each session.
 After committing, always push with: git push origin HEAD:main
+Always sync Codespaces before starting work: git fetch origin && git pull origin main
 
 ⚠️ File Size / Stream Timeouts
 Large files cause stream timeouts if rewritten in one pass. Always use targeted str_replace edits for changes to large files. Never rewrite an entire large file in one tool call.
+
+⚠️ Vercel Deployment
+- Production branch must be set to main in Vercel Project Settings → Git
+- After pushing to main, wait for Vercel build to complete before testing
+- Confirm the build chunk filenames change between deployments — if they don't, the build is cached and not picking up new code
+- Force a cache-free redeploy via Vercel dashboard → Redeploy → uncheck "Use existing build cache" if needed
 
 Project Structure
 src/
 ├── app/
 │   ├── admin/
 │   ├── auth/
+│   │   └── callback/
+│   │       └── route.ts          # Email confirmation callback — uses @supabase/ssr ✅
 │   ├── collabs/
 │   │   ├── page.tsx              # Collab library — browse + join + private invite modal ✅
 │   │   └── [id]/
@@ -42,6 +59,8 @@ src/
 │   │   └── page.tsx              # Curator magazine selection interface ✅
 │   ├── dashboard/
 │   │   └── page.tsx              # Main user hub ✅
+│   ├── onboarding/
+│   │   └── page.tsx              # 3-step onboarding flow ✅ NEW
 │   ├── profile/
 │   │   └── page.tsx              # User profile + privacy settings ✅
 │   └── submit/
@@ -56,7 +75,8 @@ src/
 │   ├── constants/
 │   │   └── cities.ts             # Single source of truth for city list ✅
 │   └── supabase/
-│       ├── client.ts
+│       ├── client.ts             # createBrowserClient wrapper ✅
+│       ├── useSupabase.ts        # useSupabase() hook — use in all client components ✅
 │       ├── collabLibrary.ts
 │       ├── collabs.ts
 │       ├── communications.ts
@@ -66,30 +86,28 @@ src/
 │       └── subscriptions.ts
 ├── magazine/                      # Magazine generation system ✅ COMPLETE
 │   ├── core/
-│   │   ├── primitives.jsx         # Shared components: ImageFrame (renders real images ✅),
-│   │   │                          # Folio (season prop ✅), GrainOverlay, RegistrationMark,
-│   │   │                          # BleedMarks, SectionMark, etc.
+│   │   ├── primitives.jsx
 │   │   ├── generator.ts           # ✅ Puppeteer pipeline — fully operational
 │   │   ├── selectionLogic.ts      # ✅ Template selection decision tree
-│   │   └── types.ts               # ✅ Full TypeScript interfaces for all templates
+│   │   └── types.ts               # ✅ Full TypeScript interfaces
 │   ├── templates/
 │   │   └── base/
-│   │       ├── index.js           # Template registry + selection logic summary ✅
-│   │       ├── templates-1-4.jsx  # CoverA, SinglePhoto†, MultiPhoto2Stacked†, MultiPhoto2SideBySide†
-│   │       ├── templates-5-8.jsx  # MultiPhoto4Feature†, MultiPhoto4Grid†, TextSubmission, CollabPage†
-│   │       ├── templates-9-11.jsx # CommunicationsPage, CampaignPage, Spread
-│   │       ├── templates-12-17.jsx # Spread2, Spread4, Spread6, TextSpread, MusicPage†, ColophonPage
-│   │       ├── templates-18-19.jsx # SpreadPanorama (gutter-safe ✅), SpreadMosaic
-│   │       └── templates-20-24.jsx # FrontMatter, PoetryPage, CollabSpreadCommunity,
-│   │                               # CollabSpreadLocal (city watermark wired ✅), CollabSpreadPrivate
-│   ├── SELECTION_LOGIC.md         # Full decision tree: data → template mapping ✅
-│   └── TEMPLATE_DESIGN_GUIDE.md   # How to design + wire new templates ✅
+│   │       ├── index.js
+│   │       ├── templates-1-4.jsx
+│   │       ├── templates-5-8.jsx
+│   │       ├── templates-9-11.jsx
+│   │       ├── templates-12-17.jsx
+│   │       ├── templates-18-19.jsx
+│   │       └── templates-20-24.jsx
+│   ├── SELECTION_LOGIC.md
+│   └── TEMPLATE_DESIGN_GUIDE.md
+├── middleware.ts                  # Route guard — redirects to /onboarding if no profile_types row ✅
 ├── scripts/
 │   ├── seed.ts
 │   ├── seed.sql
 │   ├── seed.README.md
-│   └── test-generator.ts          # ✅ Smoke test — run with npm run generate-test
-└── _design/                       # HTML mockup reference files
+│   └── test-generator.ts
+└── _design/
     ├── DESIGN_BRIEF.md
     ├── dashboard-final-v2.html
     ├── curate-page-v4.html
@@ -100,12 +118,18 @@ src/
 
 Database Schema (Key Tables)
 Users
-profiles (id, first_name, last_name, avatar_url, identity_banner_url, content_type, is_public, bio, city, bank_info, curator_payment_info)
+profiles (id, first_name, last_name, avatar_url, identity_banner_url, content_type, is_public, bio, city, bank_info, curator_payment_info, address_line1, address_line2, address_city, address_state, address_zip)
 -- identity_banner_url: separate from avatar_url, used as full-width card banner in curate interface
--- content_type: 'photography' | 'art' | 'poetry' | 'essay'
+-- content_type: 'photography' | 'art' | 'poetry' | 'essay' — Music is NOT a valid content type
 -- city: text field, values from CITIES constant in src/lib/constants/cities.ts
+-- address_line1/2, address_city, address_state, address_zip: structured mailing address — added May 2026
+-- address_line1 non-empty = address on file (used for curate gate check)
 
 profile_types (profile_id, type)   -- 'contributor' or 'curator'
+-- Roles are add-only — never remove a role programmatically
+-- New users get no rows until onboarding is complete
+-- Middleware redirects to /onboarding if authenticated user has zero rows here
+
 profile_connections (follower_id, followed_id, status, relationship_type)
 subscriptions (subscriber_id, creator_id, status)
 
@@ -162,16 +186,64 @@ curator_campaign_selections (curator_id, campaign_id, period_id)
 curator_collab_selections (curator_id, collab_id, period_id, participation_mode, location, source_id)
 curator_communication_selections (curator_id, period_id, include_communications)
 
+-- IMPORTANT: curate page loads selections from DB on mount, NOT from localStorage
+-- localStorage key is magazine_selections_{user_id} (user-scoped) — do not use unscoped key
+
 Magazine Generation
 magazine_templates (id, name, type, description, file_path, frame_mapping, is_active)
 magazine_generation_jobs (id, curator_id, period_id, status, mapping_data, output_path, error_log)
 magazine_pages (id, generation_job_id, page_number, template_id, content_mapping, status)
 
+RLS Policies — Critical
+profile_types table has RLS enabled. Required policies (both must exist):
+  - "Users can read own profile_types": FOR SELECT USING (auth.uid() = profile_id)
+  - "Users can insert own profile_types": FOR INSERT WITH CHECK (auth.uid() = profile_id)
+If middleware incorrectly redirects authenticated users to /onboarding, check these policies first.
+
+Onboarding Flow — NEW (May 2026)
+Route: /onboarding
+Guard: middleware.ts redirects any authenticated user with zero profile_types rows to /onboarding
+Exempt routes: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico
+
+Flow:
+  Step 1: First name + last name (both required)
+  Step 2: Role selection (Contributor / Curator / Both) + content type if contributor
+  Step 3: Confirmation + "Enter online//offline →" press mechanic button
+
+DB writes on step 3 press (not incrementally):
+  - profiles: upsert first_name, last_name, content_type (nullable)
+  - profile_types: insert one or two rows (contributor / curator)
+  - Use .maybeSingle() guard to avoid duplicate inserts
+
+Redirect after onboarding:
+  - Contributor only → /submit
+  - Curator only → /curate
+  - Both → /submit
+
+IMPORTANT: Use window.location.href (not router.push) for the post-onboarding redirect.
+This forces a full browser navigation, ensuring the session cookie is sent with the
+next request before middleware runs. router.push causes a race condition where middleware
+fires before the session is established.
+
+Curate Page — Address Gate
+- Selections always save to DB regardless of address
+- If address_line1 is missing, show a persistent terracotta banner below the stats bar
+- Banner: "Add your mailing address to receive your printed edition →" linking to /profile
+- Banner is dismissible per session (not permanently)
+- hasAddress check: !!profile.address_line1
+
+Email Confirmation
+- Email confirmation is currently DISABLED in Supabase Auth settings (toggled off for development)
+- Must be re-enabled before opening to real users
+- When enabled, the confirmation link routes through /auth/callback which uses @supabase/ssr
+- Supabase rate limit for emails: 2/hour on free tier (cannot be changed on free plan)
+  → Use + alias trick for test emails: johnson.adamc+N@gmail.com
+  → Or temporarily disable email confirmation for dev testing
+
 Magazine Generation System
 Status: ✅ FULLY OPERATIONAL
 The pipeline runs end-to-end with real images. To generate a test magazine:
 set -a && source .env.local && set +a && npm run generate-test
-cp /tmp/magazine-*.pdf /tmp/magazine-review.pdf
 
 Page Sequence
 Page 1:  CoverA
@@ -181,91 +253,51 @@ Page 4+: Content pages (photography → art → essay → poetry → collabs →
 Last:    ColophonPage
 
 Active Templates (18 total including BlankPage)
-Template            File                Pages  Trigger
-CoverA              templates-1-4       1      Always — page 1
-BlankPage           inline generator    1      Always — page 2
-FrontMatter         templates-20-24     1      Always — page 3 (TOC + curator name)
-SpreadPanorama      templates-18-19     2      1 image, caption ≤50 words
-Spread              templates-9-11      2      1 image, caption >50 words
-Spread2             templates-12-17     2      2 images
-Spread4             templates-12-17     2      3–4 images
-SpreadMosaic        templates-18-19     2      5–6 images, light background
-Spread6             templates-12-17     2      7–8 images, dark image-dominant
-TextSubmission      templates-5-8       1      Essay ≤500 words
-TextSpread          templates-12-17     2      Essay 501–1800 words
-PoetryPage          templates-20-24     1      Auto-detected poetry
-CollabSpreadCommunity templates-20-24   2      Collab, mode=community
-CollabSpreadLocal   templates-20-24     2      Collab, mode=local
-CollabSpreadPrivate templates-20-24     2      Collab, mode=private
-CommunicationsPage  templates-9-11      1      Always if include_communications=true
-CampaignPage        templates-9-11      1      One per selected campaign
-ColophonPage        templates-12-17     1      Always — last page
+Template              File                Pages  Trigger
+CoverA                templates-1-4       1      Always — page 1
+BlankPage             inline generator    1      Always — page 2
+FrontMatter           templates-20-24     1      Always — page 3
+SpreadPanorama        templates-18-19     2      1 image, caption ≤50 words
+Spread                templates-9-11      2      1 image, caption >50 words
+Spread2               templates-12-17     2      2 images
+Spread4               templates-12-17     2      3–4 images
+SpreadMosaic          templates-18-19     2      5–6 images, light background
+Spread6               templates-12-17     2      7–8 images, dark image-dominant
+TextSubmission        templates-5-8       1      Essay ≤500 words
+TextSpread            templates-12-17     2      Essay 501–1800 words
+PoetryPage            templates-20-24     1      Auto-detected poetry
+CollabSpreadCommunity templates-20-24     2      Collab, mode=community
+CollabSpreadLocal     templates-20-24     2      Collab, mode=local
+CollabSpreadPrivate   templates-20-24     2      Collab, mode=private
+CommunicationsPage    templates-9-11      1      Always if include_communications=true
+CampaignPage          templates-9-11      1      One per selected campaign
+ColophonPage          templates-12-17     1      Always — last page
 
 Deprecated Templates (not used in pipeline)
-SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, MultiPhoto4Feature, MultiPhoto4Grid, CollabPage, MusicPage
+SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, MultiPhoto4Feature,
+MultiPhoto4Grid, CollabPage, MusicPage
 
 Key Design Constants (primitives.jsx)
 W=768, H=1032, BLEED=11
-AW=790, AH=1054  // full canvas with bleed
+AW=790, AH=1054
 ML=58, MR=58, MT=56, MB=56
-LIVEW=652  // live area width
+LIVEW=652
 
 Colors: C.ground=#252119, C.paper=#f0ebe2,
         C.terra=#e05a28 (identity/action),
         C.gold=#e8a020 (structure/warmth)
-Fonts:  F.serif=Instrument Serif, F.sans=Instrument Sans,
-        F.mono=Courier Prime
-
-ImageFrame Component
-ImageFrame in primitives.jsx accepts a media_url prop. When the URL starts with https://, a real <img> renders with object-fit: cover and object-position: {focal_x}% {focal_y}%. The crosshair SVG, terra dot, and label are hidden when a real image is present. blob: URLs fall back to placeholder.
-
-Gutter Safety Rule
-No body text or caption text may cross the center gutter on spread templates. Large display titles (fontSize ≥ 40px) may cross the gutter. SpreadPanorama caption band is gutter-safe ✅.
-
-Cover Volume/Issue
-CoverA reads data.volume and data.issue for the "Vol. I · No. 1" line. Currently hardcoded as volume: 'I', issue: 1 in generator.ts. Future: add volume and issue fields to the periods table and read dynamically.
-
-Content Type Normalization
-generator.ts includes a normalizeContentType() function that maps raw DB values to display labels:
-photography → Photography
-art → Art
-essay / writing → Essay
-poetry → Poetry
-This is applied to all TOC entries in FrontMatter.
-
-Print Notes
-- Puppeteer renders at deviceScaleFactor: 4 (~300dpi at 768px page width)
-- PDF assembled with pdf-lib
-- Spread templates render at 1580px viewport, clipped into left/right 790px buffers
-- Saddle-stitch binding consumes ~2-4mm at center gutter — keep critical subjects away
-- Bleed and crop marks are correct and required — do not remove them
-- First season: manual PDF upload to Magcloud
-- Future: Mixam API (automated)
-- Test terracotta (#e05a28) and gold (#e8a020) in a test print before full run
+Fonts:  F.serif=Instrument Serif, F.sans=Instrument Sans, F.mono=Courier Prime
 
 Running the Generator
-# Required env vars in .env.local:
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
-
-# Load env vars and run:
 set -a && source .env.local && set +a && npm run generate-test
-
-# Output goes to /tmp — never copy to working directory
-# View PDF by downloading from /tmp directly
-Known Remaining Issues
-1. User onboarding — no flow to set profile_type on new signup.
-2. Local city data in curate collabs tab — city list should pull live from collab_participants grouped by city with real participant counts.
-3. Curator magazine preview — browser preview route not yet built.
-4. Print fulfillment integration — Magcloud manual first, Mixam API later.
-5. @supabase/ssr migration — standing priority, touches most of src/lib/supabase/.
-6. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
-7. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+Requires SUPABASE_SERVICE_ROLE_KEY — anon key alone is insufficient
+PDF output goes to /tmp only — never copy to working directory
 
 Design System
 Philosophy
-Every UI element participates in the neon color system or recedes into the warm dark. Nothing is neutral gray. Nothing is pure white. Nothing is default blue. The aesthetic: a print shop at dusk, proof light tables, letterpress type, registration marks, neon-lit darkrooms.
+Every UI element participates in the neon color system or recedes into the warm dark.
+Nothing is neutral gray. Nothing is pure white. Nothing is default blue.
+The aesthetic: a print shop at dusk, proof light tables, letterpress type, registration marks, neon-lit darkrooms.
 
 CSS Variables (defined in globals.css — use these everywhere)
 /* Dashboard surfaces */
@@ -367,6 +399,21 @@ Grain overlay + registration marks: Applied globally in layout.tsx.
 ⚠️ Lucide React — Never Use
 Replace all lucide-react imports with inline SVGs. Standing rule.
 
+Profile Page — Structure (updated May 2026)
+Section order (mobile-first):
+1. IDENTITY — avatar, first/last name, city, bio, identity banner
+2. YOUR ROLES — role cards (add-only, no removal), content type selector for contributors
+3. MAILING ADDRESS — 5 structured fields (address_line1/2/city/state/zip), ON FILE indicator
+4. PAYMENT DETAILS — placeholder cards (Stripe integration pending)
+5. SAVE — press mechanic, full width
+
+Input style throughout profile page:
+background: transparent; border: none;
+border-bottom: 1px solid var(--rule-mid); border-radius: 0;
+padding: 12px 0; font-size: 15px; color: var(--paper); width: 100%;
+On focus: border-bottom: 1px solid var(--paper-3)
+Side-by-side pairs: display: flex; gap: 12px — each child flex: 1; min-width: 0
+
 City List
 Defined in src/lib/constants/cities.ts as CITIES array:
 Atlanta, Austin, Boston, Chicago, Dallas, Denver, Houston, Los Angeles,
@@ -379,11 +426,6 @@ Three Participation Modes
 - Community — open globally
 - Local — city-specific, uses city field from collab_participants
 
-Local Collab City Flow
-- User's city from profile is pre-filled when joining a local collab
-- User can change city via dropdown using CITIES constant
-- Selected city written to both collabs.location and collab_participants.city
-
 IntegratedCollabsSection — Curate Collabs Tab ✅
 - Shows ALL templates active for current period
 - ★ you contribute badge in amber on templates curator participates in
@@ -391,17 +433,6 @@ IntegratedCollabsSection — Curate Collabs Tab ✅
 - Community = one row per template
 - Local = collapsible section, one row per city with active participants
 - Private = one row, only shown if curator has joined
-
-Page-by-Page Status
-Content Submission (/submit) ✅
-- Two modes: Collection (1–8 images) / Full Spread (single portrait image)
-- Focal point selector: clickable reticle, stores focal_x/focal_y ✅
-- Aspect ratio captured at upload time ✅
-
-Collab Submission (/collabs/[id]/submit) ✅
-Communications (/communicate/[id] + /communicate/new) ✅
-Private Collab Invite Modal ✅
-Profile (/profile) ✅
 
 Seed Data
 Test Auth Users
@@ -430,18 +461,42 @@ SQL version (recommended): copy scripts/seed.sql into Supabase SQL Editor and ru
 
 Key Gotchas & Hard-Won Lessons
 
+### Auth / Supabase
+- NEVER use @supabase/auth-helpers-nextjs — it is removed and will crash the server on Next.js 16
+- Use @supabase/ssr exclusively: createBrowserClient for client components, createServerClient for middleware/server
+- All lib functions take supabase as their first parameter — this is intentional, do not revert
+- Use .maybeSingle() not .single() when a row may not exist
+- RLS on profile_types requires both SELECT and INSERT policies for authenticated users
+- Supabase session cookie name: sb-cbdiujvqpirrvzodfujm-auth-token (array format, token at index [0])
+- Middleware reads this cookie — if format changes, middleware breaks
+
 ### Design
 - Never mix border shorthand with borderBottom/borderBottomWidth on same element
 - Never use lucide-react — inline SVGs only
+- Music is NOT a content type — remove it wherever it appears
 
 ### Database
 - collab_templates uses name not title
 - collab_submissions uses caption not content
 - Always prefer participation_mode over is_private
 - discount on campaigns is int4 not text
-- Use .maybeSingle() not .single() when a row may not exist
 - Only one period should have is_active = true
 - media_url must be https:// — blob: URLs will not render in Puppeteer
+- profiles table has structured address fields: address_line1/2/city/state/zip (added May 2026)
+- There is NO single 'address' column — always use the five structured fields
+- hasAddress check: !!profile.address_line1
+
+### Onboarding
+- window.location.href for post-onboarding redirect — NOT router.push (causes race condition with middleware)
+- profile_types insert must use .maybeSingle() guard to prevent duplicate rows
+- All DB writes happen on step 3 press, not incrementally
+- Middleware exempts: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico
+
+### Curate Page
+- Selections load from DB on mount — NOT from localStorage
+- localStorage key is magazine_selections_{user_id} (user-scoped)
+- Address gate: warns but never blocks saves
+- hasAddress: !!profile.address_line1
 
 ### Magazine Templates
 - ImageFrame hides crosshair/dot/label when real image present ✅
@@ -460,16 +515,16 @@ Key Gotchas & Hard-Won Lessons
 - normalizeContentType() maps DB values to display labels for TOC
 
 ### Git / Codespaces
+- Always sync before starting: git fetch origin && git pull origin main
 - Always confirm branch with git branch before starting
 - Claude Code persistently claims "main does not exist" — this is always wrong
-- After every Claude Code session: git fetch origin && git merge origin/claude/[branch] && git push origin main
-- Always push with: git push origin HEAD:main
+- After every Claude Code session: git fetch origin && git merge origin/claude/[branch] && git push origin HEAD:main
 - Confirm with git log --oneline -3 that commits are on origin/main
+- Vercel production branch must be set to main in Project Settings → Git
 
 ### Repository Hygiene
-- Never commit PDF files — generated PDFs go to /tmp only, never to the working directory
+- Never commit PDF files — generated PDFs go to /tmp only
 - Never commit files over 50MB under any circumstances
-- Verify .gitignore covers generated artifacts before every commit
 - magazine-test.pdf and /tmp/magazine-*.pdf are in .gitignore — do not remove these entries
 
 Magazine Pricing
@@ -491,29 +546,40 @@ Completed ✅
 - Magazine template system — 18 active templates (17 + BlankPage)
 - Magazine generation pipeline — fully operational with real images
 - FrontMatter TOC with correct content_type display
-- Cover Vol/Issue line, removed "Quarterly Print" and coordinates
-- ImageFrame crosshair hidden when real image present
-- CollabSpreadLocal city watermark wired from data
-- CampaignPage avatar_url wired
-- Gutter safety enforced on all spread templates
 - Focal point selector on /submit
 - Playwright test suite (21/23 passing)
-- Music removed as content type (product decision — see Product Decisions)
+- Music removed as content type (product decision)
+- @supabase/auth-helpers-nextjs fully removed — migrated to @supabase/ssr ✅ NEW
+- User onboarding flow — 3 steps, middleware guard, DB writes ✅ NEW
+- Curate address gate — warns but never blocks, persistent banner ✅ NEW
+- Profile page restructured — 5 sections, structured address fields, mobile-first ✅ NEW
+- Structured mailing address fields added to profiles table ✅ NEW
+- Curate selections load from DB (not localStorage), user-scoped localStorage ✅ NEW
 
 Remaining / Known Issues ⚠️
-1. User onboarding — no flow to set profile_type on new signup.
+1. Email confirmation disabled — must be re-enabled before opening to real users. /auth/callback route is built and working with @supabase/ssr.
 2. Local city data in curate collabs tab — city list should pull live from collab_participants grouped by city with real participant counts.
 3. Curator magazine preview — browser preview route not yet built.
 4. Print fulfillment integration — Magcloud manual first, Mixam API later.
-5. @supabase/ssr migration — standing priority, touches most of src/lib/supabase/.
-6. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
-7. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+5. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
+6. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+7. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
+8. Subscription cancellation UI — blocked on Stripe integration.
+9. Playwright test suite — needs update to cover onboarding flow and new profile structure.
 
 User Roles
 - Contributors: Submit content, join collaborations, send communications to curators
 - Curators: Select content for their personalized printed magazine
-- Users can be both. Three test accounts exist for development testing.
+- Users can be both
+- Roles are add-only — no programmatic role removal
+- Three test accounts exist for development testing
 
 Product Decisions
 
-**Music is not a content type.** Musicians participate through Photography, Art, Essay, and Poetry. The subject of the work may be musical; the artifact must stand alone in print. QR codes linking to audio or streaming platforms are explicitly out of scope. This philosophy is communicated during onboarding. Sheet music, lyrics, and scores are submitted as Art or Poetry.
+Music is not a content type. Musicians participate through Photography, Art, Essay, and Poetry. The artifact must stand alone in print. No QR codes. Sheet music and lyrics submit as Art or Poetry.
+
+Roles are add-only. If a user wants to stop contributing or curating, they simply stop. No role removal UI needed. For edge cases, handle via Supabase directly.
+
+Subscription cancellation. Curators will eventually be able to cancel their subscription via the profile page. This requires Stripe integration first. Until then, handle cancellation requests manually via email.
+
+Mailing address is required to receive a printed edition but is NOT required to save curate selections. The address gate warns persistently but never blocks.
