@@ -152,6 +152,8 @@ export default function CurationInterface() {
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [addressError, setAddressError] = useState(false);
+  const [hasAddress, setHasAddress] = useState(true);
+  const [addressBannerDismissed, setAddressBannerDismissed] = useState(false);
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [accessibleProfiles, setAccessibleProfiles] = useState<string[]>([]);
@@ -291,18 +293,6 @@ export default function CurationInterface() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData?.user) throw new Error('User not authenticated');
 
-      // Gate: curator must have a mailing address on file
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('address')
-        .eq('id', userData.user.id)
-        .maybeSingle();
-      if (!profileData?.address || !String(profileData.address).trim()) {
-        setAddressError(true);
-        setSavingSelections(false);
-        return;
-      }
-
       const periodId = await getPeriodId();
       if (!periodId) throw new Error('No active period found');
 
@@ -325,8 +315,18 @@ export default function CurationInterface() {
       }));
       localStorage.removeItem('temp_selected_collabs');
 
-      alert('Your magazine selections have been saved!');
-      router.push('/dashboard');
+      const { data: addrData } = await supabase
+        .from('profiles').select('address').eq('id', userData.user.id).maybeSingle();
+      const addrOk = !!(addrData?.address && String(addrData.address).trim());
+      setHasAddress(addrOk);
+
+      if (!addrOk) {
+        setAddressBannerDismissed(false);
+        alert('Selections saved! Add your mailing address in your profile to receive your printed edition.');
+      } else {
+        alert('Your magazine selections have been saved!');
+        router.push('/dashboard');
+      }
     } catch (saveError) {
       console.error('Error saving selections:', saveError);
       alert('There was an error saving your selections. ' +
@@ -418,6 +418,12 @@ export default function CurationInterface() {
       try {
         const { data: { user: debugUser } } = await supabase.auth.getUser();
         console.log('curate page user:', debugUser?.id);
+
+        if (debugUser) {
+          const { data: addrData } = await supabase
+            .from('profiles').select('address').eq('id', debugUser.id).maybeSingle();
+          setHasAddress(!!(addrData?.address && String(addrData.address).trim()));
+        }
 
         setLoading(true);
         setCreators([]);
@@ -676,6 +682,34 @@ export default function CurationInterface() {
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text-2)', lineHeight: 1 }}>${calculatePrice().toFixed(2)}</div>
           </div>
         </div>
+
+        {/* ── Address reminder banner ── */}
+        {!hasAddress && !addressBannerDismissed && (
+          <div style={{
+            flexShrink: 0, margin: '10px 22px 0',
+            padding: '8px 10px 8px 12px',
+            background: 'rgba(224,90,40,0.08)',
+            borderLeft: '2px solid var(--neon-accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            gap: '8px',
+          }}>
+            <Link href="/profile" style={{
+              fontFamily: 'var(--font-mono)', fontSize: '10px',
+              letterSpacing: '0.12em', textTransform: 'uppercase',
+              color: 'var(--neon-accent)', textDecoration: 'none',
+            }}>
+              Add your mailing address to receive your printed edition →
+            </Link>
+            <button
+              onClick={() => setAddressBannerDismissed(true)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                fontFamily: 'var(--font-mono)', fontSize: '11px',
+                color: 'var(--lt-text-3)', lineHeight: 1, flexShrink: 0,
+              }}
+            >×</button>
+          </div>
+        )}
 
         {/* ── Section tabs ── */}
         <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
