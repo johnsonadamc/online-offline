@@ -348,102 +348,68 @@ export async function getAvailableCollabsForPeriod(
 }
 
 /**
- * Get cities with participant counts for local collaborations
+ * Get cities with active participant counts for local collaborations in a given period.
+ * Only cities with at least one active participant are returned, sorted alphabetically.
  */
-export async function getCitiesWithParticipantCounts(supabase: ReturnType<typeof getSupabaseClient>): Promise<{
+export async function getCitiesWithParticipantCounts(
+  supabase: ReturnType<typeof getSupabaseClient>,
+  periodId: string
+): Promise<{
   success: boolean;
   error?: string;
   cities?: CityParticipantData[];
-}> {  
+}> {
   try {
-    // Fetch cities from collab_participants table
-    const { data: cityData, error: cityError } = await supabase
+    // Get IDs of local collabs for this period
+    const { data: collabRows, error: collabError } = await supabase
+      .from('collabs')
+      .select('id')
+      .eq('period_id', periodId)
+      .eq('participation_mode', 'local');
+
+    if (collabError) {
+      return { success: false, error: collabError.message };
+    }
+
+    const ids = (collabRows || []).map(c => c.id);
+    if (!ids.length) {
+      return { success: true, cities: [] };
+    }
+
+    // Fetch active local participants in those collabs
+    const { data: participants, error: participantsError } = await supabase
       .from('collab_participants')
-      .select(`
-        city,
-        location
-      `)
+      .select('city')
+      .in('collab_id', ids)
       .eq('participation_mode', 'local')
       .eq('status', 'active');
-      
-    if (cityError) {
-      console.error("Error fetching cities:", cityError);
-      return { success: false, error: cityError.message };
+
+    if (participantsError) {
+      return { success: false, error: participantsError.message };
     }
-    
-    // Compile a list of cities with participant counts
+
+    // Group by city, counting only rows with a non-empty city value
     const cityCountMap: Record<string, number> = {};
-    
-    // Process city and location fields
-    for (const record of cityData || []) {
-      // Use city field first, fall back to location
-      const cityName = record.city || record.location;
-      
+    for (const record of participants || []) {
+      const cityName = record.city;
       if (cityName) {
-        if (cityCountMap[cityName]) {
-          cityCountMap[cityName]++;
-        } else {
-          cityCountMap[cityName] = 1;
-        }
+        cityCountMap[cityName] = (cityCountMap[cityName] || 0) + 1;
       }
     }
-    
-    // Also fetch location data from collabs table
-    const { data: collabLocationData, error: collabLocationError } = await supabase
-      .from('collabs')
-      .select('location')
-      .eq('participation_mode', 'local')
-      .not('location', 'is', null);
-      
-    if (!collabLocationError && collabLocationData) {
-      for (const record of collabLocationData) {
-        if (record.location) {
-          // Add locations from the collabs table, but don't count participants
-          // This ensures we have the location in our list even if it has no participants yet
-          if (!cityCountMap[record.location]) {
-            cityCountMap[record.location] = 0;
-          }
-        }
-      }
-    }
-    
-    // Format the result
-    const cities = Object.entries(cityCountMap).map(([cityName, count]) => {
-      const parts = cityName.split(',').map(part => part.trim());
-      return {
-        name: parts[0],
-        state: parts[1] || undefined,
-        participant_count: count
-      };
-    });
-    
-    // Sort by participant count (highest first), then by name
-    cities.sort((a, b) => {
-      if (b.participant_count !== a.participant_count) {
-        return b.participant_count - a.participant_count;
-      }
-      return a.name.localeCompare(b.name);
-    });
-    
-    // If no cities found, provide default list
-    if (cities.length === 0) {
-      return {
-        success: true,
-        cities: [
-          { name: 'New York', state: 'NY', participant_count: 0 },
-          { name: 'Los Angeles', state: 'CA', participant_count: 0 },
-          { name: 'Chicago', state: 'IL', participant_count: 0 },
-          { name: 'San Francisco', state: 'CA', participant_count: 0 },
-          { name: 'Miami', state: 'FL', participant_count: 0 },
-          { name: 'Austin', state: 'TX', participant_count: 0 }
-        ]
-      };
-    }
-    
+
+    // Format, filter out zero-count entries, sort alphabetically
+    const cities: CityParticipantData[] = Object.entries(cityCountMap)
+      .filter(([, count]) => count > 0)
+      .map(([cityName, count]) => {
+        const parts = cityName.split(',').map(p => p.trim());
+        return { name: parts[0], state: parts[1] || undefined, participant_count: count };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+
     return { success: true, cities };
-    
+
   } catch (error) {
-    console.error("Error getting cities with participant counts:", error);
-    return { success: false, error: "Failed to fetch city participant data" };
+    console.error('Error getting cities with participant counts:', error);
+    return { success: false, error: 'Failed to fetch city participant data' };
   }
 }

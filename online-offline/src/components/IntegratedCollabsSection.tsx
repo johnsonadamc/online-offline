@@ -255,21 +255,10 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
           } catch { /* give up */ }
         }
 
-        // STEP 3: available cities
-        try {
-          const result = await getCitiesWithParticipantCounts(supabase);
-          if (result.success && result.cities?.length) {
-            setAvailableCities(result.cities);
-          } else throw new Error('no cities');
-        } catch {
-          setAvailableCities([
-            { name: 'New York',     state: 'NY', participant_count: 0 },
-            { name: 'Los Angeles',  state: 'CA', participant_count: 0 },
-            { name: 'Chicago',      state: 'IL', participant_count: 0 },
-            { name: 'San Francisco',state: 'CA', participant_count: 0 },
-            { name: 'Miami',        state: 'FL', participant_count: 0 },
-            { name: 'Austin',       state: 'TX', participant_count: 0 },
-          ]);
+        // STEP 3: available cities — live query filtered to active period
+        const cityResult = await getCitiesWithParticipantCounts(supabase, periodId);
+        if (cityResult.success && cityResult.cities) {
+          setAvailableCities(cityResult.cities);
         }
 
         setLoading(false);
@@ -368,8 +357,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   if (loading) {
     return (
       <div style={{ padding: '32px 0', textAlign: 'center' }}>
-        <div style={{ width: 24, height: 24, border: '1.5px solid var(--neon-amber)', borderTopColor: 'transparent', borderRadius: '50%', margin: '0 auto 10px', animation: 'spin 0.8s linear infinite' }} />
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--lt-text-3)' }}>Loading collaborations…</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
       </div>
     );
   }
@@ -518,8 +506,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
               </div>
 
               {/* ── Local section ── */}
-              {availableCities.length > 0 && (
-                <div style={{
+              <div style={{
                   borderLeft: `2px solid ${hasSelectedLocal ? 'var(--neon-green)' : 'var(--lt-rule)'}`,
                   borderRadius: 1, overflow: 'hidden', marginBottom: 2,
                   boxShadow: hasSelectedLocal ? '-3px 0 10px -2px var(--glow-green)' : 'none',
@@ -556,7 +543,11 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                   {/* city rows */}
                   {isLocalExpanded && (
                     <div style={{ borderTop: '1px solid var(--lt-rule)', background: 'rgba(0,0,0,0.15)' }}>
-                      {availableCities.map((city, ci) => {
+                      {availableCities.length === 0 ? (
+                        <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--paper-4)', padding: '16px 26px', margin: 0 }}>
+                          no local collabs this season
+                        </p>
+                      ) : availableCities.map((city, ci) => {
                         const vId  = cityVirtualId(template.id, city);
                         const isSel = selectedCollabs.includes(vId);
                         const isMine = isCityMine(template.id, city);
@@ -597,7 +588,6 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                     </div>
                   )}
                 </div>
-              )}
 
               {/* ── Private row (only if joined) ── */}
               {hasJoinedPriv && joinedPrivId && (() => {
