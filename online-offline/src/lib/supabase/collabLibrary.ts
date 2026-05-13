@@ -348,7 +348,8 @@ export async function getAvailableCollabsForPeriod(
 }
 
 /**
- * Get cities with active participant counts for local collaborations in a given period.
+ * Get cities with active participant counts for local collaborations in a given period,
+ * grouped by template_id so each template shows only its own cities.
  * Only cities with at least one active participant are returned, sorted alphabetically.
  */
 export async function getCitiesWithParticipantCounts(
@@ -357,56 +358,58 @@ export async function getCitiesWithParticipantCounts(
 ): Promise<{
   success: boolean;
   error?: string;
-  cities?: CityParticipantData[];
+  citiesByTemplate?: Record<string, { city: string; count: number }[]>;
 }> {
   try {
-    // Get IDs of local collabs for this period
+    // Get local collabs for this period, including template_id for grouping
     const { data: collabRows, error: collabError } = await supabase
       .from('collabs')
-      .select('id')
+      .select('id, template_id')
       .eq('period_id', periodId)
       .eq('participation_mode', 'local');
 
-    if (collabError) {
-      return { success: false, error: collabError.message };
-    }
+    if (collabError) return { success: false, error: collabError.message };
 
-    const ids = (collabRows || []).map(c => c.id);
-    if (!ids.length) {
-      return { success: true, cities: [] };
+    const collabList = collabRows || [];
+    if (!collabList.length) return { success: true, citiesByTemplate: {} };
+
+    // Build collab_id → template_id map
+    const collabToTemplate: Record<string, string> = {};
+    for (const c of collabList) {
+      if (c.template_id) collabToTemplate[c.id] = c.template_id;
     }
+    const ids = collabList.map(c => c.id);
 
     // Fetch active local participants in those collabs
     const { data: participants, error: participantsError } = await supabase
       .from('collab_participants')
-      .select('city')
+      .select('collab_id, city')
       .in('collab_id', ids)
       .eq('participation_mode', 'local')
       .eq('status', 'active');
 
-    if (participantsError) {
-      return { success: false, error: participantsError.message };
-    }
+    if (participantsError) return { success: false, error: participantsError.message };
 
-    // Group by city, counting only rows with a non-empty city value
-    const cityCountMap: Record<string, number> = {};
+    // Group: template_id → city → count
+    const templateCityMap: Record<string, Record<string, number>> = {};
     for (const record of participants || []) {
+      const templateId = collabToTemplate[record.collab_id];
       const cityName = record.city;
-      if (cityName) {
-        cityCountMap[cityName] = (cityCountMap[cityName] || 0) + 1;
-      }
+      if (!templateId || !cityName) continue;
+      if (!templateCityMap[templateId]) templateCityMap[templateId] = {};
+      templateCityMap[templateId][cityName] = (templateCityMap[templateId][cityName] || 0) + 1;
     }
 
-    // Format, filter out zero-count entries, sort alphabetically
-    const cities: CityParticipantData[] = Object.entries(cityCountMap)
-      .filter(([, count]) => count > 0)
-      .map(([cityName, count]) => {
-        const parts = cityName.split(',').map(p => p.trim());
-        return { name: parts[0], state: parts[1] || undefined, participant_count: count };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+    // Format each template's city list: filter zeros, sort alphabetically
+    const citiesByTemplate: Record<string, { city: string; count: number }[]> = {};
+    for (const [templateId, cityCountMap] of Object.entries(templateCityMap)) {
+      citiesByTemplate[templateId] = Object.entries(cityCountMap)
+        .filter(([, count]) => count > 0)
+        .map(([city, count]) => ({ city, count }))
+        .sort((a, b) => a.city.localeCompare(b.city));
+    }
 
-    return { success: true, cities };
+    return { success: true, citiesByTemplate };
 
   } catch (error) {
     console.error('Error getting cities with participant counts:', error);

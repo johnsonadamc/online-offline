@@ -35,9 +35,8 @@ interface CollabsSectionProps {
 }
 
 interface City {
-  name: string;
-  state?: string;
-  participant_count: number;
+  city: string;
+  count: number;
 }
 
 interface ImportedCollab {
@@ -69,7 +68,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   const [templates, setTemplates] = useState<CollabTemplate[]>([]);
   const [joinedCollabs, setJoinedCollabs] = useState<CollabData[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [availableCities, setAvailableCities] = useState<City[]>([]);
+  const [citiesByTemplate, setCitiesByTemplate] = useState<Record<string, City[]>>({});
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [communityParticipantCounts, setCommunityParticipantCounts] = useState<Record<string, number>>({});
 
@@ -255,10 +254,10 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
           } catch { /* give up */ }
         }
 
-        // STEP 3: available cities — live query filtered to active period
+        // STEP 3: cities grouped by template — live query filtered to active period
         const cityResult = await getCitiesWithParticipantCounts(supabase, periodId);
-        if (cityResult.success && cityResult.cities) {
-          setAvailableCities(cityResult.cities);
+        if (cityResult.success && cityResult.citiesByTemplate) {
+          setCitiesByTemplate(cityResult.citiesByTemplate);
         }
 
         setLoading(false);
@@ -289,7 +288,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
   });
 
-  const cityLabel = (city: City) => `${city.name}${city.state ? ', ' + city.state : ''}`;
+  const cityLabel = (city: City) => city.city;
 
   const cityVirtualId = (templateId: string, city: City) =>
     `local_${templateId}_${cityLabel(city).replace(/\s+/g, '_')}`;
@@ -305,7 +304,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
         (template && c.title.toLowerCase().includes(template.name.toLowerCase()));
       if (!templateMatch) return false;
 
-      const target = city.name.toLowerCase();
+      const target = city.city.toLowerCase();
 
       // 1. Explicit participant city field (collab_participants.city)
       if (c.participantCity) {
@@ -422,7 +421,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
             ? selectedCollabs.includes(joinedPrivId)
             : false;
 
-          const localSelectedIds = availableCities
+          const templateCities = citiesByTemplate[template.id] ?? [];
+          const localSelectedIds = templateCities
             .map(c => cityVirtualId(template.id, c))
             .filter(id => selectedCollabs.includes(id));
           const hasSelectedLocal = localSelectedIds.length > 0;
@@ -524,7 +524,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', width: 76, flexShrink: 0 }}>Local</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--lt-text-3)', letterSpacing: '0.04em' }}>
-                        {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : `— ${availableCities.length} cities`}
+                        {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : templateCities.length > 0 ? `— ${templateCities.length} cities` : ''}
                       </span>
                       <svg
                         style={{
@@ -543,11 +543,11 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                   {/* city rows */}
                   {isLocalExpanded && (
                     <div style={{ borderTop: '1px solid var(--lt-rule)', background: 'rgba(0,0,0,0.15)' }}>
-                      {availableCities.length === 0 ? (
+                      {templateCities.length === 0 ? (
                         <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--paper-4)', padding: '16px 26px', margin: 0 }}>
                           no local collabs this season
                         </p>
-                      ) : availableCities.map((city, ci) => {
+                      ) : templateCities.map((city, ci) => {
                         const vId  = cityVirtualId(template.id, city);
                         const isSel = selectedCollabs.includes(vId);
                         const isMine = isCityMine(template.id, city);
@@ -559,7 +559,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                               display: 'flex', alignItems: 'center', gap: 10,
                               padding: '7px 10px 7px 26px', cursor: 'pointer', userSelect: 'none',
                               borderLeft: `2px solid ${isSel ? 'var(--neon-green)' : 'transparent'}`,
-                              borderBottom: ci < availableCities.length - 1 ? '1px solid var(--lt-rule)' : 'none',
+                              borderBottom: ci < templateCities.length - 1 ? '1px solid var(--lt-rule)' : 'none',
                               background: isSel ? 'rgba(78,196,122,0.04)' : 'transparent',
                               boxShadow: isSel ? '-2px 0 8px -2px var(--glow-green)' : 'none',
                               transition: 'background 0.1s',
@@ -570,7 +570,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                               {isMine && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginLeft: 4 }}>★</span>}
                             </span>
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
-                              {city.participant_count || ''}
+                              {city.count || ''}
                             </span>
                             <div style={{
                               width: 16, height: 16, borderRadius: 2, flexShrink: 0,
