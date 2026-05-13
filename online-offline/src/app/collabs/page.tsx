@@ -86,11 +86,16 @@ export default function CollabsLibrary() {
 
       if (activeCollabIds.length > 0) {
         const { data: collabs, error: collabsError } = await supabase
-          .from('collabs').select('metadata').in('id', activeCollabIds);
+          .from('collabs').select('metadata, template_id').in('id', activeCollabIds);
         if (collabsError) throw new Error(`Failed to fetch collab metadata: ${collabsError.message}`);
         if (collabs) {
           activeTemplateIds = collabs
-            .map(c => (c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata) ? c.metadata.template_id as string : null)
+            .map(c => {
+              // Prefer the direct column (set by fixed join flow); fall back to metadata for legacy rows
+              if (c.template_id) return c.template_id as string;
+              if (c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata) return c.metadata.template_id as string;
+              return null;
+            })
             .filter((id): id is string => id !== null);
         }
       }
@@ -202,15 +207,31 @@ export default function CollabsLibrary() {
       if (userError) throw new Error(userError.message);
       if (!user) { showError('You must be logged in to join a collaboration'); return; }
 
-      const { data: collab, error: collabError } = await supabase
+      // Find the canonical community collab for this template+period, or create it
+      const { data: existingCollab } = await supabase
         .from('collabs')
-        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: mode, location: null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: mode, location: null } })
-        .select().single();
-      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+        .select('id')
+        .eq('template_id', template.id)
+        .eq('participation_mode', 'community')
+        .eq('period_id', currentPeriod.id)
+        .maybeSingle();
+
+      let targetCollabId: string;
+      if (existingCollab) {
+        targetCollabId = existingCollab.id;
+      } else {
+        const { data: newCollab, error: collabError } = await supabase
+          .from('collabs')
+          .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'community', location: null, template_id: template.id, period_id: currentPeriod.id, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'community', location: null } })
+          .select('id')
+          .single();
+        if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
+        targetCollabId = newCollab.id;
+      }
 
       const { error: participantError } = await supabase
         .from('collab_participants')
-        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: mode, location: null });
+        .insert({ profile_id: user.id, collab_id: targetCollabId, role: 'member', status: 'active', participation_mode: 'community', location: null });
       if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
 
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
@@ -232,7 +253,7 @@ export default function CollabsLibrary() {
 
       const { data: collab, error: collabError } = await supabase
         .from('collabs')
-        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: true, participation_mode: 'private', location: null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'private', location: null } })
+        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: true, participation_mode: 'private', location: null, template_id: template.id, period_id: currentPeriod.id, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'private', location: null } })
         .select().single();
       if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
 
@@ -264,15 +285,32 @@ export default function CollabsLibrary() {
       const template = availablePrompts.find(p => p.id === localTemplateId);
       if (!template) { showError('Template not found'); return; }
 
-      const { data: collab, error: collabError } = await supabase
+      // Find the canonical local collab for this template+city+period, or create it
+      const { data: existingLocalCollab } = await supabase
         .from('collabs')
-        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'local', location: localCity, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'local', location: localCity } })
-        .select().single();
-      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
+        .select('id')
+        .eq('template_id', template.id)
+        .eq('participation_mode', 'local')
+        .eq('period_id', currentPeriod.id)
+        .eq('location', localCity)
+        .maybeSingle();
+
+      let targetCollabId: string;
+      if (existingLocalCollab) {
+        targetCollabId = existingLocalCollab.id;
+      } else {
+        const { data: newCollab, error: collabError } = await supabase
+          .from('collabs')
+          .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'local', location: localCity, template_id: template.id, period_id: currentPeriod.id, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'local', location: localCity } })
+          .select('id')
+          .single();
+        if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
+        targetCollabId = newCollab.id;
+      }
 
       const { error: participantError } = await supabase
         .from('collab_participants')
-        .insert({ profile_id: user.id, collab_id: collab.id, role: 'member', status: 'active', participation_mode: 'local', location: localCity, city: localCity });
+        .insert({ profile_id: user.id, collab_id: targetCollabId, role: 'member', status: 'active', participation_mode: 'local', location: localCity, city: localCity });
       if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
 
       setAvailablePrompts(prev => prev.filter(c => c.id !== localTemplateId));
