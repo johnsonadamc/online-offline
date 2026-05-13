@@ -505,8 +505,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                 </div>
               </div>
 
-              {/* ── Local section ── */}
-              <div style={{
+              {/* ── Local section (only if cities exist for this template) ── */}
+              {templateCities.length > 0 && <div style={{
                   borderLeft: `2px solid ${hasSelectedLocal ? 'var(--neon-green)' : 'var(--lt-rule)'}`,
                   borderRadius: 1, overflow: 'hidden', marginBottom: 2,
                   boxShadow: hasSelectedLocal ? '-3px 0 10px -2px var(--glow-green)' : 'none',
@@ -524,7 +524,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', width: 76, flexShrink: 0 }}>Local</span>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--lt-text-3)', letterSpacing: '0.04em' }}>
-                        {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : templateCities.length > 0 ? `— ${templateCities.length} cities` : ''}
+                        {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : `— ${templateCities.length} cities`}
                       </span>
                       <svg
                         style={{
@@ -543,11 +543,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                   {/* city rows */}
                   {isLocalExpanded && (
                     <div style={{ borderTop: '1px solid var(--lt-rule)', background: 'rgba(0,0,0,0.15)' }}>
-                      {templateCities.length === 0 ? (
-                        <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--paper-4)', padding: '16px 26px', margin: 0 }}>
-                          no local collabs this season
-                        </p>
-                      ) : templateCities.map((city, ci) => {
+                      {templateCities.map((city, ci) => {
                         const vId  = cityVirtualId(template.id, city);
                         const isSel = selectedCollabs.includes(vId);
                         const isMine = isCityMine(template.id, city);
@@ -587,7 +583,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
                       })}
                     </div>
                   )}
-                </div>
+                </div>}
 
               {/* ── Private row (only if joined) ── */}
               {hasJoinedPriv && joinedPrivId && (() => {
