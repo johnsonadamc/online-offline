@@ -160,7 +160,10 @@ async function fetchActivePeriod(db: SupabaseClient) {
     .select('id, name, season, year')
     .eq('is_active', true)
     .maybeSingle()
-  if (error || !data) throw new Error('No active period found')
+  if (error || !data) {
+    console.error('[fetchActivePeriod] Supabase error:', error, '| data:', data)
+    throw new Error('No active period found')
+  }
   return data as { id: string; name: string; season: string; year: number }
 }
 
@@ -419,7 +422,14 @@ export async function GET(
 ) {
   const { curatorId } = await params
 
-  // Verify requester is admin using their session
+  // Service role client — used for ALL data fetching in this route (bypasses RLS)
+  const db = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+
+  // Verify requester is admin using their session (separate auth client)
   const cookieStore = await cookies()
   const authClient = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -438,10 +448,11 @@ export async function GET(
 
   const { data: { user } } = await authClient.auth.getUser()
   if (!user) {
+    console.error('[admin/preview] no authenticated user')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: adminRow } = await authClient
+  const { data: adminRow, error: adminErr } = await authClient
     .from('profile_types')
     .select('type')
     .eq('profile_id', user.id)
@@ -449,15 +460,9 @@ export async function GET(
     .maybeSingle()
 
   if (!adminRow) {
+    console.error('[admin/preview] admin check failed for user:', user.id, 'error:', adminErr)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-
-  // Use service role to bypass RLS for curator data
-  const db = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
 
   try {
     const period = await fetchActivePeriod(db)
@@ -547,6 +552,7 @@ export async function GET(
       pages,
     })
   } catch (err) {
+    console.error('[admin/preview] unhandled error:', err)
     const message = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
