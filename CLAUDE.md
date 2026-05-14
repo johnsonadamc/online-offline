@@ -689,4 +689,4 @@ Subscription cancellation. Curators will eventually be able to cancel their subs
 
 Mailing address is required to receive a printed edition but is NOT required to save curate selections. The address gate warns persistently but never blocks.
 
-Curators do not get a magazine preview. The surprise of receiving the physical copy is intentional and core to the experience. The /admin preview is for the editor only, to review before sending to print.
+Curators do not get a magazine preview. The surprise of receiving the physical copy is intentional and core to the experience. The /admin preview is for the editor only, to review before sending to print
