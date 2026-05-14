@@ -34,6 +34,22 @@ export async function middleware(request: NextRequest) {
   console.log('middleware:', pathname, 'user:', user?.id, 'error:', userError)
 
   if (!user) {
+    if (pathname.startsWith('/admin')) {
+      return NextResponse.redirect(new URL('/auth', request.url))
+    }
+    return supabaseResponse
+  }
+
+  if (pathname.startsWith('/admin')) {
+    const { data: adminRow } = await supabase
+      .from('profile_types')
+      .select('type')
+      .eq('profile_id', user.id)
+      .eq('type', 'admin')
+      .maybeSingle()
+    if (!adminRow) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
     return supabaseResponse
   }
 
