@@ -42,29 +42,38 @@ Project Structure
 src/
 ├── app/
 │   ├── admin/
+│   │   ├── page.tsx                  # Curator list — admin only ✅
+│   │   └── preview/
+│   │       └── [curatorId]/
+│   │           └── page.tsx          # Magazine preview — admin only ✅
+│   ├── api/
+│   │   └── admin/
+│   │       └── preview/
+│   │           └── [curatorId]/
+│   │               └── route.ts      # Data + HTML assembly for preview iframes ✅
 │   ├── auth/
 │   │   └── callback/
-│   │       └── route.ts          # Email confirmation callback — uses @supabase/ssr ✅
+│   │       └── route.ts              # Email confirmation callback — uses @supabase/ssr ✅
 │   ├── collabs/
-│   │   ├── page.tsx              # Collab library — browse + join + private invite modal ✅
+│   │   ├── page.tsx                  # Collab library — browse + join + private invite modal ✅
 │   │   └── [id]/
 │   │       └── submit/
-│   │           └── page.tsx      # Collab submission page ✅
+│   │           └── page.tsx          # Collab submission page ✅
 │   ├── communicate/
 │   │   ├── new/
-│   │   │   └── page.tsx          # Re-exports [id]/page.tsx
+│   │   │   └── page.tsx              # Re-exports [id]/page.tsx
 │   │   └── [id]/
-│   │       └── page.tsx          # Compose + send + read-only view ✅
+│   │       └── page.tsx              # Compose + send + read-only view ✅
 │   ├── curate/
-│   │   └── page.tsx              # Curator magazine selection interface ✅
+│   │   └── page.tsx                  # Curator magazine selection interface ✅
 │   ├── dashboard/
-│   │   └── page.tsx              # Main user hub ✅
+│   │   └── page.tsx                  # Main user hub ✅
 │   ├── onboarding/
-│   │   └── page.tsx              # 3-step onboarding flow ✅
+│   │   └── page.tsx                  # 3-step onboarding flow ✅
 │   ├── profile/
-│   │   └── page.tsx              # User profile + privacy settings ✅
+│   │   └── page.tsx                  # User profile + privacy settings ✅
 │   └── submit/
-│       └── page.tsx              # Content submission form ✅
+│       └── page.tsx                  # Content submission form ✅
 ├── components/
 │   ├── IntegratedCollabsSection.tsx   # Curate collabs tab ✅
 │   ├── SubmissionForm.tsx             # Focal point selector included ✅
@@ -73,23 +82,23 @@ src/
 │   └── ui/
 ├── lib/
 │   ├── constants/
-│   │   └── cities.ts             # Single source of truth for city list ✅
+│   │   └── cities.ts                 # Single source of truth for city list ✅
 │   └── supabase/
-│       ├── client.ts             # createBrowserClient wrapper ✅
-│       ├── useSupabase.ts        # useSupabase() hook — use in all client components ✅
-│       ├── collabLibrary.ts      # getCitiesWithParticipantCounts returns Record<template_id, cities[]> ✅
-│       ├── collabs.ts            # find-or-create join flow, period_id always set ✅
+│       ├── client.ts                 # createBrowserClient wrapper ✅
+│       ├── useSupabase.ts            # useSupabase() hook — use in all client components ✅
+│       ├── collabLibrary.ts          # getCitiesWithParticipantCounts returns Record<template_id, cities[]> ✅
+│       ├── collabs.ts                # find-or-create join flow, period_id always set ✅
 │       ├── communications.ts
-│       ├── content.ts            # focal_x, focal_y, aspect_ratio wired ✅
+│       ├── content.ts                # focal_x, focal_y, aspect_ratio wired ✅
 │       ├── curation.ts
 │       ├── profiles.ts
 │       └── subscriptions.ts
-├── magazine/                      # Magazine generation system ✅ COMPLETE
+├── magazine/                          # Magazine generation system ✅ COMPLETE
 │   ├── core/
 │   │   ├── primitives.jsx
-│   │   ├── generator.ts           # ✅ Puppeteer pipeline — fully operational
-│   │   ├── selectionLogic.ts      # ✅ Template selection decision tree
-│   │   └── types.ts               # ✅ Full TypeScript interfaces
+│   │   ├── generator.ts               # ✅ Puppeteer pipeline — fully operational
+│   │   ├── selectionLogic.ts          # ✅ Template selection decision tree
+│   │   └── types.ts                   # ✅ Full TypeScript interfaces
 │   ├── templates/
 │   │   └── base/
 │   │       ├── index.js
@@ -101,7 +110,7 @@ src/
 │   │       └── templates-20-24.jsx
 │   ├── SELECTION_LOGIC.md
 │   └── TEMPLATE_DESIGN_GUIDE.md
-├── middleware.ts                  # Route guard — redirects to /onboarding if no profile_types row ✅
+├── middleware.ts                      # Route guard — onboarding redirect + admin protection ✅
 ├── scripts/
 │   ├── seed.ts
 │   ├── seed.sql
@@ -125,10 +134,12 @@ profiles (id, first_name, last_name, avatar_url, identity_banner_url, content_ty
 -- address_line1/2, address_city, address_state, address_zip: structured mailing address — added May 2026
 -- address_line1 non-empty = address on file (used for curate gate check)
 
-profile_types (profile_id, type)   -- 'contributor' or 'curator'
+profile_types (profile_id, type)   -- 'contributor' | 'curator' | 'admin'
 -- Roles are add-only — never remove a role programmatically
 -- New users get no rows until onboarding is complete
 -- Middleware redirects to /onboarding if authenticated user has zero rows here
+-- 'admin' role assigned via SQL only — no UI for this
+-- check constraint updated May 2026 to include 'admin'
 
 profile_connections (follower_id, followed_id, status, relationship_type)
 subscriptions (subscriber_id, creator_id, status)
@@ -206,7 +217,7 @@ If middleware incorrectly redirects authenticated users to /onboarding, check th
 Onboarding Flow
 Route: /onboarding
 Guard: middleware.ts redirects any authenticated user with zero profile_types rows to /onboarding
-Exempt routes: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico
+Exempt routes: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico, /admin/*
 
 Flow:
   Step 1: First name + last name (both required)
@@ -248,6 +259,31 @@ Email Confirmation ✅ COMPLETE
 - Confirmation link routes through /auth/callback which uses @supabase/ssr ✅
 - Full signup → confirm → onboarding → destination flow tested and working ✅
 - Supabase is on Pro plan — rate limits adjustable, but moot with custom SMTP
+
+Admin Magazine Preview ✅ COMPLETE
+Route: /admin (curator list) + /admin/preview/[curatorId] (page-by-page preview)
+Protected: middleware redirects non-admins to /dashboard, unauthenticated to /auth
+API: /api/admin/preview/[curatorId] — uses SUPABASE_SERVICE_ROLE_KEY to bypass RLS
+
+Admin role assignment (SQL only — no UI):
+  ALTER TABLE profile_types DROP CONSTRAINT profile_types_type_check;
+  ALTER TABLE profile_types ADD CONSTRAINT profile_types_type_check
+    CHECK (type IN ('contributor', 'curator', 'admin'));
+  INSERT INTO profile_types (profile_id, type) VALUES ('<uuid>', 'admin') ON CONFLICT DO NOTHING;
+
+How the preview works:
+- /admin lists all curators with creator selections for the active period
+- Clicking a curator calls /api/admin/preview/[curatorId]
+- API assembles magazine data (mirrors generator.ts logic) using service role key
+- API runs selectionLogic.ts to assign templates, builds self-contained HTML per page
+- Preview page renders each page in a sandboxed iframe at print dimensions (scaled 50%)
+- Single pages: 790×1054px canvas scaled to 395×527px display
+- Spreads: 1580×1054px canvas scaled to 790×527px display
+- Read-only — no actions, no generate button
+
+Editorial corrections via SQL (when preview shows crop problems):
+  UPDATE content_entries SET focal_x = <0–100>, focal_y = <0–100> WHERE id = '<entry-id>';
+  Then re-preview to verify before sending to print.
 
 Magazine Generation System
 Status: ✅ FULLY OPERATIONAL
@@ -537,6 +573,16 @@ END $$;
 - profiles table has structured address fields: address_line1/2/city/state/zip (added May 2026)
 - There is NO single 'address' column — always use the five structured fields
 - hasAddress check: !!profile.address_line1
+- profile_types accepts 'admin' role in addition to 'contributor' and 'curator' — assign via SQL only, no UI
+
+### Admin
+- Admin role assigned via SQL only — see "Admin Magazine Preview" section above for full SQL
+- /admin and /admin/* are middleware-protected: non-admins → /dashboard, unauthenticated → /auth
+- API route /api/admin/preview/[curatorId] requires SUPABASE_SERVICE_ROLE_KEY in Vercel env vars
+- SUPABASE_SERVICE_ROLE_KEY must be the service_role key from Supabase Settings → API, not the anon key
+- Focal point corrections when preview shows bad crops:
+  UPDATE content_entries SET focal_x = <0–100>, focal_y = <0–100> WHERE id = '<entry-id>';
+  Then re-preview to verify before sending to print.
 
 ### Onboarding
 - window.location.href for post-onboarding redirect — NOT router.push (causes race condition with middleware)
@@ -612,20 +658,24 @@ Completed ✅
 - Full signup → confirm → onboarding → destination flow tested end-to-end ✅
 - Local city data in curate collabs tab — live from DB, grouped by template,
   cities only show when active participants exist, LOCAL row hidden when empty ✅
+- Admin magazine preview — /admin (curator list) + /admin/preview/[curatorId]
+  (page-by-page browser render at print dimensions, admin-role protected) ✅
+- profile_types check constraint updated to include 'admin' role ✅
+- SUPABASE_SERVICE_ROLE_KEY added to Vercel environment variables ✅
 
 Remaining / Known Issues ⚠️
-1. Curator magazine preview — browser preview route not yet built.
-2. Print fulfillment integration — Magcloud manual first, Mixam API later.
-3. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
-4. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
-5. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
-6. Subscription cancellation UI — blocked on Stripe integration.
-7. Playwright test suite — needs update to cover onboarding flow and new profile structure.
+1. Print fulfillment integration — Magcloud manual first, Mixam API later.
+2. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
+3. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+4. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
+5. Subscription cancellation UI — blocked on Stripe integration.
+6. Playwright test suite — needs update to cover onboarding flow and new profile structure.
 
 User Roles
 - Contributors: Submit content, join collaborations, send communications to curators
 - Curators: Select content for their personalized printed magazine
-- Users can be both
+- Admins: Review magazine previews before sending to print — assigned via SQL only
+- Users can be contributor + curator simultaneously
 - Roles are add-only — no programmatic role removal
 - Three test accounts exist for development testing
 
@@ -638,3 +688,5 @@ Roles are add-only. If a user wants to stop contributing or curating, they simpl
 Subscription cancellation. Curators will eventually be able to cancel their subscription via the profile page. This requires Stripe integration first. Until then, handle cancellation requests manually via email.
 
 Mailing address is required to receive a printed edition but is NOT required to save curate selections. The address gate warns persistently but never blocks.
+
+Curators do not get a magazine preview. The surprise of receiving the physical copy is intentional and core to the experience. The /admin preview is for the editor only, to review before sending to print.
