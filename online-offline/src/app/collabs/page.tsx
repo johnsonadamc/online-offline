@@ -298,7 +298,7 @@ export default function CollabsLibrary() {
       } else {
         const { data: newCollab, error: collabError } = await supabase
           .from('collabs')
-          .insert({ title: `${template.name} - ${localCity}`, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'local', location: localCity, template_id: template.id, period_id: currentPeriod.id, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'local', location: localCity } })
+          .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: false, participation_mode: 'local', location: localCity, template_id: template.id, period_id: currentPeriod.id, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'local', location: localCity } })
           .select('id').single();
         if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
         targetCollabId = newCollab.id;
