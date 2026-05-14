@@ -27,7 +27,7 @@ import type {
   ContentEntryData,
 } from '@/magazine/core/types'
 
-// ── HTML Builder ────────────────────────────────────────────────
+// ── HTML Builder ────────────────────────────────
 
 const AW = 790
 const AH = 1054
@@ -157,14 +157,14 @@ function profileName(p: RawProfile): string {
 async function fetchActivePeriod(db: SupabaseClient) {
   const { data, error } = await db
     .from('periods')
-    .select('id, name, season, year')
+    .select('id, name, season, year, volume, issue')
     .eq('is_active', true)
     .maybeSingle()
   if (error || !data) {
     console.error('[fetchActivePeriod] Supabase error:', error, '| data:', data)
     throw new Error('No active period found')
   }
-  return data as { id: string; name: string; season: string; year: number }
+  return data as { id: string; name: string; season: string; year: number; volume: string | null; issue: number | null }
 }
 
 async function fetchCuratorProfile(db: SupabaseClient, curatorId: string) {
@@ -414,7 +414,7 @@ function normalizeContentType(raw: string): string {
   return map[raw?.toLowerCase()] ?? raw
 }
 
-// ── Route Handler ────────────────────────────────────────────────
+// ── Route Handler ────────────────────────────────
 
 export async function GET(
   _req: NextRequest,
@@ -494,7 +494,7 @@ export async function GET(
 
     const colophonPage = cursor
 
-    const coverData: CoverData = { page: 1, season, volume: 'I', issue: 1 }
+    const coverData: CoverData = { page: 1, season, volume: period.volume ?? 'I', issue: period.issue ?? 1 }
 
     const toc: TocEntry[] = contentAssignments
       .filter(a => a.data && 'contributor' in a.data && 'page_title' in a.data)
