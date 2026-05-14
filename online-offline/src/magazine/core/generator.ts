@@ -206,11 +206,11 @@ function profileName(p: RawProfile): string {
 async function fetchPeriod(db: SupabaseClient, periodId: string) {
   const { data, error } = await db
     .from('periods')
-    .select('id, name, season, year')
+    .select('id, name, season, year, volume, issue')
     .eq('id', periodId)
     .single();
   if (error || !data) throw new Error(`Period not found: ${periodId}`);
-  return data as { id: string; name: string; season: string; year: number };
+  return data as { id: string; name: string; season: string; year: number; volume: string | null; issue: number | null };
 }
 
 async function fetchCuratorProfile(db: SupabaseClient, curatorId: string) {
@@ -496,7 +496,7 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
   const colophonPage = cursor;
 
   // ── Build Cover ────────────────────────────────────────────────────────────
-  const coverData: CoverData = { page: 1, season, volume: 'I', issue: 1 };
+  const coverData: CoverData = { page: 1, season, volume: period.volume ?? 'I', issue: period.issue ?? 1 };
 
   // ── Build FrontMatter TOC (now that all page numbers are known) ────────────
   function normalizeContentType(raw: string): string {
