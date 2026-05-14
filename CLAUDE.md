@@ -77,8 +77,8 @@ src/
 │   └── supabase/
 │       ├── client.ts             # createBrowserClient wrapper ✅
 │       ├── useSupabase.ts        # useSupabase() hook — use in all client components ✅
-│       ├── collabLibrary.ts
-│       ├── collabs.ts
+│       ├── collabLibrary.ts      # getCitiesWithParticipantCounts returns Record<template_id, cities[]> ✅
+│       ├── collabs.ts            # find-or-create join flow, period_id always set ✅
 │       ├── communications.ts
 │       ├── content.ts            # focal_x, focal_y, aspect_ratio wired ✅
 │       ├── curation.ts
@@ -156,9 +156,12 @@ collabs (id, title, type, is_private, participation_mode, location, template_id,
 -- type: 'chain' | 'theme' | 'narrative'
 -- participation_mode: 'community' | 'local' | 'private'
 -- Always prefer participation_mode over is_private (legacy)
+-- period_id is always set from periods WHERE is_active = true on creation
+-- template_id is written directly to the column, not just metadata
 
 collab_participants (id, collab_id, profile_id, role, status, participation_mode, city, location)
 -- city is preferred over location for local collabs
+-- A city appears in the curate UI as soon as status = 'active' — no submission required
 
 collab_templates (id, name, type, instructions, requirements, connection_rules, display_text, internal_reference, is_active)
 -- IMPORTANT: field is 'name' not 'title'
@@ -437,8 +440,11 @@ IntegratedCollabsSection — Curate Collabs Tab ✅
 - ★ you contribute badge in amber on templates curator participates in
 - Every option is an independent toggle — no internal slot cap
 - Community = one row per template
-- Local = collapsible section, one row per city with active participants
+- Local = collapsible section, one row per city with active participants only
+- LOCAL row hidden entirely when no cities have active participants (matches Private behavior)
 - Private = one row, only shown if curator has joined
+- getCitiesWithParticipantCounts returns Record<template_id, {city, count}[]>
+  grouped by template — cities are scoped per template, not shown globally
 
 Seed Data
 Test Auth Users
@@ -480,7 +486,7 @@ Key Gotchas & Hard-Won Lessons
 - Supabase dashboard delete will fail with "Database error deleting user"
   if dependent rows exist in other tables
 - Always run SQL cleanup first, then delete from Authentication → Users in dashboard
-- Run this in SQL Editor, replacing the UUID:
+- Full foreign key chain must be deleted in this order:
 
 DO $$
 DECLARE uid uuid := 'paste-uuid-here';
@@ -499,6 +505,22 @@ BEGIN
   DELETE FROM profile_types WHERE profile_id = uid;
   DELETE FROM profiles WHERE id = uid;
 END $$;
+
+### Collabs
+- Join flow uses find-or-create — never inserts a new collabs row if one already
+  exists for that template_id + participation_mode + city + period_id
+- period_id is always set from periods WHERE is_active = true on collab creation
+- template_id is written directly to the collabs column, not just metadata
+- Cities in curate Local section only appear when a contributor has joined
+  (status = 'active') — no submission required
+- LOCAL row hidden entirely when no active city participants exist for that template
+- Deleting collabs requires clearing curator_collab_selections and collab_submissions
+  first (foreign key constraints)
+- When bulk-deleting bad collab rows, order matters:
+  1. DELETE FROM curator_collab_selections WHERE collab_id IN (...)
+  2. DELETE FROM collab_submissions WHERE collab_id IN (...)
+  3. DELETE FROM collab_participants WHERE collab_id IN (...)
+  4. DELETE FROM collabs WHERE ...
 
 ### Design
 - Never mix border shorthand with borderBottom/borderBottomWidth on same element
@@ -585,19 +607,20 @@ Completed ✅
 - Profile page restructured — 5 sections, structured address fields, mobile-first ✅
 - Structured mailing address fields added to profiles table ✅
 - Curate selections load from DB (not localStorage), user-scoped localStorage ✅
-- Email confirmation enabled + custom SMTP via Resend configured ✅ NEW
-- onlineoffline.online domain verified in Resend, DNS records live ✅ NEW
-- Full signup → confirm → onboarding → destination flow tested end-to-end ✅ NEW
+- Email confirmation enabled + custom SMTP via Resend configured ✅
+- onlineoffline.online domain verified in Resend, DNS records live ✅
+- Full signup → confirm → onboarding → destination flow tested end-to-end ✅
+- Local city data in curate collabs tab — live from DB, grouped by template,
+  cities only show when active participants exist, LOCAL row hidden when empty ✅
 
 Remaining / Known Issues ⚠️
-1. Local city data in curate collabs tab — city list should pull live from collab_participants grouped by city with real participant counts.
-2. Curator magazine preview — browser preview route not yet built.
-3. Print fulfillment integration — Magcloud manual first, Mixam API later.
-4. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
-5. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
-6. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
-7. Subscription cancellation UI — blocked on Stripe integration.
-8. Playwright test suite — needs update to cover onboarding flow and new profile structure.
+1. Curator magazine preview — browser preview route not yet built.
+2. Print fulfillment integration — Magcloud manual first, Mixam API later.
+3. Magazine generation job tracking — pipeline writes to /tmp but does not record in magazine_generation_jobs table.
+4. Volume/issue dynamic — volume: 'I', issue: 1 hardcoded in generator.ts. Add volume and issue fields to periods table and read dynamically.
+5. Stripe integration — payment collection from curators not yet built. Profile page shows placeholder.
+6. Subscription cancellation UI — blocked on Stripe integration.
+7. Playwright test suite — needs update to cover onboarding flow and new profile structure.
 
 User Roles
 - Contributors: Submit content, join collaborations, send communications to curators
