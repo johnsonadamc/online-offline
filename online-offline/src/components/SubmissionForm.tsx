@@ -329,7 +329,7 @@ export default function SubmissionForm() {
         <div style={{
           padding: '20px 22px 0', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          zIndex: 20, background: 'var(--ground)',
+          zIndex: 20, background: 'var(--lt-bg)',
         }}>
           <Link href="/dashboard" style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -976,7 +976,7 @@ export default function SubmissionForm() {
         <div style={{
           flexShrink: 0, zIndex: 20,
           padding: '12px 22px 28px',
-          background: 'var(--ground)', borderTop: '1px solid var(--rule)',
+          background: 'var(--lt-bg)', borderTop: '1px solid var(--rule)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
           {status === 'submitted' ? (
