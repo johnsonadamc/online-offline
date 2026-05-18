@@ -160,7 +160,7 @@ export default function OnboardingPage() {
   // ── Shared container ─────────────────────────────────────────────────────────
   const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
-    background: 'var(--ground)',
+    background: 'var(--lt-bg)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

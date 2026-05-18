@@ -43,7 +43,7 @@ export default function Home() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'var(--ground-base)',
+      background: 'var(--lt-bg)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',

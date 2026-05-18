@@ -322,7 +322,7 @@ export default function SubmissionForm() {
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--ground)', height: '100vh', display: 'flex', justifyContent: 'center' }}>
+    <div style={{ background: 'var(--lt-bg)', height: '100vh', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 390, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Header ── */}

@@ -446,8 +446,8 @@ export default function CollabsLibrary() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--ground)' }}>
-      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--ground)', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--lt-bg)' }}>
+      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative' }}>
 
         {/* ── Header ── */}
         <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>

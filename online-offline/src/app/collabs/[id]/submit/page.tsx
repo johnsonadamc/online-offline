@@ -44,7 +44,7 @@ const CAPTION_WARN = 200;
 export default function CollabSubmissionPage() {
   return (
     <Suspense fallback={
-      <div style={{ height: '100vh', background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ height: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.14em', color: 'var(--paper-3)' }}>loading…</p>
       </div>
     }>
@@ -292,7 +292,7 @@ function CollabSubmissionContent() {
   // ── loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ height: '100vh', background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ height: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.14em', color: 'var(--paper-3)' }}>loading…</p>
       </div>
     );
@@ -300,12 +300,12 @@ function CollabSubmissionContent() {
 
   // ── viewer style ─────────────────────────────────────────────────────────────
   const viewerStyle: React.CSSProperties = isFullscreen
-    ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'var(--ground)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 0, overflow: 'hidden' }
+    ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 50, background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 0, overflow: 'hidden' }
     : { width: '100%', aspectRatio: '4/3', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
   // ── JSX ──────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ height: '100vh', background: 'var(--ground)', display: 'flex', justifyContent: 'center' }}>
+    <div style={{ height: '100vh', background: 'var(--lt-bg)', display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 390, height: '100%', display: 'flex', flexDirection: 'column' }}>
 
         {/* ── Header ── */}

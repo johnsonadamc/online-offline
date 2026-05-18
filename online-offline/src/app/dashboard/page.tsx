@@ -594,7 +594,7 @@ export default function Dashboard() {
   // ── Main return ────────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ background: 'var(--lt-bg)', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--ground)', position: 'relative' }}>
+      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative' }}>
 
         {/* ── Toasts ── */}
         {successMessage && (
