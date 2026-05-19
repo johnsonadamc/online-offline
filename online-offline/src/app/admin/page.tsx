@@ -78,7 +78,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div style={{
-        background: 'var(--ground)', minHeight: '100vh',
+        background: 'var(--lt-bg)', minHeight: '100vh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <span style={{
@@ -92,7 +92,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div style={{ background: 'var(--ground)', minHeight: '100vh', padding: '48px 32px' }}>
+    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', padding: '48px 32px' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
         {/* Header */}

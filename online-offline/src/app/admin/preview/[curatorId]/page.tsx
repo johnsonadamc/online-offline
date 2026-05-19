@@ -67,7 +67,7 @@ export default function AdminPreviewPage() {
   if (loading) {
     return (
       <div style={{
-        background: 'var(--ground)', minHeight: '100vh',
+        background: 'var(--lt-bg)', minHeight: '100vh',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <span style={{
@@ -83,7 +83,7 @@ export default function AdminPreviewPage() {
   if (error) {
     return (
       <div style={{
-        background: 'var(--ground)', minHeight: '100vh', padding: '48px 32px',
+        background: 'var(--lt-bg)', minHeight: '100vh', padding: '48px 32px',
       }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
           <Link href="/admin" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-4)', letterSpacing: '0.12em', textDecoration: 'none', textTransform: 'uppercase' }}>
@@ -100,7 +100,7 @@ export default function AdminPreviewPage() {
   if (!data) return null;
 
   return (
-    <div style={{ background: 'var(--ground)', minHeight: '100vh', paddingBottom: 80 }}>
+    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', paddingBottom: 80 }}>
 
       {/* Sticky header */}
       <div style={{
