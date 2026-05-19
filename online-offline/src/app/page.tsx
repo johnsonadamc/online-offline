@@ -258,18 +258,6 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Footer tagline */}
-        <div style={{
-          textAlign: 'center',
-          marginTop: '24px',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
-          letterSpacing: '0.1em',
-          color: 'var(--paper-secondary)',
-          opacity: 0.35,
-        }}>
-          deliberate by design
-        </div>
       </div>
     </div>
   );
