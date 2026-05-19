@@ -31,6 +31,15 @@ interface CurrentPeriod {
   year: number;
 }
 
+interface UserCreatedCollab {
+  id: string;
+  title: string;
+  description: string;
+  type: string;
+  role: string;
+  invite_status: string;
+}
+
 type ParticipationMode = 'community' | 'local' | 'private';
 
 type ErrorState = { message: string; isVisible: boolean };
@@ -57,6 +66,8 @@ export default function CollabsLibrary() {
   const [localCity, setLocalCity] = useState('');
   const [localCancelPress, setLocalCancelPress] = useState<PressState>('rest');
   const [localJoinPress, setLocalJoinPress] = useState<PressState>('rest');
+
+  const [userCreatedCollabs, setUserCreatedCollabs] = useState<UserCreatedCollab[]>([]);
 
   const showError = (message: string) => {
     setError({ message, isVisible: true });
@@ -139,6 +150,40 @@ export default function CollabsLibrary() {
       }));
 
       setAvailablePrompts(templatesWithCounts);
+
+      // Load user-created collabs the user participates in
+      if (activeCollabIds.length > 0) {
+        const { data: userCreatedData } = await supabase
+          .from('collabs')
+          .select('id, title, description, type')
+          .in('id', activeCollabIds)
+          .eq('is_user_created', true);
+
+        if (userCreatedData && userCreatedData.length > 0) {
+          const { data: participantRows } = await supabase
+            .from('collab_participants')
+            .select('collab_id, role, invite_status')
+            .eq('profile_id', user.id)
+            .eq('status', 'active')
+            .in('collab_id', (userCreatedData as Array<{ id: string }>).map(c => c.id));
+
+          const roleMap: Record<string, { role: string; invite_status: string }> = {};
+          for (const r of (participantRows ?? []) as Array<{ collab_id: string; role: string; invite_status: string | null }>) {
+            roleMap[r.collab_id] = { role: r.role, invite_status: r.invite_status ?? 'accepted' };
+          }
+
+          setUserCreatedCollabs(
+            (userCreatedData as Array<{ id: string; title: string; description: string; type: string }>).map(c => ({
+              id: c.id,
+              title: c.title,
+              description: c.description || '',
+              type: c.type || 'theme',
+              role: roleMap[c.id]?.role ?? 'member',
+              invite_status: roleMap[c.id]?.invite_status ?? 'accepted',
+            }))
+          );
+        }
+      }
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to load collaboration data');
     } finally {
@@ -495,6 +540,102 @@ export default function CollabsLibrary() {
               <button onClick={loadData} className="press-btn" style={{ padding: '10px 20px', fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase' }}>Refresh</button>
             </div>
           )}
+
+          {/* Create your own CTA */}
+          <div style={{ marginTop: 24 }}>
+            <div style={{
+              background: 'rgba(168,136,232,0.04)',
+              borderTop: '1px solid rgba(168,136,232,0.12)',
+              borderRight: '1px solid rgba(168,136,232,0.12)',
+              borderBottom: '1px solid rgba(168,136,232,0.12)',
+              borderLeft: '2px solid var(--neon-purple)',
+              boxShadow: '-3px 0 10px -2px var(--glow-purple)',
+              borderRadius: 2,
+              padding: '16px 16px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 16, color: 'var(--paper-2)', lineHeight: 1.2, marginBottom: 4 }}>
+                  Start your own
+                </div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-4)', lineHeight: 1.4 }}>
+                  Create a private collab and invite contributors directly.
+                </div>
+              </div>
+              <Link href="/collabs/create" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase',
+                  color: 'var(--neon-purple)',
+                  padding: '7px 14px',
+                  background: 'rgba(168,136,232,0.1)',
+                  borderTop: '1px solid rgba(168,136,232,0.35)',
+                  borderRight: '1px solid rgba(168,136,232,0.35)',
+                  borderLeft: '1px solid rgba(168,136,232,0.35)',
+                  borderBottom: '2px solid rgba(168,136,232,0.45)',
+                  borderRadius: 2,
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 2px 0 rgba(168,136,232,0.2)',
+                }}>
+                  Create →
+                </div>
+              </Link>
+            </div>
+          </div>
+
+          {/* User-created collabs */}
+          {userCreatedCollabs.length > 0 && (
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)' }}>Your Collabs</div>
+                <div style={{ flex: 1, height: 1, background: 'var(--rule)' }} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {userCreatedCollabs.map(c => (
+                  <div key={c.id} style={{ position: 'relative' }}>
+                    <Link href={`/collabs/${c.id}/submit`} style={{ textDecoration: 'none', display: 'block' }}>
+                      <div style={{
+                        background: 'var(--ground-2)',
+                        borderTop: '1px solid var(--rule)',
+                        borderRight: '1px solid var(--rule)',
+                        borderBottom: '1px solid var(--rule)',
+                        borderLeft: `2px solid ${c.role === 'lead' ? 'var(--neon-purple)' : 'rgba(168,136,232,0.35)'}`,
+                        boxShadow: c.role === 'lead' ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
+                        borderRadius: 2,
+                        padding: '12px 14px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        justifyContent: 'space-between',
+                        gap: 10,
+                      }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: 16, color: 'var(--paper)', opacity: 0.9, lineHeight: 1.2, marginBottom: 3 }}>{c.title}</div>
+                          {c.description && (
+                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-4)', lineHeight: 1.4 }}>
+                              {c.description.length > 80 ? c.description.slice(0, 80) + '…' : c.description}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: c.role === 'lead' ? 'var(--neon-purple)' : 'var(--paper-4)', background: c.role === 'lead' ? 'rgba(168,136,232,0.1)' : 'transparent', border: `1px solid ${c.role === 'lead' ? 'rgba(168,136,232,0.25)' : 'var(--rule)'}`, borderRadius: 2, padding: '2px 6px' }}>
+                            {c.role}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                    {c.role === 'lead' && (
+                      <Link href={`/collabs/${c.id}/invite`} style={{ textDecoration: 'none', position: 'absolute', bottom: 10, right: 14 }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', background: 'transparent', border: '1px solid var(--rule-mid)', borderRadius: 2, padding: '2px 7px' }}>+ invite</span>
+                      </Link>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
