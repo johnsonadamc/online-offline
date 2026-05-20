@@ -58,7 +58,7 @@ export default function InvitePage() {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    if (!participantRow || participantRow.role !== 'lead') {
+    if (!participantRow || (participantRow.role !== 'lead' && participantRow.role !== 'organizer')) {
       router.push('/collabs');
       return;
     }
@@ -91,25 +91,32 @@ export default function InvitePage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Search contributors — single join query, excludes current user and existing participants
+  // Search contributors — two-step: profiles then filter to contributors
   useEffect(() => {
     if (!currentUserId) return;
+    const existingParticipantIds = new Set(participants.map(p => p.id));
+    const searchQuery = searchTerm.trim();
     async function search() {
-      const excludedIds = [currentUserId, ...participants.map(p => p.id)];
-      let query = supabase
+      const { data: profileData } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, city, content_type, profile_types!inner(type)')
+        .select('id, first_name, last_name, city, content_type, avatar_url')
         .eq('is_public', true)
-        .eq('profile_types.type', 'contributor')
-        .not('id', 'in', `(${excludedIds.join(',')})`);
-      if (searchTerm.trim()) {
-        query = query.or(`first_name.ilike.%${searchTerm.trim()}%,last_name.ilike.%${searchTerm.trim()}%`).limit(15);
-      } else {
-        query = query.order('first_name', { ascending: true }).limit(20);
-      }
-      const { data } = await query;
+        .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
+        .limit(20);
+
+      if (!profileData || profileData.length === 0) { setResults([]); return; }
+
+      const ids = (profileData as Array<{ id: string }>).map(p => p.id);
+      const { data: typeData } = await supabase
+        .from('profile_types')
+        .select('profile_id')
+        .eq('type', 'contributor')
+        .in('profile_id', ids);
+
+      const contributorIds = new Set(((typeData ?? []) as Array<{ profile_id: string }>).map(t => t.profile_id));
       setResults(
-        ((data ?? []) as Array<{ id: string; first_name?: string; last_name?: string; city?: string; content_type?: string }>)
+        (profileData as Array<{ id: string; first_name?: string; last_name?: string; city?: string; content_type?: string }>)
+          .filter(p => contributorIds.has(p.id) && p.id !== currentUserId && !existingParticipantIds.has(p.id))
           .map(p => ({
             id: p.id,
             name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Unknown',
