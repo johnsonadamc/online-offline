@@ -97,33 +97,45 @@ export default function InvitePage() {
     const existingParticipantIds = new Set(participants.map(p => p.id));
     const searchQuery = searchTerm.trim();
     async function search() {
-      const { data: profileData } = await supabase
+      console.log('[invite-search] searchQuery:', searchQuery);
+      console.log('[invite-search] currentUserId:', currentUserId);
+      console.log('[invite-search] existingParticipantIds:', [...existingParticipantIds]);
+
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, city, content_type, avatar_url')
         .eq('is_public', true)
         .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
         .limit(20);
 
+      console.log('[invite-search] profileData:', profileData);
+      console.log('[invite-search] profileError:', profileError);
+
       if (!profileData || profileData.length === 0) { setResults([]); return; }
 
       const ids = (profileData as Array<{ id: string }>).map(p => p.id);
-      const { data: typeData } = await supabase
+      const { data: typeData, error: typeError } = await supabase
         .from('profile_types')
         .select('profile_id')
         .eq('type', 'contributor')
         .in('profile_id', ids);
 
+      console.log('[invite-search] typeData:', typeData);
+      console.log('[invite-search] typeError:', typeError);
+
       const contributorIds = new Set(((typeData ?? []) as Array<{ profile_id: string }>).map(t => t.profile_id));
-      setResults(
-        (profileData as Array<{ id: string; first_name?: string; last_name?: string; city?: string; content_type?: string }>)
-          .filter(p => contributorIds.has(p.id) && p.id !== currentUserId && !existingParticipantIds.has(p.id))
-          .map(p => ({
-            id: p.id,
-            name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Unknown',
-            city: p.city ?? null,
-            content_type: p.content_type ?? null,
-          }))
-      );
+      const filtered = (profileData as Array<{ id: string; first_name?: string; last_name?: string; city?: string; content_type?: string }>)
+        .filter(p => contributorIds.has(p.id) && p.id !== currentUserId && !existingParticipantIds.has(p.id))
+        .map(p => ({
+          id: p.id,
+          name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Unknown',
+          city: p.city ?? null,
+          content_type: p.content_type ?? null,
+        }));
+
+      console.log('[invite-search] contributorIds:', [...contributorIds]);
+      console.log('[invite-search] final filtered results:', filtered);
+      setResults(filtered);
     }
     search();
   }, [searchTerm, supabase, currentUserId, participants]);
