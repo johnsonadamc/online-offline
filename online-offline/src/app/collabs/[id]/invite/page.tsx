@@ -35,7 +35,7 @@ export default function InvitePage() {
   const [currentUserId, setCurrentUserId] = useState('');
   const [collab, setCollab] = useState<CollabInfo | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [results, setResults] = useState<ProfileResult[]>([]);
   const [inviting, setInviting] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -95,9 +95,9 @@ export default function InvitePage() {
   useEffect(() => {
     if (!currentUserId) return;
     const existingParticipantIds = new Set(participants.map(p => p.id));
-    const searchQuery = searchTerm.trim();
+    const searchQueryTrimmed = searchQuery.trim();
     async function search() {
-      console.log('[invite-search] searchQuery:', searchQuery);
+      console.log('[invite-search] searchQuery:', searchQueryTrimmed);
       console.log('[invite-search] currentUserId:', currentUserId);
       console.log('[invite-search] existingParticipantIds:', [...existingParticipantIds]);
 
@@ -105,7 +105,7 @@ export default function InvitePage() {
         .from('profiles')
         .select('id, first_name, last_name, city, content_type, avatar_url')
         .eq('is_public', true)
-        .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
+        .or(`first_name.ilike.%${searchQueryTrimmed}%,last_name.ilike.%${searchQueryTrimmed}%`)
         .limit(20);
 
       console.log('[invite-search] profileData:', profileData);
@@ -138,7 +138,7 @@ export default function InvitePage() {
       setResults(filtered);
     }
     search();
-  }, [searchTerm, supabase, currentUserId, participants]);
+  }, [searchQuery, supabase, currentUserId, participants]);
 
   const handleInvite = async (profileId: string) => {
     if (participants.length >= 10) { setError('Maximum 10 participants reached'); return; }
@@ -238,8 +238,8 @@ export default function InvitePage() {
                 <input
                   type="text"
                   placeholder="Search by name…"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box', caretColor: 'var(--neon-purple)' }}
                   onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,136,232,0.5)'; }}
                   onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
