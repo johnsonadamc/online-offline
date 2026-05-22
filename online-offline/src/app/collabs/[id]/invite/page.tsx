@@ -157,7 +157,21 @@ export default function InvitePage() {
       });
 
     if (inviteError) { setError(inviteError.message); setInviting(null); return; }
-    await loadData();
+
+    // Re-fetch participants directly so existingParticipantIds updates immediately
+    const { data: parts } = await supabase
+      .from('collab_participants')
+      .select('profile_id, role, invite_status, profiles(first_name, last_name)')
+      .eq('collab_id', collabId);
+
+    setParticipants(
+      ((parts ?? []) as Array<{ profile_id: string; role: string; invite_status: string | null; profiles: { first_name?: string; last_name?: string } | null }>).map(p => ({
+        id: p.profile_id,
+        name: `${p.profiles?.first_name ?? ''} ${p.profiles?.last_name ?? ''}`.trim() || 'Unknown',
+        role: p.role,
+        invite_status: p.invite_status ?? 'accepted',
+      }))
+    );
     setInviting(null);
   };
 
@@ -260,9 +274,9 @@ export default function InvitePage() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleInvite(r.id)}
+                      onClick={() => { if (!inviting) handleInvite(r.id); }}
                       disabled={!!inviting}
-                      style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', color: 'var(--neon-purple)', background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.3)', borderRadius: 2, cursor: inviting ? 'not-allowed' : 'pointer', opacity: inviting === r.id ? 0.5 : 1 }}
+                      style={{ flexShrink: 0, fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '5px 12px', color: inviting === r.id ? 'var(--paper-5)' : 'var(--neon-purple)', background: inviting === r.id ? 'rgba(168,136,232,0.04)' : 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.3)', borderRadius: 2, cursor: !!inviting ? 'not-allowed' : 'pointer', opacity: !!inviting && inviting !== r.id ? 0.4 : 1 }}
                     >
                       {inviting === r.id ? '…' : 'Invite'}
                     </button>
