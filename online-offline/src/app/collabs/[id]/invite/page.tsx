@@ -72,17 +72,31 @@ export default function InvitePage() {
     if (!collabData) { router.push('/collabs'); return; }
     setCollab({ id: collabData.id, title: collabData.title });
 
-    const { data: parts, error: partsError } = await supabase
+    // Two-step fetch: collab_participants has two FKs to profiles (profile_id + invited_by),
+    // so PostgREST embed is ambiguous (PGRST201). Fetch rows then profiles separately.
+    const { data: partRows, error: partsError } = await supabase
       .from('collab_participants')
-      .select('profile_id, role, invite_status, profiles(first_name, last_name)')
+      .select('id, profile_id, role, status, invite_status, invited_by')
       .eq('collab_id', collabId);
 
-    console.log('[invite] participants raw:', parts, 'error:', partsError);
+    console.log('[invite] participants raw:', partRows, 'error:', partsError);
+
+    const profileIds = (partRows ?? []).map((p: { profile_id: string }) => p.profile_id);
+    const profileMap: Record<string, { first_name?: string; last_name?: string }> = {};
+    if (profileIds.length > 0) {
+      const { data: profileRows } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', profileIds);
+      for (const pr of (profileRows ?? []) as Array<{ id: string; first_name?: string; last_name?: string }>) {
+        profileMap[pr.id] = pr;
+      }
+    }
 
     setParticipants(
-      ((parts ?? []) as Array<{ profile_id: string; role: string; invite_status: string | null; profiles: { first_name?: string; last_name?: string } | null }>).map(p => ({
+      ((partRows ?? []) as Array<{ profile_id: string; role: string; invite_status: string | null }>).map(p => ({
         id: p.profile_id,
-        name: `${p.profiles?.first_name ?? ''} ${p.profiles?.last_name ?? ''}`.trim() || 'Unknown',
+        name: `${profileMap[p.profile_id]?.first_name ?? ''} ${profileMap[p.profile_id]?.last_name ?? ''}`.trim() || 'Unknown',
         role: p.role,
         invite_status: p.invite_status ?? 'accepted',
       }))
