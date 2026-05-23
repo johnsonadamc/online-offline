@@ -72,10 +72,12 @@ export default function InvitePage() {
     if (!collabData) { router.push('/collabs'); return; }
     setCollab({ id: collabData.id, title: collabData.title });
 
-    const { data: parts } = await supabase
+    const { data: parts, error: partsError } = await supabase
       .from('collab_participants')
       .select('profile_id, role, invite_status, profiles(first_name, last_name)')
       .eq('collab_id', collabId);
+
+    console.log('[invite] participants raw:', parts, 'error:', partsError);
 
     setParticipants(
       ((parts ?? []) as Array<{ profile_id: string; role: string; invite_status: string | null; profiles: { first_name?: string; last_name?: string } | null }>).map(p => ({
@@ -158,20 +160,7 @@ export default function InvitePage() {
 
     if (inviteError) { setError(inviteError.message); setInviting(null); return; }
 
-    // Re-fetch participants directly so existingParticipantIds updates immediately
-    const { data: parts } = await supabase
-      .from('collab_participants')
-      .select('profile_id, role, invite_status, profiles(first_name, last_name)')
-      .eq('collab_id', collabId);
-
-    setParticipants(
-      ((parts ?? []) as Array<{ profile_id: string; role: string; invite_status: string | null; profiles: { first_name?: string; last_name?: string } | null }>).map(p => ({
-        id: p.profile_id,
-        name: `${p.profiles?.first_name ?? ''} ${p.profiles?.last_name ?? ''}`.trim() || 'Unknown',
-        role: p.role,
-        invite_status: p.invite_status ?? 'accepted',
-      }))
-    );
+    await loadData();
     setInviting(null);
   };
 
@@ -218,24 +207,6 @@ export default function InvitePage() {
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--neon-accent)' }}>{error}</span>
             </div>
           )}
-
-          {/* Current participants */}
-          <div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Participants</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {participants.map(p => (
-                <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-2)', borderTop: '1px solid var(--rule)', borderRight: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)', borderLeft: `2px solid ${p.role === 'lead' ? 'var(--neon-purple)' : 'transparent'}`, borderRadius: 2 }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--paper)', opacity: 0.88 }}>{p.name}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    {p.role === 'lead' && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-purple)', background: 'rgba(168,136,232,0.1)', border: '1px solid rgba(168,136,232,0.25)', borderRadius: 2, padding: '2px 6px' }}>lead</span>
-                    )}
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.invite_status === 'accepted' ? 'var(--neon-green)' : 'var(--paper-4)', background: p.invite_status === 'accepted' ? 'rgba(78,196,122,0.08)' : 'transparent', border: `1px solid ${p.invite_status === 'accepted' ? 'rgba(78,196,122,0.25)' : 'var(--rule)'}`, borderRadius: 2, padding: '2px 6px' }}>{p.invite_status}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
           <div style={{ height: 1, background: 'var(--rule-mid)' }} />
 
@@ -284,6 +255,24 @@ export default function InvitePage() {
                 )) : (
                   <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--paper-5)' }}>No contributors found</div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Current participants */}
+          {participants.length > 0 && (
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Participants</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {participants.map(p => (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-2)', borderTop: '1px solid var(--rule)', borderRight: '1px solid var(--rule)', borderBottom: '1px solid var(--rule)', borderLeft: `2px solid ${p.role === 'lead' ? 'var(--neon-purple)' : 'rgba(168,136,232,0.25)'}`, boxShadow: p.role === 'lead' ? '-3px 0 10px -2px var(--glow-purple)' : 'none', borderRadius: 2 }}>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--paper)', opacity: 0.88 }}>{p.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-purple)', background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.22)', borderRadius: 2, padding: '2px 6px' }}>{p.role}</span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.invite_status === 'accepted' ? 'var(--neon-green)' : 'var(--paper-4)', background: p.invite_status === 'accepted' ? 'rgba(78,196,122,0.08)' : 'transparent', border: `1px solid ${p.invite_status === 'accepted' ? 'rgba(78,196,122,0.25)' : 'var(--rule)'}`, borderRadius: 2, padding: '2px 6px' }}>{p.invite_status}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}

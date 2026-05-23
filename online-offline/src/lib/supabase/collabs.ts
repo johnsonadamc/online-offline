@@ -35,6 +35,7 @@ interface FormattedCollab {
 interface DetailedCollabData extends FormattedCollab {
   description: string;
   prompt_text: string;
+  template_id: string | null;
   metadata: Record<string, unknown>;
   participants: DetailedParticipant[];
   created_at: string;
@@ -328,6 +329,7 @@ export async function getCollabById(supabase: ReturnType<typeof getSupabaseClien
         updated_at,
         description,
         prompt_text,
+        template_id,
         metadata
       `)
       .eq('id', collabId)
@@ -398,6 +400,7 @@ export async function getCollabById(supabase: ReturnType<typeof getSupabaseClien
       location: data.metadata?.location || null,
       description: data.description || '',
       prompt_text: data.prompt_text || '',
+      template_id: data.template_id || null,
       metadata: data.metadata || {},
       participants,
       participantCount: participants.length,

@@ -14,6 +14,7 @@ interface CollabDetails {
   description: string;
   prompt_text: string;
   instructions?: string;
+  template_id?: string | null;
   is_private: boolean;
   metadata?: Record<string, unknown>;
   participant_count?: number;
@@ -111,10 +112,14 @@ function CollabSubmissionContent() {
         }
 
         let instructionsText = collabResult.collab.prompt_text || '';
-        if (collabResult.collab.metadata?.template_id) {
+        const templateId = collabResult.collab.template_id || (collabResult.collab.metadata?.template_id as string | undefined);
+        if (templateId) {
           const { data: templateData } = await supabase
-            .from('collab_templates').select('*').eq('id', collabResult.collab.metadata.template_id).single();
+            .from('collab_templates').select('instructions').eq('id', templateId).maybeSingle();
           if (templateData?.instructions) instructionsText = templateData.instructions;
+        }
+        if (!instructionsText) {
+          instructionsText = collabResult.collab.description || '';
         }
 
         const { data: periodData } = await supabase.from('periods').select('*').eq('is_active', true).single();
@@ -137,6 +142,7 @@ function CollabSubmissionContent() {
           description: collabResult.collab.description || 'Collaborate with other creators on this project.',
           prompt_text: collabResult.collab.prompt_text || '',
           instructions: instructionsText,
+          template_id: collabResult.collab.template_id || null,
           is_private: Boolean(collabResult.collab.is_private),
           metadata: collabResult.collab.metadata,
           participant_count: participantCount || 0,
