@@ -77,10 +77,13 @@ export default function CreateCollabPage() {
         .single();
 
       if (collabError || !collab) {
+        console.error('[create-collab] collab insert failed:', collabError);
         setError(collabError?.message ?? 'Failed to create collaboration');
         setSubmitting(false);
         return;
       }
+
+      console.log('[create-collab] collab created:', collab.id);
 
       const { error: participantError } = await supabase
         .from('collab_participants')
@@ -94,10 +97,13 @@ export default function CreateCollabPage() {
         });
 
       if (participantError) {
+        console.error('[create-collab] participant insert failed:', participantError);
         setError(participantError.message);
         setSubmitting(false);
         return;
       }
+
+      console.log('[create-collab] lead participant inserted, redirecting to invite page');
 
       router.push(`/collabs/${collab.id}/invite`);
     } catch (err) {
