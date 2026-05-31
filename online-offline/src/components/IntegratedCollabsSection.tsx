@@ -630,6 +630,66 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
         })}
       </div>
 
+      {/* ── user-created private collabs (template_id = null, not in any template loop) ── */}
+      {(() => {
+        const userCreated = joinedCollabs.filter(c => c.participation_mode === 'private' && !c.template_id);
+        if (!userCreated.length) return null;
+        return (
+          <div style={{ padding: '0 14px 4px' }}>
+            <div style={{ height: 1, background: 'var(--lt-rule)', margin: '4px 0 10px' }} />
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>
+              Your Private Collabs
+            </div>
+            {userCreated.map(collab => {
+              const isPrivSel = selectedCollabs.includes(collab.id);
+              return (
+                <div
+                  key={collab.id}
+                  onClick={() => toggleItem(collab.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px',
+                    borderLeft: `2px solid ${isPrivSel ? 'var(--neon-purple)' : 'transparent'}`,
+                    borderRadius: 1, cursor: 'pointer', marginBottom: 2, userSelect: 'none',
+                    background: isPrivSel ? 'rgba(168,136,232,0.05)' : 'transparent',
+                    boxShadow: isPrivSel ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
+                    transition: 'background 0.1s',
+                  }}
+                >
+                  <svg style={{ width: 14, height: 14, flexShrink: 0 }} viewBox="0 0 14 14" fill="none">
+                    <rect x="3" y="6" width="8" height="6" rx="1" stroke="var(--neon-purple)" strokeWidth="1" />
+                    <path d="M5 6V4.5a2 2 0 0 1 4 0V6" stroke="var(--neon-purple)" strokeWidth="1" />
+                  </svg>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--lt-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {collab.title}
+                    </div>
+                    {collab.description && (
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 300, color: 'var(--lt-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
+                        {collab.description}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', flexShrink: 0 }}>★</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right', flexShrink: 0 }}>
+                    {collab.participant_count || ''}
+                  </span>
+                  <div style={{
+                    width: 16, height: 16, borderRadius: 2, flexShrink: 0,
+                    border: `1px solid ${isPrivSel ? 'var(--neon-purple)' : 'var(--lt-card-bdr)'}`,
+                    background: isPrivSel ? 'var(--neon-purple)' : 'transparent',
+                    boxShadow: isPrivSel ? '0 0 6px var(--glow-purple)' : 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background 0.12s, border-color 0.12s',
+                  }}>
+                    {isPrivSel && <Checkmark />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* ── footer ── */}
       <div style={{ margin: '8px 14px 16px', padding: '12px 14px', background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: 7 }}>

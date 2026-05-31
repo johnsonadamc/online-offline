@@ -18,13 +18,6 @@ interface CollabTemplate {
   localParticipantCount?: number;
 }
 
-interface User {
-  id: string;
-  name: string;
-  bio: string;
-  avatar: string;
-}
-
 interface CurrentPeriod {
   id: string;
   season: string;
@@ -49,15 +42,7 @@ export default function CollabsLibrary() {
   const router = useRouter();
   const supabase = useSupabase();
   const [availablePrompts, setAvailablePrompts] = useState<CollabTemplate[]>([]);
-  const [showInviteDialog, setShowInviteDialog] = useState(false);
-  const [selectedCollabTitle, setSelectedCollabTitle] = useState('');
-  const [selectedCollabId, setSelectedCollabId] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [profileResults, setProfileResults] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cancelPress, setCancelPress] = useState<PressState>('rest');
-  const [sendPress, setSendPress] = useState<PressState>('rest');
   const [error, setError] = useState<ErrorState>({ message: '', isVisible: false });
   const [currentPeriod, setCurrentPeriod] = useState<CurrentPeriod>({ id: '', season: 'Spring', year: 2025 });
   const [showLocalDialog, setShowLocalDialog] = useState(false);
@@ -193,41 +178,48 @@ export default function CollabsLibrary() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const searchProfiles = async (term: string) => {
-    try {
-      let query = supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url, is_public, bio')
-        .eq('is_public', true);
-      if (term.trim()) {
-        query = query.or(`first_name.ilike.%${term.trim()}%,last_name.ilike.%${term.trim()}%`).limit(10);
-      } else {
-        query = query.order('first_name', { ascending: true }).limit(20);
-      }
-      const { data, error: searchError } = await query;
-      if (searchError) { showError('Search failed: ' + searchError.message); return; }
-      setProfileResults(
-        (data || []).map((p: any) => ({
-          id: p.id,
-          name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim(),
-          bio: p.bio || '',
-          avatar: p.avatar_url || '',
-        }))
-      );
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Search error');
-    }
-  };
-
-  useEffect(() => { searchProfiles(searchTerm); }, [searchTerm]);
-  useEffect(() => { if (showInviteDialog) searchProfiles(''); }, [showInviteDialog]);
 
   const handleJoinClick = async (collabId: string, title: string, mode: ParticipationMode) => {
     try {
       if (mode === 'private') {
-        setSelectedCollabId(collabId);
-        setSelectedCollabTitle(title);
-        setShowInviteDialog(true);
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw new Error(userError.message);
+        if (!user) { showError('You must be logged in'); return; }
+        const template = availablePrompts.find(t => t.id === collabId);
+        if (!template) { showError('Template not found'); return; }
+        if (!currentPeriod.id) { showError('No active period found'); return; }
+
+        const { data: newCollab, error: collabError } = await supabase
+          .from('collabs')
+          .insert({
+            title: template.name,
+            description: template.display_text,
+            type: template.type || 'theme',
+            is_private: true,
+            participation_mode: 'private',
+            is_user_created: false,
+            template_id: template.id,
+            period_id: currentPeriod.id,
+            created_by: user.id,
+            metadata: { participation_mode: 'private', location: null },
+          })
+          .select('id')
+          .single();
+        if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
+
+        const { error: participantError } = await supabase
+          .from('collab_participants')
+          .insert({
+            profile_id: user.id,
+            collab_id: newCollab.id,
+            role: 'lead',
+            status: 'active',
+            participation_mode: 'private',
+            invite_status: 'accepted',
+          });
+        if (participantError) throw new Error(`Could not add you as lead: ${participantError.message}`);
+
+        router.push(`/collabs/${newCollab.id}/invite`);
         return;
       }
       if (mode === 'local') {
@@ -282,40 +274,6 @@ export default function CollabsLibrary() {
     }
   };
 
-  const createPrivateCollab = async () => {
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) throw new Error(userError.message);
-      if (!user) { showError('You must be logged in'); return; }
-
-      const template = availablePrompts.find(t => t.id === selectedCollabId);
-      if (!template) { showError('Template not found'); return; }
-
-      const { data: collab, error: collabError } = await supabase
-        .from('collabs')
-        .insert({ title: template.name, description: template.display_text, type: template.type || 'theme', is_private: true, participation_mode: 'private', location: null, created_by: user.id, total_phases: template.phases || null, current_phase: 1, metadata: { template_id: template.id, participation_mode: 'private', location: null } })
-        .select().single();
-      if (collabError) throw new Error(`Could not create collaboration: ${collabError.message}`);
-
-      const { error: organizerError } = await supabase
-        .from('collab_participants')
-        .insert({ profile_id: user.id, collab_id: collab.id, role: 'organizer', status: 'active', participation_mode: 'private', location: null });
-      if (organizerError) throw new Error(`Could not add you as organizer: ${organizerError.message}`);
-
-      if (selectedUsers.length > 0) {
-        await supabase.from('collab_participants').insert(
-          selectedUsers.map(u => ({ profile_id: u.id, collab_id: collab.id, role: 'member', status: 'invited', participation_mode: 'private', location: null }))
-        );
-      }
-
-      setAvailablePrompts(prev => prev.filter(c => c.id !== selectedCollabId));
-      setShowInviteDialog(false);
-      alert(`You have successfully created a private collaboration with ${selectedUsers.length} invited participants.`);
-      router.push('/dashboard');
-    } catch (err) {
-      showError(err instanceof Error ? err.message : 'Could not create private collaboration');
-    }
-  };
 
   const confirmLocalJoin = async () => {
     try {
@@ -360,12 +318,6 @@ export default function CollabsLibrary() {
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Could not join the collaboration');
     }
-  };
-
-  const toggleUser = (user: User) => {
-    setSelectedUsers(prev =>
-      prev.find(u => u.id === user.id) ? prev.filter(u => u.id !== user.id) : [...prev, user]
-    );
   };
 
   const releasePress = (set: (s: PressState) => void) => {
@@ -638,101 +590,6 @@ export default function CollabsLibrary() {
 
         </div>
       </div>
-
-      {/* Invite modal */}
-      {showInviteDialog && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: 'var(--ground-2)', border: '1px solid var(--rule-mid)', borderRadius: 2, width: '100%', maxWidth: 480 }}>
-            {/* Modal header */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule-mid)', background: 'var(--ground-3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ color: 'var(--neon-purple)', flexShrink: 0 }}><rect x="2" y="5.5" width="9" height="7" rx="1" stroke="currentColor" strokeWidth="1"/><path d="M4 5.5V3.5C4 2.1 5.1 1 6.5 1C7.9 1 9 2.1 9 3.5V5.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Private Collab: {selectedCollabTitle}</span>
-              </div>
-              <button onClick={() => setShowInviteDialog(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--paper-3)', opacity: 0.6, padding: 2 }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
-              </button>
-            </div>
-
-            <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Search */}
-              <div style={{ position: 'relative' }}>
-                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--paper-3)', opacity: 0.5, pointerEvents: 'none' }}><circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1"/><path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg>
-                <input
-                  type="text"
-                  placeholder="Search contributors…"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                  style={{ width: '100%', padding: '9px 10px 9px 30px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box', caretColor: 'var(--neon-purple)' }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(168,136,232,0.5)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
-                />
-              </div>
-
-              {/* Selected chips */}
-              {selectedUsers.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '8px 10px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                  {selectedUsers.map(u => (
-                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.25)', borderRadius: 2, padding: '3px 8px' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)' }}>{u.name}</span>
-                      <button onClick={() => toggleUser(u)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--neon-purple)', opacity: 0.6, padding: 0, display: 'flex', lineHeight: 0 }}><svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M3 3L8 8M8 3L3 8" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/></svg></button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Results list */}
-              {profileResults.length > 0 && (
-                <div style={{ border: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden', maxHeight: 260, overflowY: 'auto' }}>
-                  {profileResults.map(u => {
-                    const isSelected = !!selectedUsers.find(s => s.id === u.id);
-                    return (
-                      <div
-                        key={u.id}
-                        onClick={() => toggleUser(u)}
-                        style={{
-                          padding: '12px 14px',
-                          borderBottom: '1px solid var(--rule)',
-                          cursor: 'pointer',
-                          background: isSelected ? 'rgba(168,136,232,0.05)' : 'transparent',
-                          borderLeft: isSelected ? '2px solid var(--neon-purple)' : '2px solid transparent',
-                          boxShadow: isSelected ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
-                        }}
-                      >
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: 3 }}>{u.name}</div>
-                        {u.bio && <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: 12, color: 'var(--paper-4)' }}>{u.bio.length > 60 ? u.bio.slice(0, 60) + '…' : u.bio}</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Modal actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, paddingTop: 4 }}>
-                <button
-                  onPointerDown={() => setCancelPress('pressing')}
-                  onPointerUp={() => releasePress(setCancelPress)}
-                  onPointerLeave={() => { if (cancelPress === 'pressing') releasePress(setCancelPress); }}
-                  onClick={() => setShowInviteDialog(false)}
-                  style={pressStyle(cancelPress)}
-                >
-                  Cancel
-                </button>
-                <button
-                  onPointerDown={() => setSendPress('pressing')}
-                  onPointerUp={() => releasePress(setSendPress)}
-                  onPointerLeave={() => { if (sendPress === 'pressing') releasePress(setSendPress); }}
-                  onClick={createPrivateCollab}
-                  disabled={selectedUsers.length === 0}
-                  style={{ ...pressStyle(sendPress, true), opacity: selectedUsers.length === 0 ? 0.4 : 1, cursor: selectedUsers.length === 0 ? 'not-allowed' : 'pointer' }}
-                >
-                  Send Invites ({selectedUsers.length})
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Local city dialog */}
       {showLocalDialog && (

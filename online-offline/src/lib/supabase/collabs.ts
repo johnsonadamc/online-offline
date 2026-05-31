@@ -143,6 +143,8 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
     }
     
     // Now get all participants for these collabs for display
+    // Two-step fetch: collab_participants has two FKs to profiles (profile_id + invited_by),
+    // so PostgREST embed is ambiguous (PGRST201). Fetch rows then profiles separately.
     const { data: allParticipantsData } = await supabase
       .from('collab_participants')
       .select(`
@@ -151,14 +153,10 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
         profile_id,
         collab_id,
         participation_mode,
-        location,
-        profiles (
-          id,
-          first_name,
-          last_name
-        )
+        location
       `)
-      .in('collab_id', collabIds);
+      .in('collab_id', collabIds)
+      .eq('status', 'active');
       
     // Initialize arrays for different collab types
     const privateCollabs: FormattedCollab[] = [];
@@ -170,10 +168,10 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
       // Get participants for this collab
       const collabParticipants = allParticipantsData?.filter(p => p.collab_id === collab.id) || [];
       
-      // Format participant data
+      // Format participant data (names not needed on dashboard — just counts)
       const participants: Participant[] = collabParticipants.map((p) => {
         return {
-          name: getNameFromProfile(p.profiles),
+          name: '',
           role: p.role
         };
       });

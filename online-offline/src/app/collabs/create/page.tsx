@@ -15,7 +15,7 @@ export default function CreateCollabPage() {
   const [error, setError] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [type, setType] = useState<'theme' | 'chain' | 'narrative'>('theme');
+  const [prompt, setPrompt] = useState('');
   const [submitPress, setSubmitPress] = useState<PressState>('rest');
 
   useEffect(() => {
@@ -43,7 +43,8 @@ export default function CreateCollabPage() {
 
   const handleCreate = async () => {
     if (!name.trim()) { setError('Name is required'); return; }
-    if (!description.trim()) { setError('Brief is required'); return; }
+    if (!description.trim()) { setError('Description is required'); return; }
+    if (!prompt.trim()) { setError('Prompt is required'); return; }
 
     setSubmitting(true);
     setError('');
@@ -64,7 +65,8 @@ export default function CreateCollabPage() {
         .insert({
           title: name.trim(),
           description: description.trim(),
-          type,
+          prompt_text: prompt.trim(),
+          type: 'theme',
           is_private: true,
           participation_mode: 'private',
           is_user_created: true,
@@ -167,13 +169,27 @@ export default function CreateCollabPage() {
             />
           </div>
 
-          {/* Brief */}
+          {/* Description */}
           <div style={{ marginBottom: 28 }}>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Brief</label>
+            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Description</label>
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="What is this collab about? What should contributors make?"
+              placeholder="What is this collab about?"
+              rows={3}
+              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', borderRadius: 0, padding: '8px 0', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 300, color: 'var(--paper-2)', outline: 'none', resize: 'none', lineHeight: 1.55, caretColor: 'var(--neon-purple)', boxSizing: 'border-box' }}
+              onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--paper-3)'; }}
+              onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
+            />
+          </div>
+
+          {/* Prompt */}
+          <div style={{ marginBottom: 36 }}>
+            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Prompt</label>
+            <textarea
+              value={prompt}
+              onChange={e => setPrompt(e.target.value)}
+              placeholder="What should contributors make? Give them a clear brief."
               rows={4}
               style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', borderRadius: 0, padding: '8px 0', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 300, color: 'var(--paper-2)', outline: 'none', resize: 'none', lineHeight: 1.55, caretColor: 'var(--neon-purple)', boxSizing: 'border-box' }}
               onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--paper-3)'; }}
@@ -181,36 +197,12 @@ export default function CreateCollabPage() {
             />
           </div>
 
-          {/* Type */}
-          <div style={{ marginBottom: 36 }}>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 10 }}>Type</label>
-            <div style={{ display: 'flex', gap: 6 }}>
-              {(['theme', 'chain', 'narrative'] as const).map(t => (
-                <button
-                  key={t}
-                  onClick={() => setType(t)}
-                  style={{
-                    flex: 1, padding: '8px 4px',
-                    fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase',
-                    borderRadius: 2, cursor: 'pointer',
-                    color: type === t ? 'var(--neon-purple)' : 'var(--paper-4)',
-                    background: type === t ? 'rgba(168,136,232,0.1)' : 'var(--ground-3)',
-                    border: `1px solid ${type === t ? 'rgba(168,136,232,0.35)' : 'var(--rule-mid)'}`,
-                    transition: 'all 0.12s',
-                  }}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Submit */}
           <button
             onPointerDown={() => setSubmitPress('pressing')}
-            onPointerUp={() => { releasePress(setSubmitPress); if (!submitting && name.trim() && description.trim()) handleCreate(); }}
+            onPointerUp={() => { releasePress(setSubmitPress); if (!submitting && name.trim() && description.trim() && prompt.trim()) handleCreate(); }}
             onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
-            disabled={submitting || !name.trim() || !description.trim()}
+            disabled={submitting || !name.trim() || !description.trim() || !prompt.trim()}
             style={{
               width: '100%',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
@@ -223,8 +215,8 @@ export default function CreateCollabPage() {
               borderLeft: `1px solid ${submitPress !== 'rest' ? 'rgba(168,136,232,0.5)' : 'rgba(168,136,232,0.35)'}`,
               borderBottom: `2px solid ${submitPress === 'pressing' ? 'rgba(168,136,232,0.6)' : 'rgba(168,136,232,0.45)'}`,
               borderRadius: 2,
-              cursor: (submitting || !name.trim() || !description.trim()) ? 'not-allowed' : 'pointer',
-              opacity: (submitting || !name.trim() || !description.trim()) ? 0.4 : 1,
+              cursor: (submitting || !name.trim() || !description.trim() || !prompt.trim()) ? 'not-allowed' : 'pointer',
+              opacity: (submitting || !name.trim() || !description.trim() || !prompt.trim()) ? 0.4 : 1,
               transform: submitPress === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
               boxShadow: submitPress === 'pressing' ? 'none' : '0 2px 0 rgba(168,136,232,0.2), 0 0 14px rgba(168,136,232,0.06)',
               transition: submitPress === 'releasing'
