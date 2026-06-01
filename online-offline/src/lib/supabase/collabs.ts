@@ -30,6 +30,7 @@ interface FormattedCollab {
   total_phases: number | null;
   last_active: string;
   userRole?: string;
+  isPendingInvite?: boolean;
 }
 
 // Define detailed collaboration data interface
@@ -110,17 +111,25 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
         collab_id,
         profile_id,
         participation_mode,
-        location
+        location,
+        invite_status
       `)
       .eq('profile_id', user.id)
       .eq('status', 'active');
-      
+
     if (participantsError || !participantsData || participantsData.length === 0) {
       return { private: [], community: [], local: [] };
     }
-    
+
+    // Exclude declined invitations — those collabs should not appear in the dashboard
+    const visibleParticipations = participantsData.filter(p => p.invite_status !== 'declined');
+
+    if (visibleParticipations.length === 0) {
+      return { private: [], community: [], local: [] };
+    }
+
     // Extract collab IDs from participant records
-    const collabIds = participantsData.map(p => p.collab_id);
+    const collabIds = visibleParticipations.map(p => p.collab_id);
     
     // Fetch the actual collab data
     const { data: collabsData, error: collabsError } = await supabase
@@ -191,7 +200,7 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
       }
       
       // Check user's participation in this collab
-      const userParticipation = participantsData.find(p => p.collab_id === collab.id);
+      const userParticipation = visibleParticipations.find(p => p.collab_id === collab.id);
       
       // Check for participation mode first
       let participationMode: 'private' | 'local' | 'community' = userParticipation?.participation_mode as 'private' | 'local' | 'community' || 'community';
@@ -227,6 +236,7 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
         total_phases: collab.total_phases,
         last_active: lastActive,
         userRole: userParticipation?.role,
+        isPendingInvite: userParticipation?.invite_status === 'pending',
       };
       
       // Add to appropriate array based on participation mode

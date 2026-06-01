@@ -302,7 +302,27 @@ export default function InvitePage() {
                     <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--paper)', opacity: 0.88 }}>{p.name}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-purple)', background: 'rgba(168,136,232,0.08)', border: '1px solid rgba(168,136,232,0.22)', borderRadius: 2, padding: '2px 6px' }}>{p.role}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase', color: p.invite_status === 'accepted' ? 'var(--neon-green)' : 'var(--paper-4)', background: p.invite_status === 'accepted' ? 'rgba(78,196,122,0.08)' : 'transparent', border: `1px solid ${p.invite_status === 'accepted' ? 'rgba(78,196,122,0.25)' : 'var(--rule)'}`, borderRadius: 2, padding: '2px 6px' }}>{p.invite_status}</span>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.1em', textTransform: 'uppercase',
+                        borderRadius: 2, padding: '2px 6px',
+                        color: p.invite_status === 'accepted'
+                          ? 'var(--neon-green)'
+                          : p.invite_status === 'declined'
+                          ? 'var(--neon-accent)'
+                          : 'var(--paper-4)',
+                        background: p.invite_status === 'accepted'
+                          ? 'rgba(78,196,122,0.08)'
+                          : p.invite_status === 'declined'
+                          ? 'rgba(224,90,40,0.08)'
+                          : 'transparent',
+                        border: `1px solid ${
+                          p.invite_status === 'accepted'
+                            ? 'rgba(78,196,122,0.25)'
+                            : p.invite_status === 'declined'
+                            ? 'rgba(224,90,40,0.25)'
+                            : 'var(--rule)'
+                        }`,
+                      }}>{p.invite_status}</span>
                     </div>
                   </div>
                 ))}

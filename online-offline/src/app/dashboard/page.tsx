@@ -46,6 +46,7 @@ interface ActiveCollab {
   type: string;
   status?: string;
   userRole?: string;
+  isPendingInvite?: boolean;
 }
 
 interface CollabData {
@@ -59,6 +60,7 @@ interface CollabData {
   participantCount?: number;
   status?: string;
   userRole?: string;
+  isPendingInvite?: boolean;
   metadata?: { status?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
@@ -217,6 +219,43 @@ export default function Dashboard() {
     }
   };
 
+  // ── Invite accept/decline ─────────────────────────────────────────────────────────────
+  const handleAcceptInvite = async (collabId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase
+        .from('collab_participants')
+        .update({ invite_status: 'accepted' })
+        .eq('collab_id', collabId)
+        .eq('profile_id', user.id);
+      if (error) { showError('Failed to accept invitation'); return; }
+      setActiveCollabs(prev =>
+        prev.map(c => c.id === collabId ? { ...c, isPendingInvite: false } : c)
+      );
+      showSuccess('Invitation accepted');
+    } catch {
+      showError('Failed to accept invitation');
+    }
+  };
+
+  const handleDeclineInvite = async (collabId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error } = await supabase
+        .from('collab_participants')
+        .update({ invite_status: 'declined' })
+        .eq('collab_id', collabId)
+        .eq('profile_id', user.id);
+      if (error) { showError('Failed to decline invitation'); return; }
+      setActiveCollabs(prev => prev.filter(c => c.id !== collabId));
+      showSuccess('Invitation declined');
+    } catch {
+      showError('Failed to decline invitation');
+    }
+  };
+
   // ── Data helpers (unchanged) ──────────────────────────────────────────────────────────
   const getCollabType = (type: string | undefined): string => {
     if (!type || type === 'regular' || type === 'fullSpread') return 'chain';
@@ -301,6 +340,7 @@ export default function Dashboard() {
               type: getCollabType(cd.type),
               status: status as string,
               userRole: cd.userRole,
+              isPendingInvite: cd.isPendingInvite,
             };
           }));
         }
@@ -801,15 +841,21 @@ export default function Dashboard() {
             </div>
 
             {/* ── Collaborations section ── */}
+            {(() => {
+              const pendingInvites = activeCollabs.filter(c => c.isPendingInvite);
+              const activeOnes = activeCollabs.filter(c => !c.isPendingInvite);
+              const collabSubtitle = (() => {
+                const parts = [];
+                if (activeOnes.length > 0) parts.push(`${activeOnes.length} active`);
+                if (pendingInvites.length > 0) parts.push(`${pendingInvites.length} invitation${pendingInvites.length > 1 ? 's' : ''}`);
+                return parts.length > 0 ? parts.join(' · ') : 'No active collaborations';
+              })();
+              return (
             <div style={{ borderTop: '1px solid var(--rule)', overflow: 'hidden' }}>
               <SectionHeader
                 id="collabs"
                 label="Collaborations"
-                subtitle={
-                  activeCollabs.length === 0
-                    ? 'No active collaborations'
-                    : `${activeCollabs.length} active`
-                }
+                subtitle={collabSubtitle}
                 icon={
                   <svg width="20" height="20" viewBox="0 0 24 24" overflow="visible">
                     <circle cx="6" cy="9" r="2.5" stroke={iconStroke('collabs')} strokeWidth="1.3" fill="none" style={{ filter: iconFilter('collabs'), transition: 'stroke 0.3s, filter 0.3s' }} />
@@ -823,8 +869,79 @@ export default function Dashboard() {
               />
               <OpenRule id="collabs" />
               <Expandable id="collabs">
-                {activeCollabs.length > 0 ? (
-                  activeCollabs.map(collab => {
+                {/* Pending invitations first */}
+                {pendingInvites.map(collab => (
+                  <div
+                    key={collab.id}
+                    style={{
+                      padding: '14px 0 14px 14px',
+                      borderTop: '1px solid var(--rule)',
+                      borderLeft: '2px solid var(--neon-purple)',
+                      boxShadow: '-3px 0 10px -2px var(--glow-purple)',
+                      background: 'rgba(168,136,232,0.04)',
+                      marginLeft: '-1px',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-purple)' }}>
+                          Private
+                        </span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(224,168,48,0.1)', border: '1px solid rgba(224,168,48,0.3)', borderRadius: '2px', padding: '1px 5px' }}>
+                          invited
+                        </span>
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '4px' }}>
+                        {collab.title}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{collab.type}</span>
+                        <span style={{ color: 'var(--paper-5)' }}>·</span>
+                        <span>{collab.participants} participant{collab.participants !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+                        <button
+                          onClick={() => handleAcceptInvite(collab.id)}
+                          style={{
+                            padding: '5px 12px',
+                            background: 'rgba(168,136,232,0.12)',
+                            border: '1px solid rgba(168,136,232,0.4)',
+                            borderBottom: '2px solid rgba(168,136,232,0.6)',
+                            borderRadius: '2px',
+                            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em',
+                            textTransform: 'uppercase', color: 'var(--neon-purple)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleDeclineInvite(collab.id)}
+                          style={{
+                            padding: '5px 12px',
+                            background: 'transparent',
+                            border: '1px solid var(--rule-mid)',
+                            borderBottom: '2px solid var(--ground-4)',
+                            borderRadius: '2px',
+                            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em',
+                            textTransform: 'uppercase', color: 'var(--paper-4)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Active collabs */}
+                {activeOnes.length > 0 ? (
+                  activeOnes.map(collab => {
                     const ms = modeStyle[collab.mode] || modeStyle.community;
                     const modeLabel = collab.mode === 'local' && collab.location
                       ? `Local · ${collab.location}`
@@ -881,11 +998,11 @@ export default function Dashboard() {
                       </div>
                     );
                   })
-                ) : (
+                ) : pendingInvites.length === 0 ? (
                   <div style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
                     <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>No active collaborations</span>
                   </div>
-                )}
+                ) : null}
 
                 {/* Browse CTA */}
                 <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -906,6 +1023,8 @@ export default function Dashboard() {
                 </div>
               </Expandable>
             </div>
+              );
+            })()}
 
             {/* ── Communications section ── */}
             <div style={{ borderTop: '1px solid var(--rule)', overflow: 'hidden' }}>
