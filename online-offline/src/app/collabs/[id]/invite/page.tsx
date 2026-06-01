@@ -40,6 +40,7 @@ export default function InvitePage() {
   const [inviting, setInviting] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [donePress, setDonePress] = useState<PressState>('rest');
+  const [deadlinePassed, setDeadlinePassed] = useState(false);
 
   const releasePress = (set: (s: PressState) => void) => {
     set('releasing');
@@ -65,12 +66,24 @@ export default function InvitePage() {
 
     const { data: collabData } = await supabase
       .from('collabs')
-      .select('id, title')
+      .select('id, title, period_id')
       .eq('id', collabId)
       .maybeSingle();
 
     if (!collabData) { router.push('/collabs'); return; }
     setCollab({ id: collabData.id, title: collabData.title });
+
+    // Check whether the submission deadline has passed
+    if (collabData.period_id) {
+      const { data: periodData } = await supabase
+        .from('periods')
+        .select('end_date')
+        .eq('id', collabData.period_id)
+        .maybeSingle();
+      if (periodData?.end_date) {
+        setDeadlinePassed(new Date(periodData.end_date) < new Date());
+      }
+    }
 
     // Two-step fetch: collab_participants has two FKs to profiles (profile_id + invited_by),
     // so PostgREST embed is ambiguous (PGRST201). Fetch rows then profiles separately.
@@ -225,7 +238,11 @@ export default function InvitePage() {
           <div style={{ height: 1, background: 'var(--rule-mid)' }} />
 
           {/* Search */}
-          {atCap ? (
+          {deadlinePassed ? (
+            <div style={{ padding: '14px 16px', background: 'rgba(168,136,232,0.05)', borderTop: '1px solid rgba(168,136,232,0.18)', borderRight: '1px solid rgba(168,136,232,0.18)', borderBottom: '1px solid rgba(168,136,232,0.18)', borderLeft: '3px solid var(--neon-purple)', borderRadius: 2 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Invitations closed — the submission deadline has passed.</span>
+            </div>
+          ) : atCap ? (
             <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--paper-4)', textAlign: 'center' }}>
               Maximum 10 participants reached.
             </div>

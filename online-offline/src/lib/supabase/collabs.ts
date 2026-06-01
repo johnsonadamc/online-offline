@@ -153,7 +153,8 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
         profile_id,
         collab_id,
         participation_mode,
-        location
+        location,
+        invite_status
       `)
       .in('collab_id', collabIds)
       .eq('status', 'active');
@@ -165,8 +166,10 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
     
     // Process each collaboration
     for (const collab of collabsData) {
-      // Get participants for this collab
-      const collabParticipants = allParticipantsData?.filter(p => p.collab_id === collab.id) || [];
+      // Get participants for this collab — accepted only (exclude pending invitees)
+      const collabParticipants = allParticipantsData?.filter(p =>
+        p.collab_id === collab.id && (!p.invite_status || p.invite_status === 'accepted')
+      ) || [];
       
       // Format participant data (names not needed on dashboard — just counts)
       const participants: Participant[] = collabParticipants.map((p) => {

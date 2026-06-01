@@ -189,37 +189,71 @@ export default function CollabsLibrary() {
         if (!template) { showError('Template not found'); return; }
         if (!currentPeriod.id) { showError('No active period found'); return; }
 
-        const { data: newCollab, error: collabError } = await supabase
+        // Find-or-create: one private collab row per template + period
+        const { data: existingPrivate } = await supabase
           .from('collabs')
-          .insert({
-            title: template.name,
-            description: template.display_text,
-            type: template.type || 'theme',
-            is_private: true,
-            participation_mode: 'private',
-            is_user_created: false,
-            template_id: template.id,
-            period_id: currentPeriod.id,
-            created_by: user.id,
-            metadata: { participation_mode: 'private', location: null },
-          })
           .select('id')
-          .single();
-        if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
+          .eq('template_id', template.id)
+          .eq('participation_mode', 'private')
+          .eq('period_id', currentPeriod.id)
+          .maybeSingle();
+
+        let targetCollabId: string;
+        if (existingPrivate) {
+          targetCollabId = existingPrivate.id;
+        } else {
+          const { data: newCollab, error: collabError } = await supabase
+            .from('collabs')
+            .insert({
+              title: template.name,
+              description: template.display_text,
+              type: template.type || 'theme',
+              is_private: true,
+              participation_mode: 'private',
+              is_user_created: false,
+              template_id: template.id,
+              period_id: currentPeriod.id,
+              created_by: user.id,
+              metadata: { participation_mode: 'private', location: null },
+            })
+            .select('id')
+            .single();
+          if (collabError || !newCollab) throw new Error(`Could not create collaboration: ${collabError?.message}`);
+          targetCollabId = newCollab.id;
+        }
+
+        // Count accepted+active participants to determine role (first joiner = lead)
+        const { count: acceptedCount } = await supabase
+          .from('collab_participants')
+          .select('*', { count: 'exact', head: true })
+          .eq('collab_id', targetCollabId)
+          .eq('status', 'active')
+          .or('invite_status.is.null,invite_status.eq.accepted');
+
+        if ((acceptedCount ?? 0) >= 10) {
+          showError('This private collab is full (10 participants)');
+          return;
+        }
+
+        const role = (acceptedCount ?? 0) === 0 ? 'lead' : 'member';
 
         const { error: participantError } = await supabase
           .from('collab_participants')
           .insert({
             profile_id: user.id,
-            collab_id: newCollab.id,
-            role: 'lead',
+            collab_id: targetCollabId,
+            role,
             status: 'active',
             participation_mode: 'private',
             invite_status: 'accepted',
           });
-        if (participantError) throw new Error(`Could not add you as lead: ${participantError.message}`);
+        if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
 
-        router.push(`/collabs/${newCollab.id}/invite`);
+        if (role === 'lead') {
+          router.push(`/collabs/${targetCollabId}/invite`);
+        } else {
+          router.push('/dashboard');
+        }
         return;
       }
       if (mode === 'local') {

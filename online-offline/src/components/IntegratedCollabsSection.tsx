@@ -119,7 +119,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
         if (communityData) {
           for (const cc of communityData) {
             const { count } = await supabase.from('collab_participants')
-              .select('*', { count: 'exact', head: true }).eq('collab_id', cc.id).eq('status', 'active');
+              .select('*', { count: 'exact', head: true }).eq('collab_id', cc.id).eq('status', 'active')
+              .or('invite_status.is.null,invite_status.eq.accepted');
             if (count !== null) total += count;
           }
         }
@@ -129,7 +130,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
         if (localData) {
           for (const lc of localData) {
             const { count } = await supabase.from('collab_participants')
-              .select('*', { count: 'exact', head: true }).eq('collab_id', lc.id).eq('status', 'active');
+              .select('*', { count: 'exact', head: true }).eq('collab_id', lc.id).eq('status', 'active')
+              .or('invite_status.is.null,invite_status.eq.accepted');
             if (count !== null) total += count;
           }
         }
@@ -224,7 +226,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
               });
               for (const c of userJoined) {
                 const { count } = await supabase.from('collab_participants')
-                  .select('*', { count: 'exact', head: true }).eq('collab_id', c.id).eq('status', 'active');
+                  .select('*', { count: 'exact', head: true }).eq('collab_id', c.id).eq('status', 'active')
+                  .or('invite_status.is.null,invite_status.eq.accepted');
                 if (count !== null) c.participant_count = count;
               }
               setJoinedCollabs(userJoined);
