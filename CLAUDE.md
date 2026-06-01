@@ -283,6 +283,7 @@ W=768 H=1032 BLEED=11 AW=790 AH=1054 ML=58 MR=58 MT=56 MB=56 LIVEW=652
 Colors: C.ground=#252119, C.paper=#f0ebe2, C.terra=#e05a28 (identity/action), C.gold=#e8a020 (structure/warmth)
 Fonts: F.serif=Instrument Serif, F.sans=Instrument Sans, F.mono=Courier Prime
 volume/issue read dynamically from active period (not hardcoded).
+Print: 768×1032px +11px bleed = 790×1054 canvas; Puppeteer deviceScaleFactor:4 (~300dpi); RGB output.
 
 Running the Generator
 set -a && source .env.local && set +a && npm run generate-test
@@ -390,6 +391,26 @@ Key Gotchas & Hard-Won Lessons
 ### Service Role Key
 - Must be in BOTH .env.local AND Vercel env vars; use service_role NOT anon.
 - Production symptoms: "supabaseKey is required" (missing) or "Invalid API key" (wrong/whitespace/anon).
+
+### User Deletion (test accounts)
+- Supabase dashboard delete fails with "Database error deleting user" if dependent rows exist.
+- Run SQL cleanup first (in FK order), THEN delete from Authentication → Users:
+  DO $$ DECLARE uid uuid := '<paste-uuid>';
+  BEGIN
+    DELETE FROM curator_communication_selections WHERE curator_id=uid;
+    DELETE FROM curator_campaign_selections WHERE curator_id=uid;
+    DELETE FROM curator_collab_selections WHERE curator_id=uid;
+    DELETE FROM curator_creator_selections WHERE curator_id=uid OR creator_id=uid;
+    DELETE FROM communications WHERE sender_id=uid OR recipient_id=uid;
+    DELETE FROM collab_participants WHERE profile_id=uid;
+    DELETE FROM collab_submissions WHERE contributor_id=uid;
+    DELETE FROM content_entries WHERE content_id IN (SELECT id FROM content WHERE creator_id=uid);
+    DELETE FROM content WHERE creator_id=uid;
+    DELETE FROM subscriptions WHERE subscriber_id=uid OR creator_id=uid;
+    DELETE FROM profile_connections WHERE follower_id=uid OR followed_id=uid;
+    DELETE FROM profile_types WHERE profile_id=uid;
+    DELETE FROM profiles WHERE id=uid;
+  END $$;
 
 ### Collabs
 - find-or-create join (no dup rows for same template_id+mode+city+period_id).
