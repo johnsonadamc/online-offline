@@ -29,6 +29,7 @@ interface FormattedCollab {
   current_phase: number | null;
   total_phases: number | null;
   last_active: string;
+  userRole?: string;
 }
 
 // Define detailed collaboration data interface
@@ -224,7 +225,8 @@ export async function getUserCollabs(supabase: ReturnType<typeof getSupabaseClie
         participantCount: participants.length,
         current_phase: collab.current_phase,
         total_phases: collab.total_phases,
-        last_active: lastActive
+        last_active: lastActive,
+        userRole: userParticipation?.role,
       };
       
       // Add to appropriate array based on participation mode

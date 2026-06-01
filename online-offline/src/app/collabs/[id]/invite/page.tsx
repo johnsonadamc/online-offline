@@ -41,6 +41,7 @@ export default function InvitePage() {
   const [error, setError] = useState('');
   const [donePress, setDonePress] = useState<PressState>('rest');
   const [deadlinePassed, setDeadlinePassed] = useState(false);
+  const [isLead, setIsLead] = useState(false);
 
   const releasePress = (set: (s: PressState) => void) => {
     set('releasing');
@@ -59,10 +60,11 @@ export default function InvitePage() {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    if (!participantRow || (participantRow.role !== 'lead' && participantRow.role !== 'organizer')) {
+    if (!participantRow) {
       router.push('/collabs');
       return;
     }
+    setIsLead(participantRow.role === 'lead' || participantRow.role === 'organizer');
 
     const { data: collabData } = await supabase
       .from('collabs')
@@ -237,8 +239,8 @@ export default function InvitePage() {
 
           <div style={{ height: 1, background: 'var(--rule-mid)' }} />
 
-          {/* Search */}
-          {deadlinePassed ? (
+          {/* Invite controls — lead only */}
+          {isLead && (deadlinePassed ? (
             <div style={{ padding: '14px 16px', background: 'rgba(168,136,232,0.05)', borderTop: '1px solid rgba(168,136,232,0.18)', borderRight: '1px solid rgba(168,136,232,0.18)', borderBottom: '1px solid rgba(168,136,232,0.18)', borderLeft: '3px solid var(--neon-purple)', borderRadius: 2 }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Invitations closed — the submission deadline has passed.</span>
             </div>
@@ -288,7 +290,7 @@ export default function InvitePage() {
                 )}
               </div>
             </div>
-          )}
+          ))}
 
           {/* Current participants */}
           {participants.length > 0 && (

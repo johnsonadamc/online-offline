@@ -45,6 +45,7 @@ interface ActiveCollab {
   participants: number;
   type: string;
   status?: string;
+  userRole?: string;
 }
 
 interface CollabData {
@@ -57,6 +58,7 @@ interface CollabData {
   participants?: { name: string; role: string }[];
   participantCount?: number;
   status?: string;
+  userRole?: string;
   metadata?: { status?: string; [key: string]: unknown };
   [key: string]: unknown;
 }
@@ -298,6 +300,7 @@ export default function Dashboard() {
               participants: cd.participantCount || 0,
               type: getCollabType(cd.type),
               status: status as string,
+              userRole: cd.userRole,
             };
           }));
         }
@@ -859,6 +862,14 @@ export default function Dashboard() {
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
                           {collab.status === 'submitted' && (
                             <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '11px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent)' }}>submitted</span>
+                          )}
+                          {collab.mode === 'private' && (
+                            <button
+                              onClick={e => { e.stopPropagation(); router.push(`/collabs/${collab.id}/invite`); }}
+                              style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: collab.userRole === 'lead' ? 'var(--neon-purple)' : 'rgba(168,136,232,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textShadow: collab.userRole === 'lead' ? '0 0 6px var(--glow-purple)' : 'none' }}
+                            >
+                              {collab.userRole === 'lead' ? 'invite' : 'participants'}
+                            </button>
                           )}
                           <button
                             onClick={e => { e.stopPropagation(); showConfirmDialog('leave', collab.id); }}
