@@ -120,7 +120,8 @@ export default function SubmissionForm() {
           const bodyEntry = data.content_entries?.[0];
           if (bodyEntry?.body) setTextBody(bodyEntry.body);
         } else if (data.content_entries?.length > 0) {
-          const loaded: Entry[] = data.content_entries.map((entry: ContentEntry) => ({
+          const sorted = [...data.content_entries].sort((a: ContentEntry, b: ContentEntry) => (a.order_index ?? 0) - (b.order_index ?? 0));
+          const loaded: Entry[] = sorted.map((entry: ContentEntry) => ({
             id: entry.id,
             title: entry.title || '',
             caption: entry.caption || '',

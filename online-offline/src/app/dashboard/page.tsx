@@ -812,6 +812,9 @@ export default function Dashboard() {
                         {contentSubmission.status === 'published' && (
                           <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>published</span>
                         )}
+                        {contentSubmission.status === 'draft' && (
+                          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>tap to edit</span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -825,21 +828,6 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Submit press button — only shown when a submission exists */}
-                {contentSubmission && (
-                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--paper-4)' }}>
-                    Add more work this season
-                  </span>
-                  <button
-                    className={`press-btn${submitPress === 'pressing' ? ' pressing' : ''}${submitPress === 'releasing' ? ' releasing' : ''}`}
-                    onClick={pressSubmit}
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                    Submit
-                  </button>
-                </div>
-                )}
               </Expandable>
             </div>
 

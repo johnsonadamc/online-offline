@@ -316,57 +316,49 @@ export async function saveContent(
       }
     }
 
-    // ── Insert entries ─────────────────────────────────────────────────────
-    const entriesPromises = entries.map(async (entry, index) => {
-      try {
-        const { data: entryData, error: entryError } = await supabase
-          .from('content_entries')
-          .insert({
-            content_id: contentId,
-            title: entry.title || null,
-            caption: entry.caption || null,
-            media_url: entry.imageUrl,
-            is_feature: entry.isFeature || null,
-            is_full_spread: entry.isFullSpread,
-            order_index: index,
-            body: entry.body || null,
-            focal_x: entry.focal_x ?? 50,
-            focal_y: entry.focal_y ?? 50,
-            aspect_ratio: entry.aspect_ratio ?? null,
-          })
-          .select()
-          .single();
+    // ── Insert entries sequentially to preserve order_index ───────────────
+    for (let index = 0; index < entries.length; index++) {
+      const entry = entries[index];
+      const { data: entryData, error: entryError } = await supabase
+        .from('content_entries')
+        .insert({
+          content_id: contentId,
+          title: entry.title || null,
+          caption: entry.caption || null,
+          media_url: entry.imageUrl,
+          is_feature: entry.isFeature || null,
+          is_full_spread: entry.isFullSpread,
+          order_index: index,
+          body: entry.body || null,
+          focal_x: entry.focal_x ?? 50,
+          focal_y: entry.focal_y ?? 50,
+          aspect_ratio: entry.aspect_ratio ?? null,
+        })
+        .select()
+        .single();
 
-        if (entryError) {
-          console.error('Error creating entry:', entryError);
-          throw entryError;
-        }
-
-        if (entry.selectedTags.length > 0) {
-          const { error: tagsError } = await supabase
-            .from('content_tags')
-            .insert(
-              entry.selectedTags.map(tag => ({
-                content_entry_id: entryData.id,
-                tag,
-                tag_type: 'theme'
-              }))
-            );
-
-          if (tagsError) {
-            console.error('Error creating tags:', tagsError);
-            throw tagsError;
-          }
-        }
-
-        return entryData;
-      } catch (error) {
-        console.error('Error processing entry:', error);
-        throw error;
+      if (entryError) {
+        console.error('Error creating entry:', entryError);
+        throw entryError;
       }
-    });
 
-    await Promise.all(entriesPromises);
+      if (entry.selectedTags.length > 0) {
+        const { error: tagsError } = await supabase
+          .from('content_tags')
+          .insert(
+            entry.selectedTags.map((tag: string) => ({
+              content_entry_id: entryData.id,
+              tag,
+              tag_type: 'theme'
+            }))
+          );
+
+        if (tagsError) {
+          console.error('Error creating tags:', tagsError);
+          throw tagsError;
+        }
+      }
+    }
     return { success: true, id: contentId };
 
   } catch (error) {
