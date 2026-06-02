@@ -41,6 +41,7 @@ interface ContentEntry {
   focal_x: number | null;
   focal_y: number | null;
   aspect_ratio: number | null;
+  order_index?: number;
 }
 
 type PressState = 'rest' | 'pressing' | 'releasing';
