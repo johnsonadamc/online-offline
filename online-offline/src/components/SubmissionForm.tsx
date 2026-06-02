@@ -196,9 +196,13 @@ export default function SubmissionForm() {
       const idx = updated.findIndex(en => en.id === entryId);
       if (idx !== -1) setCurrentSlide(idx);
       const { url } = await uploadMedia(supabase, file);
-      setEntries(prev => prev.map(en =>
-        en.id === entryId ? { ...en, permanentUrl: url, isUploading: false } : en
-      ));
+      setEntries(prev => prev.map(en => {
+        if (en.id !== entryId) return en;
+        // Revoke the blob URL now that we have the permanent URL, then replace imageUrl
+        // so the main preview never references a revoked blob after navigation triggers cleanup
+        if (en.imageUrl?.startsWith('blob:')) URL.revokeObjectURL(en.imageUrl);
+        return { ...en, imageUrl: url, permanentUrl: url, isUploading: false, fileType: 'stored' };
+      }));
     } catch (err) {
       console.error('Error uploading image:', err);
       alert('Error uploading image. Please try again.');
