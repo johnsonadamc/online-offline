@@ -821,6 +821,7 @@ export default function Dashboard() {
                       <svg width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="1.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/><circle cx="12" cy="14" r="4.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/></svg>
                     </div>
                     <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>No submission this season</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-5)' }}>tap to submit work</span>
                   </div>
                 )}
 
