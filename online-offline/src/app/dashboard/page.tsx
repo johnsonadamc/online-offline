@@ -816,7 +816,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                  <div onClick={() => router.push('/submit')} style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                     <div style={{ width: '48px', height: '48px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <svg width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="1.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/><circle cx="12" cy="14" r="4.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/></svg>
                     </div>
@@ -824,10 +824,11 @@ export default function Dashboard() {
                   </div>
                 )}
 
-                {/* Submit press button */}
+                {/* Submit press button — only shown when a submission exists */}
+                {contentSubmission && (
                 <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--paper-4)' }}>
-                    {contentSubmission ? 'Add more work this season' : 'Submit work this season'}
+                    Add more work this season
                   </span>
                   <button
                     className={`press-btn${submitPress === 'pressing' ? ' pressing' : ''}${submitPress === 'releasing' ? ' releasing' : ''}`}
@@ -837,6 +838,7 @@ export default function Dashboard() {
                     Submit
                   </button>
                 </div>
+                )}
               </Expandable>
             </div>
 
