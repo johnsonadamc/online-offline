@@ -216,14 +216,28 @@ function CampaignPage({ data={}, showAnnotations=false }) {
   return (
     <div style={{ width:AW, height:AH, background:C.ground, position:'relative', overflow:'hidden' }}>
 
-      {/* Full-bleed advertiser image — covers the entire canvas, nothing on top */}
-      <ImageFrame
-        w={AW} h={AH}
-        label="campaign / brand image"
-        focal_x={data.focal_x||50} focal_y={data.focal_y||50}
-        media_url={data.avatar_url}
-        style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}
-      />
+      {/* Advertiser image — the ENTIRE ad is shown, nothing cropped. object-fit
+          contain fits the full image within the page, centered; the warm-dark
+          ground shows in any letterbox margin. Raw <img> because ImageFrame's
+          inner <img> is hardcoded to object-fit cover (shared primitive — not
+          edited here). ImageFrame is kept only for the no-image placeholder. */}
+      {data.avatar_url ? (
+        <img
+          src={data.avatar_url}
+          style={{
+            position:'absolute', top:0, left:0, width:AW, height:AH,
+            objectFit:'contain', objectPosition:'center',
+          }}
+        />
+      ) : (
+        <ImageFrame
+          w={AW} h={AH}
+          label="campaign / brand image"
+          focal_x={data.focal_x||50} focal_y={data.focal_y||50}
+          media_url={data.avatar_url}
+          style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}
+        />
+      )}
 
       {/* Crop marks only — for the printer's trim, not visible content */}
       <BleedMarks/>
