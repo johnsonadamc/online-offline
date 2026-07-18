@@ -216,17 +216,16 @@ function CampaignPage({ data={}, showAnnotations=false }) {
   return (
     <div style={{ width:AW, height:AH, background:C.ground, position:'relative', overflow:'hidden' }}>
 
-      {/* Advertiser image — the ENTIRE ad is shown, nothing cropped. object-fit
-          contain fits the full image within the page, centered; the warm-dark
-          ground shows in any letterbox margin. Raw <img> because ImageFrame's
-          inner <img> is hardcoded to object-fit cover (shared primitive — not
-          edited here). ImageFrame is kept only for the no-image placeholder. */}
+      {/* Advertiser image — fills the entire page edge-to-edge with object-fit
+          cover, centered (no blank margins when the ad's aspect ratio differs
+          from the page). Raw <img> so the ImageFrame path is kept only for the
+          no-image placeholder fallback (shared primitive, not edited here). */}
       {data.avatar_url ? (
         <img
           src={data.avatar_url}
           style={{
             position:'absolute', top:0, left:0, width:AW, height:AH,
-            objectFit:'contain', objectPosition:'center',
+            objectFit:'cover', objectPosition:'center',
           }}
         />
       ) : (
