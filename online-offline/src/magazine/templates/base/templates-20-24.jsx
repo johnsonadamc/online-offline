@@ -167,6 +167,11 @@ function PoetryPage({ data={}, showAnnotations=false }) {
   const epigraph    = data.epigraph    || '';
   const stanzas     = body.split(/\n\n+/);
 
+  // Long poems overflow a single narrow column. Flow them into two columns on
+  // the same page; short poems keep the original centered single-column design.
+  const poemLineCount = body.split('\n').filter(l => l.trim().length > 0).length;
+  const twoColumn = poemLineCount > 18;
+
   return (
     <div style={{ width:AW, height:AH, background:C.paper, position:'relative', overflow:'hidden' }}>
 
@@ -232,21 +237,23 @@ function PoetryPage({ data={}, showAnnotations=false }) {
           </div>
         ) : null}
 
-        {/* Poem body — centered on page, max 420px */}
-        <div style={{ display:'flex', justifyContent:'center' }}>
-          <div style={{ maxWidth:420, width:'100%' }}>
-            {stanzas.map((stanza, si) => (
-              <p key={si} style={{
-                fontFamily:F.serif, fontSize:13, color:C.ground,
-                lineHeight:2.2, whiteSpace:'pre-wrap',
-                margin:0,
-                marginBottom: si < stanzas.length - 1 ? 22 : 0,
-              }}>
-                {stanza.trim()}
-              </p>
-            ))}
+        {/* Poem body — short poems: centered single column, max 420px */}
+        {!twoColumn && (
+          <div style={{ display:'flex', justifyContent:'center' }}>
+            <div style={{ maxWidth:420, width:'100%' }}>
+              {stanzas.map((stanza, si) => (
+                <p key={si} style={{
+                  fontFamily:F.serif, fontSize:13, color:C.ground,
+                  lineHeight:2.2, whiteSpace:'pre-wrap',
+                  margin:0,
+                  marginBottom: si < stanzas.length - 1 ? 22 : 0,
+                }}>
+                  {stanza.trim()}
+                </p>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {showAnnotations && (
           <>
@@ -258,12 +265,40 @@ function PoetryPage({ data={}, showAnnotations=false }) {
         )}
       </div>
 
-      {/* Anchoring terra rule at 70% if poem is short — always render */}
-      <div style={{
-        position:'absolute', top:Math.floor(AH*0.70),
-        left:BLEED+ML, right:BLEED+MR,
-        height:3, background:C.terra, opacity:0.55,
-      }}/>
+      {/* Poem body — long poems: two columns on the same page. Poem flows down
+          the first column and continues into the second (balanced fill). Same
+          type treatment as the single-column path; only the flow differs. */}
+      {twoColumn && (
+        <div style={{
+          position:'absolute',
+          top:BLEED+MT+(epigraph ? 300 : 210),
+          left:BLEED+ML, right:BLEED+MR,
+          bottom:BLEED+MB+30,
+          columnCount:2, columnGap:44, columnFill:'balance',
+        }}>
+          {stanzas.map((stanza, si) => (
+            <p key={si} style={{
+              fontFamily:F.serif, fontSize:13, color:C.ground,
+              lineHeight:2.2, whiteSpace:'pre-wrap',
+              margin:0,
+              marginBottom: si < stanzas.length - 1 ? 22 : 0,
+              breakInside:'avoid', WebkitColumnBreakInside:'avoid',
+            }}>
+              {stanza.trim()}
+            </p>
+          ))}
+        </div>
+      )}
+
+      {/* Anchoring terra rule at 70% — short single-column poems only.
+          Omitted in two-column mode, where it would overlap the poem text. */}
+      {!twoColumn && (
+        <div style={{
+          position:'absolute', top:Math.floor(AH*0.70),
+          left:BLEED+ML, right:BLEED+MR,
+          height:3, background:C.terra, opacity:0.55,
+        }}/>
+      )}
 
       {/* Folio */}
       <div style={{ position:'absolute', bottom:BLEED+MB-14, left:BLEED+ML, right:BLEED+MR, display:'flex', justifyContent:'space-between' }}>

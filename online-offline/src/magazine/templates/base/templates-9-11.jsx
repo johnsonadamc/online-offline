@@ -209,97 +209,24 @@ function Spread({ data={}, showAnnotations=false }) {
 
 // ─── 11. CAMPAIGN PAGE ────────────────────────────────────────────────────────
 function CampaignPage({ data={}, showAnnotations=false }) {
+  // A campaign page is a paid, full-page advertisement supplied entirely by the
+  // advertiser. Nothing is printed over it — no name, bio, discount, wordmark,
+  // folio, page number, or grain. Only the advertiser image (truly full-bleed,
+  // edge to edge including bleed) plus crop marks for the printer's trimming.
   return (
     <div style={{ width:AW, height:AH, background:C.ground, position:'relative', overflow:'hidden' }}>
 
-      {/* Full-bleed campaign image — fills entire page */}
-      <div style={{ position:'absolute', inset:0 }}>
-        <ImageFrame w={AW} h={AH} label="campaign / brand image" focal_x={data.focal_x||50} focal_y={data.focal_y||50} media_url={data.avatar_url}/>
-      </div>
+      {/* Full-bleed advertiser image — covers the entire canvas, nothing on top */}
+      <ImageFrame
+        w={AW} h={AH}
+        label="campaign / brand image"
+        focal_x={data.focal_x||50} focal_y={data.focal_y||50}
+        media_url={data.avatar_url}
+        style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}
+      />
 
-      {/* Dark gradient scrim — bottom two-thirds, for text legibility */}
-      <div style={{
-        position:'absolute', inset:0,
-        background:'linear-gradient(to bottom, rgba(37,33,25,0.0) 0%, rgba(37,33,25,0.15) 30%, rgba(37,33,25,0.72) 60%, rgba(37,33,25,0.92) 100%)',
-        pointerEvents:'none',
-      }}/>
-
-      {/* Top-left: Advertisement label */}
-      <div style={{
-        position:'absolute', top:BLEED+MT, left:BLEED+ML,
-        display:'flex', alignItems:'center', gap:8,
-      }}>
-        <GoldMark>Advertisement</GoldMark>
-        <div style={{ width:32, height:0.5, background:C.gold, opacity:0.5 }}/>
-      </div>
-
-      {/* Top-right: wordmark watermark */}
-      <div style={{
-        position:'absolute', top:BLEED+MT, right:BLEED+MR,
-        fontFamily:F.mono, fontSize:7.5, letterSpacing:'0.12em',
-        color:'rgba(240,235,226,0.25)',
-      }}>
-        online<span style={{ color:'rgba(224,90,40,0.5)' }}>//</span>offline
-      </div>
-
-      {/* Bottom content overlay */}
-      <div style={{
-        position:'absolute', bottom:0, left:0, right:0,
-        padding:`0 ${BLEED+ML}px ${BLEED+MB+8}px`,
-      }}>
-        {/* Gold rule above name */}
-        <div style={{ width:40, height:1.5, background:C.gold, marginBottom:14 }}/>
-
-        {/* Campaign name — large display */}
-        <div style={{
-          fontFamily:F.serif, fontSize:52, color:C.paper,
-          letterSpacing:'-0.02em', lineHeight:0.95,
-          marginBottom:14,
-        }}>
-          {data.campaign_name || 'The Archive Project'}
-        </div>
-
-        {/* Tagline */}
-        <div style={{
-          fontFamily:F.sans, fontWeight:300, fontSize:13, color:C.paper3,
-          lineHeight:1.55, maxWidth:460, marginBottom:20,
-        }}>
-          {data.tagline || 'A curated archive of analogue photography from the last decade. Every print tells a story the digital world forgot to save.'}
-        </div>
-
-        {/* Divider */}
-        <div style={{ height:0.5, background:'rgba(240,235,226,0.18)', marginBottom:14 }}/>
-
-        {/* Bottom bar: price left, folio right */}
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
-          <div style={{ display:'flex', alignItems:'baseline', gap:10 }}>
-            <span style={{
-              fontFamily:F.serif, fontSize:44, color:C.gold, lineHeight:1,
-              textShadow:'0 0 24px rgba(232,160,32,0.45)',
-            }}>{data.discount ? `$${data.discount}` : '$2'}</span>
-            <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-              off your edition price
-            </span>
-          </div>
-          <div style={{ display:'flex', justifyContent:'flex-end', gap:16 }}>
-            <Folio page={data.page||22} side="left" dark={true} season={data.season||'Spring 2026'}/>
-            <Folio page={data.page||22} side="right" dark={true} season={data.season||'Spring 2026'}/>
-          </div>
-        </div>
-      </div>
-
-      {showAnnotations && (
-        <>
-          <Annotation label="campaign image (focal_x/y)" style={{ top:BLEED+MT+20, left:BLEED+ML }}/>
-          <Annotation label="campaign_name" style={{ bottom:180, left:BLEED+ML }}/>
-          <Annotation label="tagline" style={{ bottom:140, left:BLEED+ML }}/>
-        </>
-      )}
-
-      <RegistrationMark side="left"/>
-      <RegistrationMark side="right"/>
+      {/* Crop marks only — for the printer's trim, not visible content */}
       <BleedMarks/>
-      <GrainOverlay/>
     </div>
   );
 }
