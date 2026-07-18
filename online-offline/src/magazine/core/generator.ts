@@ -456,6 +456,113 @@ async function fetchCampaignItems(
   }));
 }
 
+// ─── Content Ordering (interspersing + even-page spread alignment) ─────────────
+// Reorders content items ONLY — it never changes which template an item gets.
+// Goals, in strict priority: (1) every two-page spread starts on an even page so
+// it reads across the fold; (2) spreads are separated by single-page "mortar"
+// where possible; (3) content types are dispersed rather than clumped.
+
+type OrderableItem = { item: SelectionItem; pageCount: number; typeKey: string };
+
+// The dispersion type for an item (used to space same-type items apart).
+function dispersalTypeKey(item: SelectionItem): string {
+  switch (item.kind) {
+    case 'creator':        return item.contentType;   // photography|art|essay|poetry|music
+    case 'collab':         return 'collab';
+    case 'communications': return 'communication';
+    case 'campaign':       return 'campaign';
+  }
+}
+
+// Deterministic round-robin interleave by type so same-type items are spaced
+// apart. Largest type groups are drawn first each round so they don't bunch up
+// at the end. This is an even/varied distribution — not randomness.
+function interleaveByType(items: OrderableItem[]): OrderableItem[] {
+  const buckets = new Map<string, OrderableItem[]>();
+  for (const it of items) {
+    const arr = buckets.get(it.typeKey);
+    if (arr) arr.push(it);
+    else buckets.set(it.typeKey, [it]);
+  }
+  const keys = [...buckets.keys()].sort((a, b) => buckets.get(b)!.length - buckets.get(a)!.length);
+  const out: OrderableItem[] = [];
+  let remaining = items.length;
+  while (remaining > 0) {
+    for (const k of keys) {
+      const arr = buckets.get(k)!;
+      if (arr.length) { out.push(arr.shift()!); remaining--; }
+    }
+  }
+  return out;
+}
+
+// Order content items for a varied, spread-aligned flow. Content starts on the
+// even page 4, so alignment depends only on how many single pages precede each
+// spread — an EVEN number keeps the spread even-aligned. Singles are therefore
+// placed as even-sized pairs of "mortar": a pair both separates two spreads AND
+// preserves alignment (a lone single would flip parity and misalign the next
+// spread). Returns a pure reordering — no blank fillers (those are a last-resort
+// safety net applied during page numbering).
+function orderContentForFlow(items: SelectionItem[]): SelectionItem[] {
+  const orderable: OrderableItem[] = items.map(item => ({
+    item,
+    pageCount: selectTemplate(item, 0).pageCount,
+    typeKey: dispersalTypeKey(item),
+  }));
+
+  const spreads = interleaveByType(orderable.filter(o => o.pageCount === 2));
+  const singles = interleaveByType(orderable.filter(o => o.pageCount !== 2));
+  const S = spreads.length;
+
+  // No spreads → nothing to align; emit singles in dispersed order.
+  if (S === 0) return singles.map(o => o.item);
+
+  // Distribute single pages as even-sized pairs into the gaps before each spread
+  // (gap g precedes spreads[g]) plus a tail gap after the last spread. Gaps
+  // before spreads must hold an even count to preserve alignment; the tail may
+  // hold the single leftover. Pairs are spaced EVENLY through the sequence (not
+  // front- or back-loaded) so separation and type variety are distributed rather
+  // than clumped.
+  const pairs = Math.floor(singles.length / 2);
+  const gapPairs = new Array<number>(S).fill(0);   // pairs placed before spreads[g]
+  let tailPairs = 0;
+  const interSlots = S - 1;                         // gaps between consecutive spreads
+  if (interSlots === 0) {
+    // Single spread: split the mortar before/after so singles don't clump on one side.
+    gapPairs[0] = Math.floor(pairs / 2);
+    tailPairs   = pairs - gapPairs[0];
+  } else {
+    // Every inter-spread gap gets an equal base of pairs (separating all spreads
+    // when supply allows); the remaining pairs land on evenly-spaced gaps, which
+    // divides the spreads into roughly equal runs.
+    const base = Math.floor(pairs / interSlots);
+    for (let g = 1; g < S; g++) gapPairs[g] = base;
+    const rem = pairs - base * interSlots;          // 0..interSlots-1 leftover pairs
+    for (let i = 1; i <= rem; i++) {
+      let g = Math.round((i * S) / (rem + 1));
+      if (g < 1) g = 1;
+      if (g > S - 1) g = S - 1;
+      gapPairs[g] += 1;
+    }
+  }
+
+  const ordered: SelectionItem[] = [];
+  let si = 0;
+  for (let g = 0; g < S; g++) {
+    for (let p = 0; p < gapPairs[g]; p++) {
+      ordered.push(singles[si++].item);
+      ordered.push(singles[si++].item);
+    }
+    ordered.push(spreads[g].item);
+  }
+  for (let p = 0; p < tailPairs; p++) {
+    ordered.push(singles[si++].item);
+    ordered.push(singles[si++].item);
+  }
+  while (si < singles.length) ordered.push(singles[si++].item);  // leftover odd single
+  return ordered;
+}
+
 // ─── Main Generator ───────────────────────────────────────────────────────────
 
 export async function generateMagazine(curatorId: string, periodId: string): Promise<string> {
@@ -476,22 +583,39 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
     fetchCampaignItems(db, curatorId, periodId),
   ]);
 
-  // ── Assemble selection list in page order ──────────────────────────────────
+  // ── Assemble selection list, then order for varied, spread-aligned flow ─────
   const selectionItems: SelectionItem[] = [
     ...creatorItems,
     ...collabItems,
     ...(commsItem ? [commsItem] : []),
     ...campaignItems,
   ];
+  const orderedItems = orderContentForFlow(selectionItems);
 
   // ── Assign page numbers ────────────────────────────────────────────────────
-  // Page 1 = Cover, Page 2 = Blank, Page 3 = FrontMatter, then content, last = Colophon
+  // Page 1 = Cover, Page 2 = Blank, Page 3 = FrontMatter, then content, last =
+  // Colophon. Content starts on page 4 (even). Every two-page spread must start
+  // on an even page; orderContentForFlow guarantees this by construction. The
+  // odd-page check below is a last-resort safety net (rule 4): if a spread would
+  // still land on an odd page with no single left to bump it, insert a blank
+  // filler page. With the ordering above it should never trigger (it warns if
+  // it does). contentAssignments holds real content only (no blanks) so the
+  // FrontMatter TOC — built later from it — reflects the final page numbers.
+  type MiddlePage = { templateName: string; data: unknown; pageCount: number };
   let cursor = 4; // content starts at page 4 (cover=1, blank=2, frontmatter=3)
-  const contentAssignments: TemplateAssignment[] = selectionItems.map(item => {
+  const contentAssignments: TemplateAssignment[] = [];
+  const middlePages: MiddlePage[] = [];
+  for (const item of orderedItems) {
+    if (selectTemplate(item, 0).pageCount === 2 && cursor % 2 === 1) {
+      console.warn(`[generator] alignment fallback: blank filler inserted before spread at page ${cursor}`);
+      middlePages.push({ templateName: 'BlankPage', data: { season }, pageCount: 1 });
+      cursor += 1;
+    }
     const assignment = selectTemplate(item, cursor);
+    contentAssignments.push(assignment);
+    middlePages.push({ templateName: assignment.templateName, data: assignment.data, pageCount: assignment.pageCount });
     cursor += assignment.pageCount;
-    return assignment;
-  });
+  }
 
   const colophonPage = cursor;
 
@@ -538,9 +662,7 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
     { templateName: 'CoverA',      data: coverData,       pageCount: 1 },
     { templateName: 'BlankPage',   data: { season },      pageCount: 1 },
     { templateName: 'FrontMatter', data: frontMatterData, pageCount: 1 },
-    ...contentAssignments.map(a => ({
-      templateName: a.templateName, data: a.data, pageCount: a.pageCount,
-    })),
+    ...middlePages,
     { templateName: 'ColophonPage', data: colophonData, pageCount: 1 },
   ];
 
