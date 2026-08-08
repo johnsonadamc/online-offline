@@ -714,23 +714,28 @@ export async function generateMagazine(
 
   // ── Output geometry: map the design canvas onto the profile's page ─────────
   // Design canvas: TRIMW×TRIMH px trim + DESIGN_BLEED px bleed on every side
-  // (the AW×AH render). The design trim maps EXACTLY onto the profile trim
-  // (sx/sy may differ — e.g. magcloud stretches ~3.1% horizontally); the design
-  // bleed extends into the profile's bleed zones. MagCloud's bleed is
-  // asymmetric (0 on the spine), so left/right pages get mirrored offsets:
-  // even physical page = left page = spine on the RIGHT edge (outside bleed
-  // left); odd = right page = spine on the LEFT. Content past the page box
-  // (e.g. spine-side design bleed) is clipped by the PDF MediaBox.
+  // (the AW×AH render). The design trim maps exactly onto the profile trim
+  // shrunk by safetyInsetIn on all four sides (sx/sy may differ — e.g. magcloud
+  // stretches ~2.5% horizontally); the design bleed extends outward, and a
+  // full-page bleed underlay (see the draw loop) fills anything it can't reach.
+  // MagCloud's bleed is asymmetric (0 on the spine), so left/right pages get
+  // mirrored offsets: even physical page = left page = spine on the RIGHT edge
+  // (outside bleed left); odd = right page = spine on the LEFT. Content past
+  // the page box (e.g. spine-side design bleed) is clipped by the PDF MediaBox.
   const DESIGN_BLEED = 11;
   const TRIMW = AW - 2 * DESIGN_BLEED; // 768
   const TRIMH = AH - 2 * DESIGN_BLEED; // 1032
   const pageWPt  = inToPt(profile.pageWidthIn);
   const pageHPt  = inToPt(profile.pageHeightIn);
-  const sx = inToPt(profile.trimWidthIn) / TRIMW;   // pt per design px, horizontal
-  const sy = inToPt(profile.trimHeightIn) / TRIMH;  // pt per design px, vertical
+  // Safety inset: the design trim maps onto the profile trim shrunk by
+  // safetyInsetIn on all four sides (headroom against the printer's trim
+  // variance). 0 = exact trim-to-trim mapping (screen: degenerates to identity).
+  const insetPt  = inToPt(profile.safetyInsetIn);
+  const sx = (inToPt(profile.trimWidthIn)  - 2 * insetPt) / TRIMW; // pt per design px, horizontal
+  const sy = (inToPt(profile.trimHeightIn) - 2 * insetPt) / TRIMH; // pt per design px, vertical
   const drawW = AW * sx;
   const drawH = AH * sy;
-  const drawY = inToPt(profile.bleedBottomIn) - DESIGN_BLEED * sy; // pdf-lib origin = bottom-left
+  const drawY = inToPt(profile.bleedBottomIn) + insetPt - DESIGN_BLEED * sy; // pdf-lib origin = bottom-left
   const insidePt  = inToPt(profile.bleedInsideIn);
   const outsidePt = inToPt(profile.bleedOutsideIn);
 
@@ -754,8 +759,27 @@ export async function generateMagazine(
           ? await pdfDoc.embedJpg(buf)
           : await pdfDoc.embedPng(buf);
         const pdfPage = pdfDoc.addPage([pageWPt, pageHPt]);
+
+        const drawX = trimLeftPt + insetPt - DESIGN_BLEED * sx;
+
+        // Bleed underlay: with a non-zero safety inset the design's own 11px
+        // bleed is too thin to reach the page edges, so first draw the SAME
+        // image stretched to cover the entire page (pdf-lib reuses the embedded
+        // XObject — only a second draw operator is added). The underlay is
+        // visible only outside the main draw's footprint, which lies entirely
+        // beyond the profile trim: a worst-case trim cut reveals duplicated
+        // edge content instead of unprinted white. Skipped whenever the main
+        // draw already covers the full page (screen profile), keeping that
+        // output behaviorally identical.
+        const coversPage =
+          drawX <= 0 && drawY <= 0 &&
+          drawX + drawW >= pageWPt && drawY + drawH >= pageHPt;
+        if (!coversPage) {
+          pdfPage.drawImage(image, { x: 0, y: 0, width: pageWPt, height: pageHPt });
+        }
+
         pdfPage.drawImage(image, {
-          x: trimLeftPt - DESIGN_BLEED * sx,
+          x: drawX,
           y: drawY,
           width: drawW, height: drawH,
         });

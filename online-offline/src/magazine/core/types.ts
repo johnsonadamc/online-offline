@@ -174,6 +174,9 @@ export interface PrintProfile {
   bleedBottomIn: number;
   bleedInsideIn: number;        // spine side
   bleedOutsideIn: number;       // outer edge
+  safetyInsetIn: number;        // shrink design trim this far inside profile trim
+                                // (all four sides) as headroom for trim variance;
+                                // 0 = design trim maps exactly onto profile trim
   includePrinterMarks: boolean; // false = suppress BleedMarks/RegistrationMark in render
   deviceScaleFactor: number;    // Puppeteer render resolution
   imageFormat: 'png' | 'jpeg';  // page raster format embedded in the PDF
