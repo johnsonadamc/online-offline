@@ -8,7 +8,9 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import { selectTemplate } from './selectionLogic';
+import { PRINT_PROFILES, inToPt } from './printProfiles';
 import type {
+  PrintProfile,
   SelectionItem,
   SelectionItemCreator,
   SelectionItemCollab,
@@ -83,8 +85,19 @@ function makeClient(): SupabaseClient {
 
 // ─── HTML Page Builder ────────────────────────────────────────────────────────
 
-function buildPageHtml(templateName: string, data: unknown): string {
+function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks = false): string {
   const primitivesCode = readFileSync(PRIMITIVES_PATH, 'utf-8');
+
+  // Printer-marks suppression (print profiles with includePrinterMarks:false):
+  // BleedMarks and RegistrationMark are plain function declarations in
+  // primitives.jsx, concatenated with the template code into this ONE babel
+  // script — templates resolve the names lexically at render time, so
+  // reassigning the bindings here suppresses the marks everywhere without
+  // touching any template or primitive file. Empty string for screen output,
+  // which keeps that render behaviorally identical to the pre-profile pipeline.
+  const marksOverride = suppressPrinterMarks
+    ? 'BleedMarks = function(){ return null; }; RegistrationMark = function(){ return null; };'
+    : '';
   const templateFile = TEMPLATE_FILE_MAP[templateName];
 
   const templateCode = templateFile
@@ -139,6 +152,7 @@ function buildPageHtml(templateName: string, data: unknown): string {
   <script>window.__magazine_page__ = ${serialized};</script>
   <script type="text/babel">
     ${primitivesCode}
+    ${marksOverride}
     ${templateCode}
     const { templateName: _name, data: _data } = window.__magazine_page__;
     const _Component = window[_name];
@@ -159,31 +173,40 @@ async function renderPageToBuffers(
   templateName: string,
   data: unknown,
   pageCount: number,
-  browser: PuppeteerBrowser
+  browser: PuppeteerBrowser,
+  profile: PrintProfile
 ): Promise<Buffer[]> {
   const isSpread = pageCount === 2 && SPREAD_TEMPLATES.has(templateName);
   const viewportW = isSpread ? AW * 2 : AW;
 
+  // Screenshot options come from the profile: screen keeps PNG at
+  // deviceScaleFactor 4 (unchanged); print profiles may drop to a lower scale
+  // factor and JPEG to stay under printer upload limits.
+  const shotOpts =
+    profile.imageFormat === 'jpeg'
+      ? ({ type: 'jpeg', quality: profile.jpegQuality ?? 90 } as const)
+      : ({ type: 'png' } as const);
+
   const page = await browser.newPage();
   try {
-    await page.setViewport({ width: viewportW, height: AH, deviceScaleFactor: 4 });
-    const html = buildPageHtml(templateName, data);
+    await page.setViewport({ width: viewportW, height: AH, deviceScaleFactor: profile.deviceScaleFactor });
+    const html = buildPageHtml(templateName, data, !profile.includePrinterMarks);
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
     await page.evaluateHandle('document.fonts.ready');
 
     if (isSpread) {
       const leftBuf = await page.screenshot({
-        type: 'png',
+        ...shotOpts,
         clip: { x: 0, y: 0, width: AW, height: AH },
       });
       const rightBuf = await page.screenshot({
-        type: 'png',
+        ...shotOpts,
         clip: { x: AW, y: 0, width: AW, height: AH },
       });
       return [Buffer.from(leftBuf), Buffer.from(rightBuf)];
     }
 
-    const buf = await page.screenshot({ type: 'png' });
+    const buf = await page.screenshot({ ...shotOpts });
     return [Buffer.from(buf)];
   } finally {
     await page.close();
@@ -565,7 +588,19 @@ function orderContentForFlow(items: SelectionItem[]): SelectionItem[] {
 
 // ─── Main Generator ───────────────────────────────────────────────────────────
 
-export async function generateMagazine(curatorId: string, periodId: string): Promise<string> {
+export async function generateMagazine(
+  curatorId: string,
+  periodId: string,
+  profileName: string = 'screen'
+): Promise<string> {
+  const profile = PRINT_PROFILES[profileName];
+  if (!profile) {
+    throw new Error(
+      `Unknown print profile "${profileName}". Available: ${Object.keys(PRINT_PROFILES).join(', ')}`
+    );
+  }
+  console.log(`[generator] Print profile: ${profile.name} (${profile.pageWidthIn}×${profile.pageHeightIn}in, marks=${profile.includePrinterMarks}, ${profile.imageFormat} @ dSF${profile.deviceScaleFactor})`);
+
   const db = makeClient();
 
   console.log('[generator] Fetching period and curator...');
@@ -677,21 +712,52 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
 
   const pdfDoc = await PDFDocument.create();
 
+  // ── Output geometry: map the design canvas onto the profile's page ─────────
+  // Design canvas: TRIMW×TRIMH px trim + DESIGN_BLEED px bleed on every side
+  // (the AW×AH render). The design trim maps EXACTLY onto the profile trim
+  // (sx/sy may differ — e.g. magcloud stretches ~3.1% horizontally); the design
+  // bleed extends into the profile's bleed zones. MagCloud's bleed is
+  // asymmetric (0 on the spine), so left/right pages get mirrored offsets:
+  // even physical page = left page = spine on the RIGHT edge (outside bleed
+  // left); odd = right page = spine on the LEFT. Content past the page box
+  // (e.g. spine-side design bleed) is clipped by the PDF MediaBox.
+  const DESIGN_BLEED = 11;
+  const TRIMW = AW - 2 * DESIGN_BLEED; // 768
+  const TRIMH = AH - 2 * DESIGN_BLEED; // 1032
+  const pageWPt  = inToPt(profile.pageWidthIn);
+  const pageHPt  = inToPt(profile.pageHeightIn);
+  const sx = inToPt(profile.trimWidthIn) / TRIMW;   // pt per design px, horizontal
+  const sy = inToPt(profile.trimHeightIn) / TRIMH;  // pt per design px, vertical
+  const drawW = AW * sx;
+  const drawH = AH * sy;
+  const drawY = inToPt(profile.bleedBottomIn) - DESIGN_BLEED * sy; // pdf-lib origin = bottom-left
+  const insidePt  = inToPt(profile.bleedInsideIn);
+  const outsidePt = inToPt(profile.bleedOutsideIn);
+
+  let physicalPage = 0; // 1-based; matches data.page (cover = 1 = right-hand page)
+
   try {
     for (let i = 0; i < pageSequence.length; i++) {
       const spec = pageSequence[i];
       console.log(`[generator] Rendering [${i + 1}/${pageSequence.length}]: ${spec.templateName}`);
 
       const buffers = await renderPageToBuffers(
-        spec.templateName, spec.data, spec.pageCount, browser
+        spec.templateName, spec.data, spec.pageCount, browser, profile
       );
 
       for (const buf of buffers) {
-        const pngImage = await pdfDoc.embedPng(buf);
-        const pdfPage = pdfDoc.addPage([pngImage.width / 4, pngImage.height / 4]);
-        pdfPage.drawImage(pngImage, {
-          x: 0, y: 0,
-          width: pdfPage.getWidth(), height: pdfPage.getHeight(),
+        physicalPage++;
+        const isLeftPage = physicalPage % 2 === 0;
+        const trimLeftPt = isLeftPage ? outsidePt : insidePt;
+
+        const image = profile.imageFormat === 'jpeg'
+          ? await pdfDoc.embedJpg(buf)
+          : await pdfDoc.embedPng(buf);
+        const pdfPage = pdfDoc.addPage([pageWPt, pageHPt]);
+        pdfPage.drawImage(image, {
+          x: trimLeftPt - DESIGN_BLEED * sx,
+          y: drawY,
+          width: drawW, height: drawH,
         });
       }
     }
@@ -701,7 +767,9 @@ export async function generateMagazine(curatorId: string, periodId: string): Pro
 
   // ── Save PDF ───────────────────────────────────────────────────────────────
   const pdfBytes = await pdfDoc.save();
-  const outputPath = `/tmp/magazine-${curatorId}-${periodId}.pdf`;
+  const outputPath = profile.name === 'screen'
+    ? `/tmp/magazine-${curatorId}-${periodId}.pdf`
+    : `/tmp/magazine-${curatorId}-${periodId}-${profile.name}.pdf`;
   writeFileSync(outputPath, pdfBytes);
 
   console.log(`[generator] PDF saved: ${outputPath}`);

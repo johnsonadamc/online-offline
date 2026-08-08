@@ -1,10 +1,20 @@
 // scripts/test-generator.ts — Smoke test for the magazine generation pipeline.
 // Usage: NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... npm run generate-test
+// Options (after --):
+//   --profile=screen|magcloud   print profile for PDF output (default: screen)
+//   --curator=<uuid>            curator to generate for (default: Lena Vasquez)
+// Example: npm run generate-test -- --profile=magcloud --curator=2ad6af92-279d-4eb7-a1b6-b51ec042aa85
 
 import { createClient } from '@supabase/supabase-js';
 import { generateMagazine } from '../src/magazine/core/generator';
 
-const CURATOR_ID = '185f8c7c-9837-425a-ac1c-ebf18d1af1b9'; // Lena Vasquez (seed data)
+const DEFAULT_CURATOR_ID = '185f8c7c-9837-425a-ac1c-ebf18d1af1b9'; // Lena Vasquez (seed data)
+
+function argValue(name: string): string | undefined {
+  const prefix = `--${name}=`;
+  const hit = process.argv.find(a => a.startsWith(prefix));
+  return hit ? hit.slice(prefix.length) : undefined;
+}
 
 async function getActivePeriodId(): Promise<string> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -21,9 +31,11 @@ async function getActivePeriodId(): Promise<string> {
 }
 
 async function main() {
-  console.log(`[test] Generating magazine for curator ${CURATOR_ID}...`);
+  const curatorId = argValue('curator') ?? DEFAULT_CURATOR_ID;
+  const profile = argValue('profile') ?? 'screen';
+  console.log(`[test] Generating magazine for curator ${curatorId} (profile: ${profile})...`);
   const periodId = await getActivePeriodId();
-  const outputPath = await generateMagazine(CURATOR_ID, periodId);
+  const outputPath = await generateMagazine(curatorId, periodId, profile);
   console.log(`[test] Done. PDF at: ${outputPath}`);
 }
 

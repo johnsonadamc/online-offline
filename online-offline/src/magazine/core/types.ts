@@ -159,3 +159,23 @@ export type SelectionItem =
   | SelectionItemCollab
   | SelectionItemCommunications
   | SelectionItemCampaign;
+
+// ─── Print Profiles ───────────────────────────────────────────────────────────
+// A print profile maps the fixed design canvas (768×1032 trim + 11px bleed =
+// 790×1054) onto a specific printer's required PDF geometry at output time.
+// Templates never change; only the PDF assembly stage reads these.
+export interface PrintProfile {
+  name: string;
+  pageWidthIn: number;          // exact output PDF page size (what gets uploaded)
+  pageHeightIn: number;
+  trimWidthIn: number;          // printer's trim box — the design trim maps onto this
+  trimHeightIn: number;
+  bleedTopIn: number;
+  bleedBottomIn: number;
+  bleedInsideIn: number;        // spine side
+  bleedOutsideIn: number;       // outer edge
+  includePrinterMarks: boolean; // false = suppress BleedMarks/RegistrationMark in render
+  deviceScaleFactor: number;    // Puppeteer render resolution
+  imageFormat: 'png' | 'jpeg';  // page raster format embedded in the PDF
+  jpegQuality?: number;         // only for imageFormat 'jpeg'
+}
