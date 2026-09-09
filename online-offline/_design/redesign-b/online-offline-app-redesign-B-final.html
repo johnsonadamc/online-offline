@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas"><title>online//offline — B-final, functionality audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0c0a;--bg2:#131210;--line:#24211d;--line2:#312d27;--ink:#ece7de;--ink2:#a49c90;--ink3:#6a635a;
+--orange:oklch(0.74 0.13 45);--gold:oklch(0.8 0.11 85);--green:oklch(0.78 0.12 150);--blue:oklch(0.76 0.09 240);--purple:oklch(0.74 0.1 300);
+--serif:'Instrument Serif',Georgia,serif;--sans:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+body{margin:0;background:#1c1b19;font-family:var(--sans);color:var(--ink)}
+a{color:var(--green)}a:hover{color:var(--ink)}
+svg{display:block}
+.frame{position:absolute;width:390px;height:844px;background:var(--bg);border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 0 1px #2a2723;display:flex;flex-direction:column}
+.label{position:absolute;white-space:nowrap;font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:#7a746a}
+.title{position:absolute;width:560px;font:400 34px/1 var(--serif);color:#ece7de}.title small{display:block;font:400 14px/1.4 var(--sans);color:#8a8378;margin-top:10px;max-width:520px}
+.scroll{flex:1;overflow:hidden;padding:0 24px;position:relative}
+.top{display:flex;align-items:center;justify-content:space-between;padding:22px 24px 0;height:38px}
+.wordmark{font:400 22px/1 var(--serif)}.wordmark i{font-style:normal;color:var(--ink3)}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4a4f47,#26292a);border:1px solid var(--line2)}
+.nav{font:500 12px/1 var(--sans);color:var(--ink2);display:flex;align-items:center;gap:6px}.nav.act{color:var(--green)}
+.season{display:flex;align-items:center;gap:12px;padding:22px 24px 0}
+.season .n{font:italic 400 17px/1 var(--serif);color:var(--ink2)}
+.season .bar{flex:1;height:1px;background:var(--line2);position:relative}.season .bar b{position:absolute;left:0;top:0;height:1px;width:38%;background:var(--orange)}
+.season .d{font:400 12px/1 var(--mono);color:var(--ink2)}.season .d b{color:var(--orange);font-weight:500}
+.tabs{display:flex;gap:26px;padding:26px 24px 0;border-bottom:1px solid var(--line)}
+.tabs span{font:500 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding-bottom:14px;position:relative}
+.tabs span.on{color:var(--ink)}.tabs span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--ink)}
+.ico{width:48px;height:48px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);display:grid;place-items:center;color:var(--ink2);flex:none}
+.ico.on{border-color:var(--c);color:var(--c);background:color-mix(in oklch,var(--c) 10%,var(--bg2))}
+.ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.chev{stroke:var(--ink3);fill:none;stroke-width:1.5;width:14px;height:14px}
+.foot{border-top:1px solid var(--line);padding:16px 24px 26px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg)}
+.foot .price{font:400 26px/1 var(--serif)}.foot .price small{display:block;font:400 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--ink3);margin-bottom:6px;text-transform:uppercase}
+.foot .save{font:500 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:#0d0c0a;background:var(--green);padding:15px 22px;border-radius:5px;box-shadow:0 0 28px oklch(0.78 0.12 150/.35)}
+.foot .reset{font:500 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-left:auto;margin-right:16px}
+.ctabs{display:flex;gap:22px;padding:22px 0 0;border-bottom:1px solid var(--line)}
+.ctabs span{font:500 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:12px;position:relative;display:flex;gap:6px;align-items:baseline}
+.ctabs span.on{color:var(--ink)}.ctabs span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--ink)}
+.ctabs em{font:400 11px/1 var(--mono);color:var(--ink3);font-style:normal}
+.next{margin:18px 0 0;padding:16px 18px;border-radius:12px;background:var(--bg2);border:1px solid var(--line2);display:flex;align-items:center;gap:14px;position:relative;overflow:hidden}
+.next:before{content:"";position:absolute;inset:0;background:radial-gradient(120px 60px at 0% 50%,color-mix(in oklch,var(--gold) 14%,transparent),transparent)}
+.next .k{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.next h4{margin:0;font:400 19px/1.15 var(--serif)}.next .t{flex:1;position:relative}
+.next .cta{font:500 11.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);border:1px solid var(--line2);padding:10px 12px;border-radius:6px;position:relative}
+.brow{display:flex;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
+.brow h3{margin:0;font:400 24px/1.1 var(--serif);flex:1}
+.brow .n{font:400 20px/1 var(--serif);color:var(--ink2)}
+.brow.open .chev{transform:rotate(90deg)}
+.bsub{border-bottom:1px solid var(--line);padding:4px 0 8px}
+.sec{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);padding:12px 0 2px 8px}
+.bitem{display:flex;align-items:center;gap:14px;padding:12px 0 12px 8px;position:relative}
+.bitem .ti{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklch,var(--c) 12%,var(--bg));flex:none}
+.bitem .ti svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.bitem h4{margin:0;font:400 19px/1.1 var(--serif);flex:1;min-width:0}
+.bitem .act{display:flex;gap:6px}
+.bitem .act span{font:500 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;padding:8px 10px;border-radius:5px;border:1px solid var(--line2);color:var(--ink2)}
+.bitem .act span.y{border-color:var(--gold);color:var(--gold)}
+.bitem .lnk{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--ink3);border:1px solid var(--line)}
+.bitem .lnk svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round}
+.mark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.mark.done{color:var(--green)}.mark.done:after{content:"";width:8px;height:4px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg) translate(1px,-1px)}
+.bitem.swiped h4{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-right:100px}
+.bitem.swiped .mark{display:none}
+.bitem.swiped .leave{position:absolute;right:0;top:6px;bottom:6px;width:84px;border-radius:8px;background:color-mix(in oklch,var(--orange) 18%,var(--bg));color:var(--orange);display:grid;place-items:center;font:500 11px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase}
+.badd{display:flex;align-items:center;justify-content:space-between;padding:12px 0 14px 8px;font:400 13.5px/1 var(--sans);color:var(--ink3)}
+.badd b{width:36px;height:36px;border:1px solid var(--line2);border-radius:8px;display:grid;place-items:center;color:var(--ink2);font:300 20px/1 var(--sans)}
+.piece{padding:14px 0 14px 8px;display:flex;align-items:center;gap:14px}
+.piece .thumb{width:56px;height:56px;border-radius:8px;background:repeating-linear-gradient(135deg,#1e1c18 0 6px,#171613 6px 12px);border:1px solid var(--line2);flex:none}
+.piece .t{flex:1;min-width:0}.piece h4{margin:0;font:400 21px/1.1 var(--serif)}.piece p{margin:5px 0 0;font:400 12.5px/1 var(--sans);color:var(--ink3)}
+.piece .st{font:italic 400 13px/1 var(--serif);color:var(--orange)}
+.piece .st.draft{color:var(--ink3)}
+.rowacts{display:flex;gap:18px;padding:0 0 12px 78px;font:500 11px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3)}
+.rowacts span.warn{color:var(--orange)}
+.msg{display:flex;align-items:center;gap:14px;padding:12px 0 12px 8px}
+.msg .ti{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--gold);background:color-mix(in oklch,var(--gold) 12%,var(--bg));flex:none;font:400 13px/1 var(--serif)}
+.msg .t{flex:1;min-width:0}.msg h4{margin:0;font:400 19px/1.1 var(--serif)}.msg p{margin:4px 0 0;font:italic 400 13px/1 var(--serif);color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend{display:flex;gap:18px;padding:18px 0 0;font:400 11.5px/1 var(--sans);color:var(--ink3)}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.issue{display:flex;align-items:center;gap:18px;padding:22px 0 0}
+.pages{display:flex;gap:3px;align-items:flex-end;height:34px;padding:0 4px;border-bottom:1px solid var(--line2)}
+.pages i{width:4px;height:28px;border-radius:1px;background:var(--line2)}.pages i.f{background:var(--ink2)}.pages i.g{background:var(--green);box-shadow:0 0 10px oklch(0.78 0.12 150/.5)}
+.issue .t{flex:1;min-width:0}.issue .t h4{margin:0;font:400 20px/1 var(--serif)}.issue .t p{margin:5px 0 0;font:400 12px/1 var(--mono);color:var(--ink3);white-space:nowrap}.issue .t p b{color:var(--green);font-weight:500}
+.bcol{padding:16px 0;border-bottom:1px solid var(--line)}
+.bcol .hd{display:flex;align-items:center;gap:12px}
+.bcol h3{margin:0;font:400 20px/1.15 var(--serif);flex:1;min-width:0}
+.bcol h3 i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);vertical-align:middle;margin-left:8px}
+.bcol .desc{margin:10px 0 2px;font:italic 400 14px/1.45 var(--serif);color:var(--ink2)}
+.bcol .prompt{margin:6px 0 0;font:400 12px/1.5 var(--sans);color:var(--ink3)}.bcol .prompt b{font:500 10px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-right:8px}
+.pills{display:flex;gap:6px}
+.pill{height:34px;min-width:34px;padding:0 10px;border-radius:17px;border:1px solid var(--line2);display:flex;align-items:center;gap:6px;color:var(--ink3);font:400 12px/1 var(--mono)}
+.pill svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pill.on{border-color:var(--c);color:var(--c);background:color-mix(in oklch,var(--c) 14%,var(--bg))}
+.pill.dim{opacity:.4}
+.pill .chevs{width:8px;height:8px;stroke-width:2}
+.hint{font:italic 400 13px/1 var(--serif);color:var(--ink3);padding-top:16px;text-align:center}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--bg2);border-top:1px solid var(--line2);border-radius:20px 20px 0 0;padding:14px 24px 26px;box-shadow:0 -30px 60px rgba(0,0,0,.6)}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--line2);margin:0 auto 16px}
+.sheet h4{margin:0;font:400 22px/1.1 var(--serif)}.sheet p{margin:4px 0 14px;font:400 12.5px/1 var(--sans);color:var(--ink3)}
+.city{display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--line);font:400 15px/1 var(--sans);color:var(--ink2)}
+.city .n{flex:1}.city .n i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);vertical-align:middle;margin-left:8px}
+.city .c{font:400 12px/1 var(--mono);color:var(--ink3)}
+.box{width:20px;height:20px;border:1px solid var(--line2);border-radius:4px;flex:none;display:grid;place-items:center}
+.box.on{border-color:var(--green);background:oklch(0.78 0.12 150/.12)}
+.box.on:after{content:"";width:9px;height:5px;border-left:1.5px solid var(--green);border-bottom:1.5px solid var(--green);transform:rotate(-45deg) translate(1px,-1px)}
+.city.on{color:var(--ink)}
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sys{position:absolute;width:390px;background:var(--bg);border-radius:12px;padding:26px;box-sizing:border-box;box-shadow:inset 0 0 0 1px #2a2723}
+.sys h2{margin:0 0 4px;font:400 24px/1.1 var(--serif)}.sys p{margin:0 0 16px;font:400 12.5px/1.45 var(--sans);color:var(--ink2)}
+.sys .src{font:400 10.5px/1.4 var(--mono);color:var(--ink3);margin-bottom:14px;word-break:break-all}
+.map{display:grid;grid-template-columns:1fr 1fr;gap:0;font:400 12.5px/1.35 var(--sans)}
+.map div{padding:9px 0;border-top:1px solid var(--line);color:var(--ink2)}
+.map div:nth-child(odd){color:var(--ink);padding-right:12px}
+.map div:nth-child(-n+2){border-top:0;font:500 10px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ink3);padding-top:0}
+.map .new{color:var(--green)}
+.map .gap{color:var(--orange)}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding-top:16px}
+.ccard{border:1px solid var(--line);border-radius:12px;background:var(--bg2);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.ccard .ban{height:78px;background:linear-gradient(135deg,color-mix(in oklch,var(--c) 14%,var(--bg2)),var(--bg2));display:grid;place-items:center;color:var(--c);opacity:.9}
+.ccard .ban svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.ccard .ban.img{background:repeating-linear-gradient(135deg,#1e1c18 0 6px,#171613 6px 12px)}
+.ccard .bd{padding:11px 12px 12px;display:flex;align-items:center;gap:8px}
+.ccard h4{margin:0;font:400 17px/1.1 var(--serif);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ccard .ti{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklch,var(--c) 12%,var(--bg));flex:none}
+.ccard .ti svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ccard.on{border-color:var(--green)}
+.ccard.on .chk{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:var(--green);display:grid;place-items:center;box-shadow:0 0 14px oklch(0.78 0.12 150/.45)}
+.ccard.on .chk:after{content:"";width:8px;height:4px;border-left:1.5px solid #0d0c0a;border-bottom:1.5px solid #0d0c0a;transform:rotate(-45deg) translate(1px,-1px)}
+.ccard.lock{opacity:.7}.ccard.lock .ban{color:var(--ink3);background:var(--bg2)}
+.ccard .req{margin:0 12px 12px;padding:9px 0;text-align:center;border:1px solid var(--line2);border-radius:5px;font:500 10.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+.ccard .req.pend{border-color:transparent;color:var(--ink3)}
+.filt{display:flex;gap:6px;padding-top:16px;overflow:hidden}
+.filt span{height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--line2);display:flex;align-items:center;gap:6px;color:var(--ink3);font:400 12px/1 var(--sans);white-space:nowrap}
+.filt span i{width:6px;height:6px;border-radius:50%;background:var(--c)}
+.filt span.on{color:var(--ink);border-color:var(--ink2)}
+.acard{border:1px solid var(--line);border-radius:12px;background:var(--bg2);overflow:hidden;position:relative;display:flex;flex-direction:column}
+.acard .ban{height:96px;position:relative;display:grid;place-items:center;overflow:hidden}
+.acard .ban.a{background:linear-gradient(160deg,#2a2218,#15120e)}.acard .ban.b{background:linear-gradient(160deg,#1a2430,#0f1418)}.acard .ban.c{background:linear-gradient(160deg,#22182a,#120f16)}.acard .ban.d{background:linear-gradient(160deg,#1a2a20,#0f1613)}
+.acard .ban .logo{font:400 22px/1 var(--serif);letter-spacing:-.01em;color:var(--ink);opacity:.9}
+.acard .ban .logo.m{font:500 11px/1 var(--mono);letter-spacing:.3em;text-transform:uppercase}
+.acard .ban .ph{position:absolute;inset:0;background:repeating-linear-gradient(135deg,rgba(255,255,255,.025) 0 6px,transparent 6px 12px)}
+.acard .bd{padding:11px 12px 12px;display:flex;align-items:baseline;gap:8px}
+.acard h4{margin:0;font:400 17px/1.1 var(--serif);flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acard .bd p{margin:0;font:400 12px/1 var(--mono);color:var(--green)}
+.acard .tag{margin:-2px 12px 12px;font:400 12px/1.35 var(--sans);color:var(--ink3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.acard.on{border-color:var(--green)}
+.acard.on .chk{position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:var(--green);display:grid;place-items:center;box-shadow:0 0 14px oklch(0.78 0.12 150/.45)}
+.acard.on .chk:after{content:"";width:8px;height:4px;border-left:1.5px solid #0d0c0a;border-bottom:1.5px solid #0d0c0a;transform:rotate(-45deg) translate(1px,-1px)}
+.adnote{display:flex;justify-content:space-between;align-items:baseline;padding-top:16px;font:italic 400 13.5px/1 var(--serif);color:var(--ink3)}
+.adnote b{font:400 12px/1 var(--mono);color:var(--green)}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+<symbol id="cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="ppl" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6M15 19c0-2.5 1.6-4.5 4-4.5 1 0 2 .4 2 .4"/></symbol>
+<symbol id="env" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 8l9 6 9-6"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.5-6-10.5A6 6 0 0 1 18 10.5C18 15.5 12 21 12 21z"/><circle cx="12" cy="10.5" r="2"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="addppl" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.5"/><path d="M3 20c0-3.9 3.1-7 7-7 1.4 0 2.7.4 3.8 1.1M18 14v6M15 17h6"/></symbol>
+<symbol id="brush" viewBox="0 0 24 24"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M5 19c3 0 4-1 4-3"/></symbol>
+<symbol id="quill" viewBox="0 0 24 24"><path d="M4 20c8-1 14-7 16-16-9 2-15 8-16 16z"/><path d="M4 20l8-8"/></symbol>
+<symbol id="note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+<symbol id="srch" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+</svg>
+
+<div class="title" style="left:40px;top:40px">B-final · Every live function, kept<small>Checked against dashboard/page.tsx, curate/page.tsx and IntegratedCollabsSection.tsx. Nothing the app does today is removed; two things move to gestures, one gap is flagged.</small></div>
+
+<div class="label" style="left:40px;top:150px">1 · Dashboard · Content open</div>
+<div class="frame" data-screen-label="Dashboard content" style="left:40px;top:182px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><div class="avatar"></div></div>
+<div class="season"><span class="n">Spring 2026</span><span class="bar"><b></b></span><span class="d"><b>116d</b> remaining</span></div>
+<div class="tabs"><span class="on">Contribute</span><span>Curate</span></div>
+<div class="scroll">
+<div class="next"><div class="t"><div class="k">Up next</div><h4>Edges invited you</h4></div><span class="cta">View</span></div>
+<div class="brow open" style="margin-top:6px;border-bottom:0;--c:var(--orange)"><span class="ico on"><svg><use href="#cam"/></svg></span><h3>Content</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="bsub">
+<div class="piece"><span class="thumb"></span><div class="t"><h4>Summer pics</h4><p>2 images · Photo</p></div><span class="st">submitted</span></div>
+<div class="rowacts"><span>Withdraw</span><span class="warn">Delete</span></div>
+</div>
+<div class="brow"><span class="ico"><svg><use href="#ppl"/></svg></span><h3>Collaborations</h3><span class="n">5</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow" style="border-bottom:0"><span class="ico"><svg><use href="#env"/></svg></span><h3>Communications</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+</div></div>
+
+<div class="label" style="left:490px;top:150px">2 · Collaborations open · one row swiped</div>
+<div class="frame" data-screen-label="Dashboard collabs" style="left:490px;top:182px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><div class="avatar"></div></div>
+<div class="season"><span class="n">Spring 2026</span><span class="bar"><b></b></span><span class="d"><b>116d</b> remaining</span></div>
+<div class="tabs"><span class="on">Contribute</span><span>Curate</span></div>
+<div class="scroll">
+<div class="brow"><span class="ico"><svg><use href="#cam"/></svg></span><h3>Content</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow open" style="border-bottom:0;--c:var(--blue)"><span class="ico on"><svg><use href="#ppl"/></svg></span><h3>Collaborations</h3><span class="n">5</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="bsub">
+<div class="sec">Invited</div>
+<div class="bitem" style="--c:var(--purple)"><span class="ti"><svg><use href="#lock"/></svg></span><h4>Edges</h4><span class="act"><span class="y">Accept</span><span>Decline</span></span></div>
+<div class="sec">Active</div>
+<div class="bitem" style="--c:var(--purple)"><span class="ti"><svg><use href="#lock"/></svg></span><h4>Everyone Who Was There</h4><span class="lnk"><svg><use href="#addppl"/></svg></span><span class="mark done"></span></div>
+<div class="bitem" style="--c:var(--blue)"><span class="ti"><svg><use href="#ppl"/></svg></span><h4>The Long Way Round</h4><span class="mark"></span></div>
+<div class="bitem swiped" style="--c:var(--green)"><span class="ti"><svg><use href="#pin"/></svg></span><h4>One Hundred Mornings</h4><span class="mark"></span><span class="leave">Leave</span></div>
+<div class="bitem" style="--c:var(--green)"><span class="ti"><svg><use href="#pin"/></svg></span><h4>The Water Is Always There</h4><span class="mark done"></span></div>
+<div class="badd"><span>Join a new collaboration</span><b>+</b></div>
+</div>
+<div class="brow" style="border-bottom:0"><span class="ico"><svg><use href="#env"/></svg></span><h3>Communications</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+</div></div>
+
+<div class="label" style="left:940px;top:150px">3 · Communications open</div>
+<div class="frame" data-screen-label="Dashboard comms" style="left:940px;top:182px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><div class="avatar"></div></div>
+<div class="season"><span class="n">Spring 2026</span><span class="bar"><b></b></span><span class="d"><b>116d</b> remaining</span></div>
+<div class="tabs"><span class="on">Contribute</span><span>Curate</span></div>
+<div class="scroll">
+<div class="brow"><span class="ico"><svg><use href="#cam"/></svg></span><h3>Content</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow"><span class="ico"><svg><use href="#ppl"/></svg></span><h3>Collaborations</h3><span class="n">5</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow open" style="border-bottom:0;--c:var(--gold)"><span class="ico on"><svg><use href="#env"/></svg></span><h3>Communications</h3><span class="n">2</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="bsub">
+<div class="msg"><span class="ti">r</span><div class="t"><h4>ray h</h4><p>Hey</p></div><span class="mark"></span></div>
+<div class="msg"><span class="ti">s</span><div class="t"><h4>Sarah Chen</h4><p>Thoughts on my latest series</p></div><span class="mark done"></span></div>
+<div class="badd"><span>Write to a curator</span><b>+</b></div>
+</div>
+</div></div>
+
+<div class="label" style="left:1390px;top:150px">4 · Curate · Collaborations · description open</div>
+<div class="frame" data-screen-label="Curate collabs" style="left:1390px;top:182px">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark" style="font-size:19px">online<i>//</i>offline</div><div class="nav act">Curate</div></div>
+<div class="scroll">
+<div class="issue"><div class="pages"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="g"></i><i class="g"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="t"><h4>Your Spring issue</h4><p>14 of 20 pages · <b>6 open</b></p></div></div>
+<div class="ctabs"><span>Contributors<em>9</em></span><span class="on">Collabs<em>2</em></span><span>Comms<em>1</em></span><span>Ads<em>2</em></span></div>
+<div class="legend"><span style="--c:var(--blue)"><i></i>Community</span><span style="--c:var(--green)"><i></i>Local</span><span style="--c:var(--purple)"><i></i>Private</span><span style="--c:var(--gold);margin-left:auto"><i></i>Yours</span></div>
+<div class="bcol"><div class="hd"><h3>One Hundred Mornings<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>3</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1<svg class="chevs"><use href="#chev"/></svg></span></div></div>
+<p class="desc">A chain: each piece answers the one before it.</p><p class="prompt"><b>Prompt</b>Photograph the first thing you see on waking. One image, no caption.</p></div>
+<div class="bcol"><div class="hd"><h3>Edges<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>1</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1<svg class="chevs"><use href="#chev"/></svg></span><span class="pill" style="--c:var(--purple)"><svg><use href="#lock"/></svg>1</span></div></div></div>
+<div class="bcol"><div class="hd"><h3>The Long Way Round<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>1</span></div></div></div>
+<div class="bcol"><div class="hd"><h3>The Water Is Always There<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>2</span><span class="pill on" style="--c:var(--green)"><svg><use href="#pin"/></svg>1<svg class="chevs"><use href="#chev"/></svg></span></div></div></div>
+<div class="bcol"><div class="hd"><h3>Everyone Who Was There<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>0</span></div></div></div>
+<div class="sec" style="padding-left:0;padding-top:16px">Your private collabs</div>
+<div class="bcol" style="border-bottom:0"><div class="hd"><h3>Night Shift<i></i></h3><div class="pills"><span class="pill on" style="--c:var(--purple)"><svg><use href="#lock"/></svg>2</span></div></div></div>
+</div>
+<div class="foot"><div class="price"><small>Your price</small>$21.00</div><span class="reset">Reset</span><span class="save">Save</span></div>
+</div>
+
+<div class="label" style="left:1840px;top:150px">5 · Local pill → city sheet</div>
+<div class="frame" data-screen-label="Curate city sheet" style="left:1840px;top:182px">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark" style="font-size:19px">online<i>//</i>offline</div><div class="nav act">Curate</div></div>
+<div class="scroll">
+<div class="issue"><div class="pages"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="g"></i><i class="g"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="t"><h4>Your Spring issue</h4><p>14 of 20 pages · <b>6 open</b></p></div></div>
+<div class="ctabs"><span>Contributors<em>9</em></span><span class="on">Collabs<em>2</em></span><span>Comms<em>1</em></span><span>Ads<em>2</em></span></div>
+<div class="legend"><span style="--c:var(--blue)"><i></i>Community</span><span style="--c:var(--green)"><i></i>Local</span><span style="--c:var(--purple)"><i></i>Private</span><span style="--c:var(--gold);margin-left:auto"><i></i>Yours</span></div>
+<div class="bcol"><div class="hd"><h3>One Hundred Mornings<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>3</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1<svg class="chevs"><use href="#chev"/></svg></span></div></div></div>
+<div class="bcol"><div class="hd"><h3>Edges<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>1</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1<svg class="chevs"><use href="#chev"/></svg></span><span class="pill" style="--c:var(--purple)"><svg><use href="#lock"/></svg>1</span></div></div></div>
+<div class="dim"></div>
+<div class="sheet"><div class="grab"></div><h4>One Hundred Mornings · Local</h4><p>Each city is one page. 6 open.</p>
+<div class="city on"><span class="n">New Orleans<i></i></span><span class="c">4</span><span class="box on"></span></div>
+<div class="city"><span class="n">Pensacola</span><span class="c">2</span><span class="box"></span></div>
+<div class="city"><span class="n">Mobile</span><span class="c">1</span><span class="box"></span></div>
+<div class="city"><span class="n">Tallahassee</span><span class="c">1</span><span class="box"></span></div>
+</div>
+</div>
+<div class="foot"><div class="price"><small>Your price</small>$21.00</div><span class="reset">Reset</span><span class="save">Save</span></div>
+</div>
+
+<div class="label" style="left:2290px;top:150px">Audit · Dashboard</div>
+<div class="sys" style="left:2290px;top:182px">
+<h2>dashboard/page.tsx</h2><p class="src">handlers: toggleSection · pressSubmit · handleWithdrawContent · handleDeleteContent · handleAcceptInvite · handleDeclineInvite · leaveCollab · withdrawCommunication · deleteDraftCommunication</p>
+<div class="map">
+<div>In code today</div><div>In B-final</div>
+<div>Avatar → /profile</div><div>Same</div>
+<div>Curate tab → /curate</div><div>Same</div>
+<div>Countdown (days)</div><div>Same, season bar</div>
+<div>Section subtitle counts</div><div>One number per row; detail in "Up next"</div>
+<div>Content: tap → /submit?draft</div><div>Tap the piece</div>
+<div>Content: withdraw (submitted)</div><div>Action line under piece</div>
+<div>Content: × delete + confirm</div><div>"Delete" in action line, same confirm</div>
+<div>Content: empty → tap to submit</div><div>Row shows 0; sub shows "+ Submit work"</div>
+<div>Invites first, Accept / Decline</div><div>Same, "Invited" group</div>
+<div>Collab tap → /collabs/id/submit</div><div>Same</div>
+<div>"submitted" status</div><div>Green ✓ glyph</div>
+<div>Private: invite / participants → /invite</div><div class="new">Add-person icon on private rows</div>
+<div>× leave + confirm</div><div class="new">Swipe row left → Leave (same confirm)</div>
+<div>Browse → /collabs</div><div>"+ Join a new collaboration"</div>
+<div>Comms: tap → /communicate/id</div><div>Same</div>
+<div>Comms: withdraw / × delete</div><div class="new">Swipe left → Withdraw or Delete</div>
+<div>New → /communicate/new</div><div>"+ Write to a curator"</div>
+<div>Toasts, confirm dialogs</div><div>Unchanged</div>
+<div>Section subtitles (text)</div><div class="gap">Removed: replaced by counts + Up next. Needs new "next action" selector in code.</div>
+</div></div>
+
+<div class="label" style="left:2720px;top:150px">Audit · Curate collabs</div>
+<div class="sys" style="left:2720px;top:182px">
+<h2>curate/page.tsx + IntegratedCollabsSection</h2><p class="src">state: selectedCollabs · remainingContent (20 − used) · searchTerm · descOpen · localOpen · calculatePrice (25 − 2×ads) · handleSave → /dashboard · reset</p>
+<div class="map">
+<div>In code today</div><div>In B-final</div>
+<div>Stats: used / remaining / 20 / price</div><div>Page meter (used, remaining) + price in footer</div>
+<div>Tabs with counts</div><div>Same</div>
+<div>Search</div><div>Kept; pull-down above the meter</div>
+<div>Tap name → description + Prompt</div><div>Same</div>
+<div>Community row: toggle, count, ★</div><div>Blue pill = toggle; count inside; gold dot = yours</div>
+<div>Local: expand → cities, each toggle, ★</div><div class="new">Green pill opens city sheet; pill count = cities selected</div>
+<div>Private row only if joined</div><div>Purple pill only if joined</div>
+<div>User-created private collabs</div><div>Same group, below</div>
+<div>Disabled when remaining = 0</div><div>Pills dim; meter shows 0 open</div>
+<div>Joined sorted first</div><div>Same</div>
+<div>"Added to magazine" list</div><div class="new">Tap the meter → sheet listing selections</div>
+<div>Reset / Save (alert → /dashboard)</div><div>Footer; replace alert with toast</div>
+<div>Address banner</div><div>Unchanged, above tabs when shown</div>
+<div>Empty / loading / error</div><div>Unchanged</div>
+</div></div>
+<div class="label" style="left:1390px;top:1340px">6 · Curate · Contributors</div>
+<div class="frame" data-screen-label="Curate contributors" style="left:1390px;top:1372px">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark" style="font-size:19px">online<i>//</i>offline</div><div class="nav act">Curate</div></div>
+<div class="scroll">
+<div class="issue"><div class="pages"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="g"></i><i class="g"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="t"><h4>Your Spring issue</h4><p>14 of 20 pages · <b>6 open</b></p></div><svg style="width:18px;height:18px;stroke:var(--ink3);fill:none;stroke-width:1.5;margin-left:auto"><use href="#srch"/></svg></div>
+<div class="ctabs"><span class="on">Contributors<em>9</em></span><span>Collabs<em>2</em></span><span>Comms<em>1</em></span><span>Ads<em>2</em></span></div>
+<div class="filt"><span class="on">All</span><span style="--c:var(--blue)"><i></i>Photo</span><span style="--c:var(--purple)"><i></i>Art</span><span style="--c:var(--gold)"><i></i>Writing</span><span style="--c:var(--green)"><i></i>Music</span></div>
+<div class="cgrid">
+<div class="ccard on" style="--c:var(--blue)"><span class="chk"></span><div class="ban img"></div><div class="bd"><h4>S. Chen</h4><span class="ti"><svg><use href="#cam"/></svg></span></div></div>
+<div class="ccard on" style="--c:var(--gold)"><span class="chk"></span><div class="ban"><svg><use href="#quill"/></svg></div><div class="bd"><h4>M. Johnson</h4><span class="ti"><svg><use href="#quill"/></svg></span></div></div>
+<div class="ccard" style="--c:var(--purple)"><div class="ban img"></div><div class="bd"><h4>R. Hale</h4><span class="ti"><svg><use href="#brush"/></svg></span></div></div>
+<div class="ccard" style="--c:var(--blue)"><div class="ban"><svg><use href="#cam"/></svg></div><div class="bd"><h4>A. Okafor</h4><span class="ti"><svg><use href="#cam"/></svg></span></div></div>
+<div class="ccard lock" style="--c:var(--blue)"><div class="ban"><svg><use href="#lock"/></svg></div><div class="bd"><h4>J. Park</h4></div><div class="req">Request access</div></div>
+<div class="ccard" style="--c:var(--green)"><div class="ban img"></div><div class="bd"><h4>T. Nguyen</h4><span class="ti"><svg><use href="#note"/></svg></span></div></div>
+<div class="ccard lock" style="--c:var(--blue)"><div class="ban"><svg><use href="#lock"/></svg></div><div class="bd"><h4>D. Reyes</h4></div><div class="req pend">Request sent</div></div>
+<div class="ccard" style="--c:var(--gold)"><div class="ban"><svg><use href="#quill"/></svg></div><div class="bd"><h4>L. Moreau</h4><span class="ti"><svg><use href="#quill"/></svg></span></div></div>
+</div>
+</div>
+<div class="foot"><div class="price"><small>Your price</small>$21.00</div><span class="reset">Reset</span><span class="save">Save</span></div>
+</div>
+
+<div class="label" style="left:1840px;top:1340px">Audit · Curate contributors</div>
+<div class="sys" style="left:1840px;top:1372px">
+<h2>curate/page.tsx · contributors</h2><p class="src">state: creators · selectedCreators · accessibleProfiles · pendingRequestMap · searchTerm · stableSortedCreators (selected first, sorted once) · toggleItem('friend') · handleRequestFollow · tc color map</p>
+<div class="map">
+<div>In code today</div><div>In B-final</div>
+<div>2-col grid, banner + body</div><div>Same grid; banner is the card</div>
+<div>Banner: identity image or type glyph</div><div>Same; glyph is the type icon</div>
+<div>"Contributor" label + season line</div><div class="gap">Removed: constant text, every card said the same thing</div>
+<div>Name: F. Lastname</div><div>Same</div>
+<div>Type color (photo/art/writing/music)</div><div>Same map; banner tint + small type icon</div>
+<div>Selected: left border + ✓ + glow</div><div>Green check disc + green border; one signal</div>
+<div>Private, no access: 55% + lock + Request</div><div>Same states; lock replaces banner</div>
+<div>Request pending text</div><div>"Request sent", quiet</div>
+<div>Private with access: normal card</div><div>Same</div>
+<div>Search by name / bio</div><div>Search icon on meter row; expands to field</div>
+<div>—</div><div class="new">Type filter chips (client-side filter on contentType, no new data)</div>
+<div>Disabled when remaining = 0</div><div>Unselected cards dim; meter shows 0 open</div>
+<div>Selected-first sort, stable</div><div>Same</div>
+<div>Empty: "No contributors found"</div><div>Unchanged</div>
+</div></div>
+<div class="label" style="left:2290px;top:1340px">7 · Curate · Ads</div>
+<div class="frame" data-screen-label="Curate ads" style="left:2290px;top:1372px">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark" style="font-size:19px">online<i>//</i>offline</div><div class="nav act">Curate</div></div>
+<div class="scroll">
+<div class="issue"><div class="pages"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="g"></i><i class="g"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="t"><h4>Your Spring issue</h4><p>14 of 20 pages · <b>6 open</b></p></div><svg style="width:18px;height:18px;stroke:var(--ink3);fill:none;stroke-width:1.5;margin-left:auto"><use href="#srch"/></svg></div>
+<div class="ctabs"><span>Contributors<em>9</em></span><span>Collabs<em>2</em></span><span>Comms<em>1</em></span><span class="on">Ads<em>2</em></span></div>
+<div class="adnote"><span>Each ad is one page and takes $2 off.</span><b>−$4.00</b></div>
+<div class="cgrid">
+<div class="acard on"><span class="chk"></span><div class="ban a"><span class="ph"></span><span class="logo">Maren &amp; Co.</span></div><div class="bd"><h4>Maren &amp; Co.</h4><p>−$2</p></div><p class="tag">Small-batch ceramics, New Orleans.</p></div>
+<div class="acard on"><span class="chk"></span><div class="ban b"><span class="ph"></span><span class="logo m">Harbor</span></div><div class="bd"><h4>Harbor Coffee</h4><p>−$2</p></div><p class="tag">Roasted on the Gulf. Open till late.</p></div>
+<div class="acard"><div class="ban c"><span class="ph"></span><span class="logo" style="font-style:italic">Filmhaus</span></div><div class="bd"><h4>Filmhaus</h4><p>−$2</p></div><p class="tag">35mm developing and scans by mail.</p></div>
+<div class="acard"><div class="ban d"><span class="ph"></span><span class="logo m">Loose Leaf</span></div><div class="bd"><h4>Loose Leaf Books</h4><p>−$2</p></div><p class="tag">Used and rare. Bywater.</p></div>
+<div class="acard"><div class="ban a"><span class="ph"></span><span class="logo">Tide</span></div><div class="bd"><h4>Tide Print Shop</h4><p>−$2</p></div><p class="tag">Risograph editions, 50 to 500.</p></div>
+<div class="acard"><div class="ban b"><span class="ph"></span><span class="logo m">Sonder</span></div><div class="bd"><h4>Sonder Records</h4><p>−$2</p></div><p class="tag">Listening bar, Thursdays.</p></div>
+</div>
+</div>
+<div class="foot"><div class="price"><small>Your price</small>$21.00</div><span class="reset">Reset</span><span class="save">Save</span></div>
+</div>
+
+<div class="label" style="left:2740px;top:1340px">Audit · Curate ads</div>
+<div class="sys" style="left:2740px;top:1372px">
+<h2>curate/page.tsx · ads</h2><p class="src">data: campaigns (id, name, bio, last_post, avatar_url, discount) · selectedAds · toggleItem('ad') · calculatePrice = 25 − 2 × ads · filteredAds (name / bio search)</p>
+<div class="map">
+<div>In code today</div><div>In B-final</div>
+<div>"Campaigns · each reduces your price by $2"</div><div>One italic line + running discount total</div>
+<div>Avatar (avatar_url)</div><div class="new">Full-width brand banner: avatar_url as cover image; falls back to name as wordmark on a tinted ground</div>
+<div>Name</div><div>Same</div>
+<div>Bio</div><div>Two-line clamp under the name</div>
+<div>$discount per card</div><div>−$2 in mono beside the name; total in the note and footer</div>
+<div>last_post</div><div class="gap">Dropped from card; show on tap if needed</div>
+<div>Selected state</div><div>Green check disc + green border, same as contributors</div>
+<div>Disabled when remaining = 0</div><div>Unselected cards dim</div>
+<div>Empty: none / no match</div><div>Unchanged</div>
+<div>—</div><div class="gap">Needs a banner image field or an aspect rule for avatar_url (2:1 crop); confirm with campaigns table</div>
+</div></div>
+</body></html>

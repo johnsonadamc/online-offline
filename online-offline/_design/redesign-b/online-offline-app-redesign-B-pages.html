@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas"><title>online//offline — B pages</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0c0a;--bg2:#131210;--line:#24211d;--line2:#312d27;--ink:#ece7de;--ink2:#a49c90;--ink3:#6a635a;
+--orange:oklch(0.74 0.13 45);--gold:oklch(0.8 0.11 85);--green:oklch(0.78 0.12 150);--blue:oklch(0.76 0.09 240);--purple:oklch(0.74 0.1 300);
+--serif:'Instrument Serif',Georgia,serif;--sans:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+body{margin:0;background:#1c1b19;font-family:var(--sans);color:var(--ink)}
+a{color:var(--green)}a:hover{color:var(--ink)}
+svg{display:block}
+.frame{position:absolute;width:390px;height:844px;background:var(--bg);border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 0 1px #2a2723;display:flex;flex-direction:column}
+.label{position:absolute;white-space:nowrap;font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:#7a746a}
+.title{position:absolute;width:560px;font:400 34px/1 var(--serif);color:#ece7de}.title small{display:block;font:400 14px/1.4 var(--sans);color:#8a8378;margin-top:10px;max-width:520px}
+.scroll{flex:1;overflow:hidden;padding:0 24px;position:relative}
+.top{display:flex;align-items:center;justify-content:space-between;padding:22px 24px 0;height:38px}
+.wordmark{font:400 19px/1 var(--serif)}.wordmark i{font-style:normal;color:var(--ink3)}
+.nav{font:500 12px/1 var(--sans);color:var(--ink2)}.nav.c{color:var(--c)}
+.st{font:italic 400 15px/1 var(--serif);color:var(--ink3)}.st.sub{color:var(--orange)}
+.days{font:400 12px/1 var(--mono);color:var(--ink2)}.days b{color:var(--orange);font-weight:500}
+.foot{border-top:1px solid var(--line);padding:16px 24px 26px;display:flex;align-items:center;gap:12px;background:var(--bg)}
+.btn{font:500 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;padding:15px 18px;border-radius:5px;text-align:center;flex:none;white-space:nowrap}
+.btn.pri{color:#0d0c0a;background:var(--c,var(--green));box-shadow:0 0 28px color-mix(in oklch,var(--c,var(--green)) 35%,transparent);flex:1}
+.btn.sec{color:var(--ink2);border:1px solid var(--line2)}
+.btn.ink{color:var(--bg);background:var(--ink);flex:1}
+.btn.ghost{color:var(--ink3)}
+.btn.dis{opacity:.4}
+.k{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--ink3)}
+.k.c{color:var(--c)}
+.field{padding:18px 0 0}.field .k{margin-bottom:8px}
+.in{border-bottom:1px solid var(--line2);padding:8px 0 10px;font:400 16px/1.3 var(--sans);color:var(--ink);display:flex;justify-content:space-between;align-items:center}
+.in.ph{color:var(--ink3)}.in.big{font:400 26px/1.15 var(--serif)}.in.focus{border-color:var(--ink)}
+.in .cv{width:12px;height:12px;stroke:var(--ink3);fill:none;stroke-width:1.5}
+.ta{border-bottom:1px solid var(--line2);padding:8px 0 10px;font:400 15px/1.55 var(--sans);color:var(--ink2);min-height:90px}
+.ta.ph{color:var(--ink3)}
+.ta.serif{font:400 17px/1.55 var(--serif);color:var(--ink)}
+.wc{display:flex;justify-content:flex-end;padding-top:8px;font:400 11px/1 var(--mono);color:var(--gold)}
+.seg{display:flex;border:1px solid var(--line2);border-radius:6px;overflow:hidden;margin-top:18px}
+.seg span{flex:1;text-align:center;padding:11px 0;font:500 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3)}
+.seg span.on{background:var(--bg2);color:var(--ink)}
+.choice{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.choice div{border:1px solid var(--line2);border-radius:8px;padding:12px 12px 11px}
+.choice div.on{border-color:var(--c)}
+.choice b{display:block;font:400 17px/1 var(--serif);margin-bottom:5px}.choice small{font:400 11.5px/1.3 var(--sans);color:var(--ink3)}
+.prev{margin-top:18px;aspect-ratio:4/3;border-radius:10px;background:repeating-linear-gradient(135deg,#1e1c18 0 6px,#171613 6px 12px);border:1px solid var(--line2);position:relative;overflow:hidden}
+.prev .ch{position:absolute;left:58%;top:42%;width:44px;height:44px;margin:-22px 0 0 -22px}
+.prev .ch:before,.prev .ch:after{content:"";position:absolute;background:var(--orange)}
+.prev .ch:before{left:50%;top:0;bottom:0;width:1px}.prev .ch:after{top:50%;left:0;right:0;height:1px}
+.prev .ch i{position:absolute;inset:14px;border:1px solid var(--orange);border-radius:50%;background:rgba(13,12,10,.4)}
+.prev .crop{position:absolute;left:12px;bottom:12px;font:400 10px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--orange)}
+.prev .feat{position:absolute;right:12px;bottom:10px;font:500 10.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--line2);padding:8px 10px;border-radius:5px;background:rgba(13,12,10,.6)}
+.prev .feat.on{color:var(--orange);border-color:var(--orange)}
+.prev .del{position:absolute;right:12px;top:12px;width:26px;height:26px;border-radius:50%;background:rgba(13,12,10,.7);display:grid;place-items:center;color:var(--ink2);font:300 16px/1 var(--sans)}
+.prev.empty{display:grid;place-items:center;background:var(--bg2);border-style:dashed}
+.prev.empty span{font:italic 400 15px/1 var(--serif);color:var(--ink3)}
+.strip{display:flex;gap:8px;margin-top:10px}
+.strip i{width:56px;height:56px;border-radius:7px;background:repeating-linear-gradient(135deg,#1e1c18 0 6px,#171613 6px 12px);border:1px solid var(--line);position:relative}
+.strip i.on{border-color:var(--ink)}
+.strip i.f:after{content:"★";position:absolute;left:4px;top:2px;font:400 9px/1 var(--sans);color:var(--orange)}
+.strip i.add{background:var(--bg2);border-style:dashed;display:grid;place-items:center;color:var(--ink3);font:300 22px/1 var(--sans)}
+.strip i.add:after{content:"+"}
+.strip .n{margin-left:auto;align-self:center;font:400 11px/1 var(--mono);color:var(--ink3)}
+.det{padding-top:14px;font:400 11px/1 var(--mono);color:var(--ink3)}.det b{color:var(--gold);font-weight:500}
+.row{display:flex;align-items:center;gap:14px;padding:18px 0;border-bottom:1px solid var(--line)}
+.card{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg2);padding:18px 18px 14px}
+.card p{margin:6px 0 0;font:italic 400 14.5px/1.45 var(--serif);color:var(--ink2);text-wrap:pretty}
+.card .pills{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+.card .pills .pill{flex:1;justify-content:center}.card .pill.on{flex:1.4}
+.row h3,.card h3{margin:0;font:400 22px/1.1 var(--serif);flex:1;min-width:0}
+.row p{margin:6px 0 0;font:italic 400 14px/1.4 var(--serif);color:var(--ink2)}
+.row .t{flex:1;min-width:0}
+.pills{display:flex;gap:6px}
+.pill{height:34px;min-width:34px;padding:0 10px;border-radius:17px;border:1px solid var(--line2);display:flex;align-items:center;gap:6px;color:var(--ink3);font:400 12px/1 var(--mono)}
+.pill svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pill.c{border-color:color-mix(in oklch,var(--c) 45%,var(--line2));color:var(--c)}
+.pill.on{border-color:var(--c);color:var(--c);background:color-mix(in oklch,var(--c) 14%,var(--bg))}
+.pill.dim{opacity:.4}
+.pill .cv{width:8px;height:8px;stroke-width:2}
+.legend{display:flex;gap:18px;padding:18px 0 0;font:400 11.5px/1 var(--sans);color:var(--ink3)}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.own{margin-top:18px;border:1px dashed var(--line2);border-radius:12px;padding:18px;display:flex;align-items:center;gap:14px}
+.own .ti{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;color:var(--purple);background:color-mix(in oklch,var(--purple) 12%,var(--bg))}
+.own .ti svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round}
+.own h4{margin:0;font:400 20px/1.1 var(--serif)}.own p{margin:4px 0 0;font:400 12.5px/1 var(--sans);color:var(--ink3)}
+.empty{font:italic 400 15px/1.4 var(--serif);color:var(--ink3);text-align:center;padding:26px 0 0}
+.hero{padding:22px 0 0}.hero h2{margin:0;font:400 30px/1.1 var(--serif)}.hero p{margin:8px 0 0;font:400 13px/1.4 var(--sans);color:var(--ink2)}
+.hero .cap{font:400 12px/1 var(--mono);color:var(--ink3)}
+.ti{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklch,var(--c) 12%,var(--bg));flex:none}
+.ti svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.rr{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.rr .av{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4a4f47,#26292a);border:1px solid var(--line2);display:grid;place-items:center;font:400 14px/1 var(--serif);color:var(--ink2)}
+.rr .n{flex:1;min-width:0;font:400 17px/1.1 var(--serif)}
+.rr .n small{display:block;font:400 11px/1 var(--mono);color:var(--ink3);margin-top:4px}
+.rr .lead{font:italic 400 12px/1 var(--serif);color:var(--purple)}
+.rr .dot{width:7px;height:7px;border-radius:50%}
+.rr .sb{font:500 10.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--line2);padding:8px 10px;border-radius:5px}
+.rr .sb.c{color:var(--c);border-color:var(--c)}
+.rr .sb.q{border-color:transparent;color:var(--ink3);padding-right:0}
+.search{margin-top:18px;height:44px;border-bottom:1px solid var(--line2);display:flex;align-items:center;gap:10px;font:400 15px/1 var(--sans);color:var(--ink3)}
+.search svg{width:16px;height:16px;stroke:var(--ink3);fill:none;stroke-width:1.5}
+.brief{margin-top:18px;border:1px solid var(--line2);border-radius:10px;padding:14px 16px}
+.brief .hd{display:flex;justify-content:space-between;align-items:center}
+.brief p{margin:8px 0 0;font:400 16px/1.5 var(--serif);color:var(--ink)}
+.brief .cv{width:12px;height:12px;stroke:var(--ink3);fill:none;stroke-width:1.5;transform:rotate(90deg)}
+.img{margin-top:18px;border:1px dashed var(--line2);border-radius:8px;padding:12px 14px;display:flex;align-items:center;gap:12px;font:400 13.5px/1 var(--sans);color:var(--ink3)}
+.img svg{width:16px;height:16px;stroke:var(--ink3);fill:none;stroke-width:1.5}
+.sec{padding:26px 0 0;display:flex;justify-content:space-between;align-items:baseline}
+.sec .k{color:var(--ink2)}.sec .k b{color:var(--green);font-weight:500;margin-left:10px}
+.avrow{display:flex;align-items:center;gap:16px;padding-top:14px}
+.avrow .av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#4a4f47,#26292a);border:1px solid var(--line2)}
+.avrow .ch{font:500 11px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2)}
+.banner{margin-top:8px;height:88px;border-radius:8px;border:1px dashed var(--line2);background:var(--bg2);display:grid;place-items:center;font:italic 400 13px/1 var(--serif);color:var(--ink3)}
+.note{font:400 11.5px/1.4 var(--sans);color:var(--ink3);margin:8px 0 0}
+.rolecard{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.rolecard h4{margin:0;font:400 20px/1.1 var(--serif);flex:1}
+.rolecard .on{font:400 11px/1 var(--mono);color:var(--green)}
+.rolecard .add{font:500 10.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink2);border:1px solid var(--line2);padding:8px 10px;border-radius:5px}
+.types{display:flex;gap:6px;padding:12px 0 4px 42px}
+.tog{width:40px;height:22px;border-radius:11px;background:var(--line2);position:relative;flex:none}
+.tog i{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:var(--ink2)}
+.tog.on{background:var(--gold)}.tog.on i{left:20px;background:var(--bg)}
+.tr{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--line)}
+.tr .t{flex:1}.tr h4{margin:0;font:400 17px/1.1 var(--serif)}.tr p{margin:4px 0 0;font:400 12px/1 var(--sans);color:var(--ink3)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.pay{margin-top:12px;border:1px solid var(--line);border-radius:8px;padding:14px;font:italic 400 14px/1.4 var(--serif);color:var(--ink3)}
+.steps{display:flex;gap:6px;padding:26px 0 0}.steps i{flex:1;height:2px;background:var(--line2)}.steps i.on{background:var(--ink)}
+.opt{display:flex;align-items:center;gap:14px;padding:16px 0;border-bottom:1px solid var(--line)}
+.opt h4{margin:0;font:400 22px/1.1 var(--serif);flex:1}.opt p{margin:4px 0 0;font:400 12.5px/1.3 var(--sans);color:var(--ink3)}
+.opt .t{flex:1}
+.radio{width:20px;height:20px;border-radius:50%;border:1px solid var(--line2);display:grid;place-items:center}
+.radio.on{border-color:var(--ink)}.radio.on:after{content:"";width:10px;height:10px;border-radius:50%;background:var(--ink)}
+.center{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 32px}
+.center .wm{font:400 34px/1 var(--serif);text-align:center}.center .wm i{font-style:normal;color:var(--ink3)}
+.center hr{border:0;border-top:1px solid var(--line2);width:40px;margin:22px auto 30px}
+.link{text-align:center;font:400 13px/1 var(--sans);color:var(--ink3);padding-top:22px}
+.sys{position:absolute;width:390px;background:var(--bg);border-radius:12px;padding:26px;box-sizing:border-box;box-shadow:inset 0 0 0 1px #2a2723}
+.sys h2{margin:0 0 4px;font:400 24px/1.1 var(--serif)}.sys p{margin:0 0 16px;font:400 12.5px/1.45 var(--sans);color:var(--ink2)}
+.prim{display:grid;gap:14px}.prim>div{display:grid;grid-template-columns:110px 1fr;gap:12px;align-items:start;border-top:1px solid var(--line);padding-top:12px;font:400 12.5px/1.4 var(--sans);color:var(--ink2)}
+.prim b{font:400 15px/1.2 var(--serif);color:var(--ink)}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+<symbol id="ppl" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6M15 19c0-2.5 1.6-4.5 4-4.5 1 0 2 .4 2 .4"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.5-6-10.5A6 6 0 0 1 18 10.5C18 15.5 12 21 12 21z"/><circle cx="12" cy="10.5" r="2"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="srch" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+<symbol id="cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="brush" viewBox="0 0 24 24"><path d="M14 4l6 6-9 9H5v-6z"/><path d="M5 19c3 0 4-1 4-3"/></symbol>
+<symbol id="quill" viewBox="0 0 24 24"><path d="M4 20c8-1 14-7 16-16-9 2-15 8-16 16z"/><path d="M4 20l8-8"/></symbol>
+<symbol id="env" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 8l9 6 9-6"/></symbol>
+</svg>
+
+<div class="title" style="left:40px;top:40px">B · remaining pages<small>Same tokens and rules as B-final. Types are photography (blue), art (purple), writing (gold). Forms use one Input primitive: borderless, bottom hairline, ink on focus.</small></div>
+
+<!-- 1 submit image -->
+<div class="label" style="left:40px;top:150px">1 · /submit · image · collection</div>
+<div class="frame" data-screen-label="Submit image" style="left:40px;top:182px;--c:var(--orange)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="st">draft</div><div class="days"><b>116d</b></div></div>
+<div class="scroll">
+<div class="field"><div class="in big ph">Collection title</div></div>
+<div class="seg"><span class="on">Image</span><span>Text</span></div>
+<div class="choice"><div class="on"><b>Collection</b><small>1–8 images, one featured</small></div><div><b>Full spread</b><small>Single image, full page</small></div></div>
+<div class="prev"><span class="del">×</span><span class="ch"><i></i></span><span class="crop">Crop center 58%, 42%</span><span class="feat on">★ Feature</span></div>
+<div class="strip"><i class="on f"></i><i></i><i></i><i class="add"></i><span class="n">3 / 8</span></div>
+<div class="field"><div class="in ph">Image 1 title</div></div>
+<div class="field" style="padding-top:8px"><div class="in ph" style="font-size:14px">Add a caption…</div></div>
+</div>
+<div class="foot"><span class="btn sec">Save</span><span class="btn pri">Submit</span></div>
+</div>
+
+<!-- 1b submit text -->
+<div class="label" style="left:490px;top:150px">1b · /submit · text · submitted</div>
+<div class="frame" data-screen-label="Submit text" style="left:490px;top:182px;--c:var(--orange)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="st sub">submitted</div><div class="days"><b>116d</b></div></div>
+<div class="scroll">
+<div class="field"><div class="in big">What the River Kept</div></div>
+<div class="seg"><span>Image</span><span class="on">Text</span></div>
+<div class="ta serif" style="margin-top:18px;min-height:300px">The water remembers the shape of every stone<br>it has moved. I have moved nothing,<br>and still the bank is different<br>each time I return to it.<br><br>My father called this patience.<br>I have another word.</div>
+<div class="det">Reads as <b>poetry</b> · 41 words</div>
+</div>
+<div class="foot"><span class="btn ghost">Withdraw</span><span class="btn sec" style="flex:1">Edit</span></div>
+</div>
+
+<!-- 2 collabs browse -->
+<div class="label" style="left:940px;top:150px">2 · /collabs · browse + join</div>
+<div class="frame" data-screen-label="Collabs browse" style="left:940px;top:182px;--c:var(--gold)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark">online<i>//</i>offline</div><div class="nav c">Collabs</div></div>
+<div class="scroll">
+<div class="card" style="margin-top:20px"><h3>One Sentence Conspiracy</h3><p>A topical open-ended collection. Submit an image with a one-sentence conspiracy caption.</p><div class="pills"><span class="pill c" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>Community</span><span class="pill c" style="--c:var(--green)"><svg><use href="#pin"/></svg>Local</span><span class="pill c" style="--c:var(--purple)"><svg><use href="#lock"/></svg>Private</span></div></div>
+<div class="card"><h3>Edges</h3><p>Where one thing becomes another. Look for the seam.</p><div class="pills"><span class="pill c" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>Community</span><span class="pill c" style="--c:var(--green)"><svg><use href="#pin"/></svg>Local</span><span class="pill c" style="--c:var(--purple)"><svg><use href="#lock"/></svg>Private</span></div></div>
+<div class="card"><h3>The Long Way Round</h3><p>A narrative told out of order. Start anywhere but the beginning.</p><div class="pills"><span class="pill on" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>Joined</span><span class="pill c" style="--c:var(--green)"><svg><use href="#pin"/></svg>Local</span><span class="pill c" style="--c:var(--purple)"><svg><use href="#lock"/></svg>Private</span></div></div>
+<div class="own"><span class="ti"><svg><use href="#plus"/></svg></span><div><h4>Start your own</h4><p>A private collab you lead. Up to 10.</p></div></div>
+</div></div>
+
+<!-- 3 create -->
+<div class="label" style="left:1390px;top:150px">3 · /collabs/create</div>
+<div class="frame" data-screen-label="Collab create" style="left:1390px;top:182px;--c:var(--purple)">
+<div class="top"><div class="nav">‹ Collabs</div><div class="wordmark">online<i>//</i>offline</div><div class="nav c">Private</div></div>
+<div class="scroll">
+<div class="hero"><h2>Start a private collab</h2><p>You'll lead it and invite up to 9 others.</p></div>
+<div class="field" style="padding-top:26px"><div class="k">Name</div><div class="in big focus">Night Shift</div></div>
+<div class="field"><div class="k">Description</div><div class="ta ph">What is this collab about? Shown publicly.</div></div>
+<div class="field"><div class="k">Prompt</div><div class="ta ph">What should contributors make? Give them a clear brief.</div></div>
+</div>
+<div class="foot"><span class="btn pri">Create and invite</span></div>
+</div>
+
+<!-- 4 invite -->
+<div class="label" style="left:1840px;top:150px">4 · /collabs/[id]/invite · lead</div>
+<div class="frame" data-screen-label="Collab invite" style="left:1840px;top:182px;--c:var(--purple)">
+<div class="top"><div class="nav">‹ Back</div><div class="wordmark">online<i>//</i>offline</div><div class="nav c">Private</div></div>
+<div class="scroll">
+<div class="hero"><div style="display:flex;align-items:baseline;gap:12px"><h2 style="flex:1">Night Shift</h2><span class="cap">4 / 10</span></div></div>
+<div class="search"><svg><use href="#srch"/></svg>Search by name…</div>
+<div class="rr" style="--c:var(--blue)"><span class="av">a</span><div class="n">A. Okafor</div><span class="ti"><svg><use href="#cam"/></svg></span><span class="sb c" style="--c:var(--purple)">Invite</span></div>
+<div class="rr" style="--c:var(--gold)"><span class="av">l</span><div class="n">L. Moreau</div><span class="ti"><svg><use href="#quill"/></svg></span><span class="sb q">Invited</span></div>
+<div class="sec"><span class="k">Participants</span></div>
+<div class="rr"><span class="av">y</span><div class="n">You<small>lead</small></div><span class="dot" style="background:var(--green)"></span></div>
+<div class="rr"><span class="av">s</span><div class="n">S. Chen</div><span class="dot" style="background:var(--green)"></span></div>
+<div class="rr"><span class="av">r</span><div class="n">R. Hale</div><span class="dot" style="background:var(--line2)"></span></div>
+<div class="rr" style="border-bottom:0"><span class="av">t</span><div class="n">T. Nguyen</div><span class="dot" style="background:var(--orange)"></span></div>
+<div class="legend" style="padding-top:14px"><span style="--c:var(--green)"><i></i>Accepted</span><span style="--c:var(--line2)"><i></i>Pending</span><span style="--c:var(--orange)"><i></i>Declined</span></div>
+</div>
+<div class="foot"><span class="btn ink">Done</span></div>
+</div>
+
+<!-- 5 collab submit -->
+<div class="label" style="left:2290px;top:150px">5 · /collabs/[id]/submit</div>
+<div class="frame" data-screen-label="Collab submit" style="left:2290px;top:182px;--c:var(--green)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="st">draft</div><div class="days"><b>116d</b></div></div>
+<div class="scroll">
+<div class="hero" style="display:flex;align-items:center;gap:12px"><span class="ti"><svg><use href="#pin"/></svg></span><h2 style="font-size:26px;flex:1">One Hundred Mornings</h2><span class="cap">New Orleans</span></div>
+<div class="brief"><div class="hd"><span class="k" style="color:var(--gold)">Prompt</span><svg class="cv"><use href="#chev"/></svg></div><p>Photograph the first thing you see on waking. One image, no caption.</p></div>
+<div class="prev" style="aspect-ratio:1"><span class="ch"><i></i></span><span class="crop">Crop center 58%, 42%</span></div>
+<div class="field"><div class="in ph">Image title</div></div>
+<div class="field" style="padding-top:8px"><div class="in ph" style="font-size:14px">Add a caption…</div></div>
+</div>
+<div class="foot"><span class="btn sec">Save</span><span class="btn pri">Submit</span></div>
+</div>
+
+<!-- row 2 -->
+<!-- 6 communicate -->
+<div class="label" style="left:40px;top:1100px">6 · /communicate/new</div>
+<div class="frame" data-screen-label="Communicate new" style="left:40px;top:1132px;--c:var(--gold)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="st">draft</div><div class="nav c">Note</div></div>
+<div class="scroll">
+<div class="field" style="padding-top:26px"><div class="k">To</div><div class="in big" style="font-size:30px">Sarah Chen<svg class="cv"><use href="#chev"/></svg></div></div>
+<div class="field"><div class="in" style="font:italic 400 18px/1.3 var(--serif)">Thoughts on my latest series</div></div>
+<div class="ta" style="margin-top:14px;min-height:220px;color:var(--ink)">I've been sitting with the river pieces for a month now and I think the third one is the one that matters. The others were me getting there.</div>
+<div class="wc">31 / 250</div>
+<div class="img"><svg><use href="#cam"/></svg>Add an image (optional)</div>
+</div>
+<div class="foot"><span class="btn sec">Save draft</span><span class="btn pri">Send</span></div>
+</div>
+
+<!-- 7a profile -->
+<div class="label" style="left:490px;top:1100px">7 · /profile · top</div>
+<div class="frame" data-screen-label="Profile" style="left:490px;top:1132px;--c:var(--gold)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark">online<i>//</i>offline</div><div class="nav c">Profile</div></div>
+<div class="scroll">
+<div class="sec" style="padding-top:22px"><span class="k">Identity</span></div>
+<div class="avrow"><span class="av"></span><span class="ch">Change photo</span></div>
+<div class="two"><div class="field"><div class="k">First</div><div class="in">Adam</div></div><div class="field"><div class="k">Last</div><div class="in">Johnson</div></div></div>
+<div class="field"><div class="k">City</div><div class="in">New Orleans<svg class="cv"><use href="#chev"/></svg></div></div>
+<div class="field"><div class="k">Bio</div><div class="in ph">A few words about your practice</div></div>
+<div class="field"><div class="k">Identity banner</div><div class="banner">Add a banner</div><p class="note">Shown to curators when selecting contributors. Not a preview of submitted work.</p></div>
+<div class="sec"><span class="k">Your roles</span></div>
+<div class="rolecard" style="--c:var(--orange)"><span class="ti"><svg><use href="#cam"/></svg></span><h4>Contributor</h4><span class="on">active</span></div>
+<div class="types"><span class="pill on" style="--c:var(--blue)"><svg><use href="#cam"/></svg>Photo</span><span class="pill" style="--c:var(--purple)"><svg><use href="#brush"/></svg>Art</span><span class="pill" style="--c:var(--gold)"><svg><use href="#quill"/></svg>Writing</span></div>
+<div class="rolecard" style="--c:var(--gold)"><span class="ti"><svg><use href="#env"/></svg></span><h4>Curator</h4><span class="add">Add</span></div>
+</div>
+<div class="foot"><span class="btn pri" style="--c:var(--green)">Save</span></div>
+</div>
+
+<!-- 7b profile lower -->
+<div class="label" style="left:940px;top:1100px">7b · /profile · lower</div>
+<div class="frame" data-screen-label="Profile lower" style="left:940px;top:1132px;--c:var(--gold)">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark">online<i>//</i>offline</div><div class="nav c">Profile</div></div>
+<div class="scroll">
+<div class="tr" style="padding-top:22px"><div class="t"><h4>Public profile</h4><p>Visible to everyone</p></div><span class="tog on"><i></i></span></div>
+<div class="sec"><span class="k">Mailing address<b>on file</b></span></div>
+<div class="field" style="padding-top:12px"><div class="in">1420 Magazine St</div></div>
+<div class="field" style="padding-top:12px"><div class="in ph">Apt, suite (optional)</div></div>
+<div class="two"><div class="field" style="padding-top:12px"><div class="in">New Orleans</div></div><div class="two" style="padding-top:12px;gap:12px"><div class="in">LA</div><div class="in">70130</div></div></div>
+<div class="sec"><span class="k">Payment</span></div>
+<div class="pay">Card on file: coming soon.</div>
+<div class="sec"><span class="k">Access requests<b style="color:var(--gold)">1</b></span></div>
+<div class="rr"><span class="av">m</span><div class="n">M. Johnson</div><span class="sb c" style="--c:var(--green)">Approve</span><span class="sb q">Deny</span></div>
+<div class="sec"><span class="k">Connections</span></div>
+<div class="rr"><span class="av">s</span><div class="n">S. Chen<small>follows you</small></div><span class="sb q">···</span></div>
+</div>
+<div class="foot"><span class="btn pri" style="--c:var(--green)">Save</span></div>
+</div>
+
+<!-- 8 onboarding -->
+<div class="label" style="left:1390px;top:1100px">8 · /onboarding · step 2</div>
+<div class="frame" data-screen-label="Onboarding" style="left:1390px;top:1132px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><span class="k">2 / 3</span></div>
+<div class="scroll">
+<div class="steps"><i class="on"></i><i class="on"></i><i></i></div>
+<div class="hero" style="padding-top:34px"><h2>How will you take part?</h2></div>
+<div style="padding-top:14px">
+<div class="opt"><div class="t"><h4>Contributor</h4><p>Submit work each season</p></div><span class="radio on"></span></div>
+<div class="opt"><div class="t"><h4>Curator</h4><p>Assemble and receive the issue</p></div><span class="radio"></span></div>
+<div class="opt"><div class="t"><h4>Both</h4></div><span class="radio"></span></div>
+</div>
+<div class="sec"><span class="k">What do you make?</span></div>
+<div class="types" style="padding-left:0"><span class="pill on" style="--c:var(--blue)"><svg><use href="#cam"/></svg>Photo</span><span class="pill" style="--c:var(--purple)"><svg><use href="#brush"/></svg>Art</span><span class="pill" style="--c:var(--gold)"><svg><use href="#quill"/></svg>Writing</span></div>
+</div>
+<div class="foot"><span class="btn ghost">Back</span><span class="btn ink">Continue</span></div>
+</div>
+
+<!-- 9 sign in -->
+<div class="label" style="left:1840px;top:1100px">9 · / · sign in</div>
+<div class="frame" data-screen-label="Sign in" style="left:1840px;top:1132px">
+<div class="center">
+<div class="wm">online<i>//</i>offline</div><hr>
+<div class="field" style="padding-top:0"><div class="in ph">Email</div></div>
+<div class="field"><div class="in ph">Password</div></div>
+<div style="padding-top:30px;display:flex"><span class="btn ink">Sign in</span></div>
+<div class="link">Need an account? Sign up</div>
+</div></div>
+
+<!-- primitives -->
+<div class="label" style="left:2290px;top:1100px">New primitives</div>
+<div class="sys" style="left:2290px;top:1132px">
+<h2>Built once, shared</h2><p>Anatomy and states. Full spec in README-pages.md.</p>
+<div class="prim">
+<div><b>Input</b><span>Label 10px mono above. Value 16px sans (or 26px serif for titles). Bottom hairline `--line2`; `--ink` on focus; placeholder `--ink3`. No box, no radius.</span></div>
+<div><b>Select</b><span>Input + 12px chevron right. Opens native sheet on mobile.</span></div>
+<div><b>Textarea</b><span>Input rules, min 90px, auto-grow. Serif 17px for creative text (poem, prompt, message).</span></div>
+<div><b>WordCount</b><span>Right-aligned 11px mono gold; turns orange past limit.</span></div>
+<div><b>SegmentedToggle</b><span>1px `--line2` box, 6px radius; active segment `--bg2` + ink.</span></div>
+<div><b>ChoiceCard</b><span>Serif title + 11.5px desc, 8px radius; active border takes accent.</span></div>
+<div><b>FocalPointFrame</b><span>Image frame 10px radius. Crosshair 44px, 1px lines + 16px ring, accent color; "Crop center x%, y%" mono bottom-left; optional ★ Feature bottom-right; × top-right.</span></div>
+<div><b>ThumbStrip</b><span>56px squares, 7px radius, 8px gap; current = ink border; ★ marks feature; dashed + slot; "n / 8" mono right.</span></div>
+<div><b>SearchField</b><span>44px, icon left, bottom hairline only. Results are RosterRows.</span></div>
+<div><b>RosterRow</b><span>32px initial avatar, serif name, 11px mono sub, right slot: type tile / button / 7px status dot.</span></div>
+<div><b>Pill</b><span>From B: 34px, icon + mono. Adds label variant (Join / Joined / city).</span></div>
+<div><b>Brief</b><span>Collapsible prompt panel, 1px `--line2`, 10px radius, gold PROMPT label, serif 16px body.</span></div>
+<div><b>ProgressSteps</b><span>n bars 2px, ink for done. "2 / 3" mono in header.</span></div>
+<div><b>Toggle</b><span>40×22, gold when on.</span></div>
+<div><b>StatusDot</b><span>7px: green accepted, `--line2` pending, orange declined.</span></div>
+</div></div>
+</body></html>

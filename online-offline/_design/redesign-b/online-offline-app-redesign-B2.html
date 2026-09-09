@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="design_doc_mode" content="canvas"><title>online//offline — App redesign B′</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Hanken+Grotesk:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0c0a;--bg2:#131210;--line:#24211d;--line2:#312d27;--ink:#ece7de;--ink2:#a49c90;--ink3:#6a635a;
+--orange:oklch(0.74 0.13 45);--gold:oklch(0.8 0.11 85);--green:oklch(0.78 0.12 150);--blue:oklch(0.76 0.09 240);--purple:oklch(0.74 0.1 300);
+--serif:'Instrument Serif',Georgia,serif;--sans:'Hanken Grotesk',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace}
+body{margin:0;background:#1c1b19;font-family:var(--sans);color:var(--ink)}
+a{color:var(--green)}a:hover{color:var(--ink)}
+svg{display:block}
+.frame{position:absolute;width:390px;height:844px;background:var(--bg);border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.6),inset 0 0 0 1px #2a2723;display:flex;flex-direction:column}
+.label{position:absolute;font:500 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:#7a746a}
+.title{position:absolute;width:560px;font:400 34px/1 var(--serif);color:#ece7de}.title small{display:block;font:400 14px/1.4 var(--sans);color:#8a8378;margin-top:10px;max-width:520px}
+.scroll{flex:1;overflow:hidden;padding:0 24px}
+.top{display:flex;align-items:center;justify-content:space-between;padding:22px 24px 0;height:38px}
+.wordmark{font:400 22px/1 var(--serif)}.wordmark i{font-style:normal;color:var(--ink3)}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#4a4f47,#26292a);border:1px solid var(--line2)}
+.nav{font:500 12px/1 var(--sans);color:var(--ink2);display:flex;align-items:center;gap:6px}.nav.act{color:var(--green)}
+.season{display:flex;align-items:center;gap:12px;padding:22px 24px 0}
+.season .n{font:italic 400 17px/1 var(--serif);color:var(--ink2)}
+.season .bar{flex:1;height:1px;background:var(--line2);position:relative}.season .bar b{position:absolute;left:0;top:0;height:1px;width:38%;background:var(--orange)}
+.season .d{font:400 12px/1 var(--mono);color:var(--ink2)}.season .d b{color:var(--orange);font-weight:500}
+.tabs{display:flex;gap:26px;padding:26px 24px 0;border-bottom:1px solid var(--line)}
+.tabs span{font:500 13px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);padding-bottom:14px;position:relative}
+.tabs span.on{color:var(--ink)}.tabs span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--ink)}
+.ico{width:48px;height:48px;border-radius:10px;border:1px solid var(--line2);background:var(--bg2);display:grid;place-items:center;color:var(--ink2);flex:none}
+.ico.on{border-color:var(--c);color:var(--c);background:color-mix(in oklch,var(--c) 10%,var(--bg2))}
+.ico svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.chev{stroke:var(--ink3);fill:none;stroke-width:1.5;width:14px;height:14px}
+.foot{border-top:1px solid var(--line);padding:16px 24px 26px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg)}
+.foot .price{font:400 26px/1 var(--serif)}.foot .price small{display:block;font:400 10.5px/1 var(--mono);letter-spacing:.14em;color:var(--ink3);margin-bottom:6px;text-transform:uppercase}
+.foot .save{font:500 12px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:#0d0c0a;background:var(--green);padding:15px 22px;border-radius:5px;box-shadow:0 0 28px oklch(0.78 0.12 150/.35)}
+.ctabs{display:flex;gap:22px;padding:22px 0 0;border-bottom:1px solid var(--line)}
+.ctabs span{font:500 12px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding-bottom:12px;position:relative;display:flex;gap:6px;align-items:baseline}
+.ctabs span.on{color:var(--ink)}.ctabs span.on:after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--ink)}
+.ctabs em{font:400 11px/1 var(--mono);color:var(--ink3);font-style:normal}
+/* up next */
+.next{margin:18px 0 0;padding:16px 18px;border-radius:12px;background:var(--bg2);border:1px solid var(--line2);display:flex;align-items:center;gap:14px;position:relative;overflow:hidden}
+.next:before{content:"";position:absolute;inset:0;background:radial-gradient(120px 60px at 0% 50%,color-mix(in oklch,var(--gold) 14%,transparent),transparent)}
+.next .k{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.next h4{margin:0;font:400 19px/1.15 var(--serif);flex:1}
+.next .t{flex:1;position:relative}
+.next .cta{font:500 11.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--ink);border:1px solid var(--line2);padding:10px 12px;border-radius:6px;position:relative}
+.brow{display:flex;align-items:center;gap:16px;padding:20px 0;border-bottom:1px solid var(--line)}
+.brow h3{margin:0;font:400 24px/1.1 var(--serif);flex:1}
+.brow .n{font:400 20px/1 var(--serif);color:var(--ink2)}
+.brow.open .chev{transform:rotate(90deg)}
+.bsub{border-bottom:1px solid var(--line);padding:4px 0 8px}
+.sec{font:500 10px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--ink3);padding:12px 0 2px 8px}
+.bitem{display:flex;align-items:center;gap:14px;padding:12px 0 12px 8px}
+.bitem .ti{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--c);background:color-mix(in oklch,var(--c) 12%,var(--bg));flex:none}
+.bitem .ti svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.bitem h4{margin:0;font:400 19px/1.1 var(--serif);flex:1}
+.bitem .act{display:flex;gap:6px}
+.bitem .act span{font:500 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;padding:8px 10px;border-radius:5px;border:1px solid var(--line2);color:var(--ink2)}
+.bitem .act span.y{border-color:var(--gold);color:var(--gold)}
+.mark{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;flex:none}
+.mark.done{color:var(--green)}.mark.done:after{content:"";width:8px;height:4px;border-left:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:rotate(-45deg) translate(1px,-1px)}
+.badd{display:flex;align-items:center;justify-content:space-between;padding:12px 0 14px 8px;font:400 13.5px/1 var(--sans);color:var(--ink3)}
+.badd b{width:36px;height:36px;border:1px solid var(--line2);border-radius:8px;display:grid;place-items:center;color:var(--ink2);font:300 20px/1 var(--sans)}
+/* issue meter */
+.issue{display:flex;align-items:center;gap:18px;padding:22px 0 0}
+.pages{display:flex;gap:3px;align-items:flex-end;height:34px;padding:0 4px;border-bottom:1px solid var(--line2)}
+.pages i{width:4px;height:28px;border-radius:1px;background:var(--line2)}.pages i.f{background:var(--ink2)}.pages i.g{background:var(--green);box-shadow:0 0 10px oklch(0.78 0.12 150/.5)}
+.issue .t h4{margin:0;font:400 20px/1 var(--serif)}.issue .t p{margin:5px 0 0;font:400 12px/1 var(--mono);color:var(--ink3)}
+.issue .t p b{color:var(--green);font-weight:500}
+.legend{display:flex;gap:18px;padding:18px 0 0;font:400 11.5px/1 var(--sans);color:var(--ink3)}
+.legend span{display:flex;align-items:center;gap:6px}.legend i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.bcol{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+.bcol h3{margin:0;font:400 20px/1.15 var(--serif);flex:1;min-width:0}
+.bcol h3 i{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);vertical-align:middle;margin-left:8px}
+.pills{display:flex;gap:6px}
+.pill{height:34px;min-width:34px;padding:0 10px;border-radius:17px;border:1px solid var(--line2);display:flex;align-items:center;gap:6px;color:var(--ink3);font:400 12px/1 var(--mono)}
+.pill svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.pill.on{border-color:var(--c);color:var(--c);background:color-mix(in oklch,var(--c) 14%,var(--bg))}
+.hint{font:italic 400 13px/1 var(--serif);color:var(--ink3);padding-top:16px;text-align:center}
+/* principles */
+.sys{position:absolute;width:390px;background:var(--bg);border-radius:12px;padding:28px;box-sizing:border-box;box-shadow:inset 0 0 0 1px #2a2723}
+.sys h2{margin:0 0 6px;font:400 26px/1.1 var(--serif)}.sys p{margin:0 0 18px;font:400 13px/1.45 var(--sans);color:var(--ink2)}
+.sys ol{margin:0;padding:0;list-style:none;display:grid;gap:14px;counter-reset:n}
+.sys li{display:grid;grid-template-columns:28px 1fr;gap:8px;font:400 13px/1.45 var(--sans);color:var(--ink2);counter-increment:n}
+.sys li:before{content:counter(n,decimal-leading-zero);font:400 11px/1.6 var(--mono);color:var(--ink3)}
+.sys li b{display:block;font:400 17px/1.2 var(--serif);color:var(--ink);margin-bottom:3px}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute">
+<symbol id="cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="ppl" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M3 19c0-3.3 2.7-6 6-6s6 2.7 6 6M15 19c0-2.5 1.6-4.5 4-4.5 1 0 2 .4 2 .4"/></symbol>
+<symbol id="env" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="1.5"/><path d="M3 8l9 6 9-6"/></symbol>
+<symbol id="lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="1.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s-6-5.5-6-10.5A6 6 0 0 1 18 10.5C18 15.5 12 21 12 21z"/><circle cx="12" cy="10.5" r="2"/></symbol>
+<symbol id="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+</svg>
+
+<div class="title" style="left:40px;top:40px">B′ · Icons carry it, plus a next step<small>Same bones as B. Two additions: the dashboard tells you the one thing to do next, and Curate shows the printed issue filling up as you select.</small></div>
+
+<div class="label" style="left:40px;top:150px">B′1 · Dashboard</div>
+<div class="frame" data-screen-label="B′ Dashboard" style="left:40px;top:182px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><div class="avatar"></div></div>
+<div class="season"><span class="n">Spring 2026</span><span class="bar"><b></b></span><span class="d"><b>116d</b> remaining</span></div>
+<div class="tabs"><span class="on">Contribute</span><span>Curate</span></div>
+<div class="scroll">
+<div class="next"><div class="t"><div class="k">Up next</div><h4>Edges invited you</h4></div><span class="cta">View</span></div>
+<div class="brow" style="margin-top:6px"><span class="ico"><svg><use href="#cam"/></svg></span><h3>Content</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow"><span class="ico"><svg><use href="#ppl"/></svg></span><h3>Collaborations</h3><span class="n">5</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow" style="border-bottom:0"><span class="ico"><svg><use href="#env"/></svg></span><h3>Communications</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+</div></div>
+
+<div class="label" style="left:490px;top:150px">B′2 · Collaborations open</div>
+<div class="frame" data-screen-label="B′ Dashboard expanded" style="left:490px;top:182px">
+<div class="top"><div class="wordmark">online<i>//</i>offline</div><div class="avatar"></div></div>
+<div class="season"><span class="n">Spring 2026</span><span class="bar"><b></b></span><span class="d"><b>116d</b> remaining</span></div>
+<div class="tabs"><span class="on">Contribute</span><span>Curate</span></div>
+<div class="scroll">
+<div class="brow"><span class="ico"><svg><use href="#cam"/></svg></span><h3>Content</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="brow open" style="border-bottom:0;--c:var(--blue)"><span class="ico on"><svg><use href="#ppl"/></svg></span><h3>Collaborations</h3><span class="n">5</span><svg class="chev"><use href="#chev"/></svg></div>
+<div class="bsub">
+<div class="sec">Invited</div>
+<div class="bitem" style="--c:var(--purple)"><span class="ti"><svg><use href="#lock"/></svg></span><h4>Edges</h4><span class="act"><span class="y">Join</span><span>Pass</span></span></div>
+<div class="sec">Active</div>
+<div class="bitem" style="--c:var(--purple)"><span class="ti"><svg><use href="#lock"/></svg></span><h4>Everyone Who Was There</h4><span class="mark done"></span></div>
+<div class="bitem" style="--c:var(--blue)"><span class="ti"><svg><use href="#ppl"/></svg></span><h4>The Long Way Round</h4><span class="mark"></span></div>
+<div class="bitem" style="--c:var(--green)"><span class="ti"><svg><use href="#pin"/></svg></span><h4>One Hundred Mornings</h4><span class="mark"></span></div>
+<div class="bitem" style="--c:var(--green)"><span class="ti"><svg><use href="#pin"/></svg></span><h4>The Water Is Always There</h4><span class="mark done"></span></div>
+<div class="badd"><span>Join another</span><b>+</b></div>
+</div>
+<div class="brow" style="border-bottom:0"><span class="ico"><svg><use href="#env"/></svg></span><h3>Communications</h3><span class="n">1</span><svg class="chev"><use href="#chev"/></svg></div>
+</div></div>
+
+<div class="label" style="left:940px;top:150px">B′3 · Curate · Collaborations</div>
+<div class="frame" data-screen-label="B′ Curate Collaborations" style="left:940px;top:182px">
+<div class="top"><div class="nav">‹ Dashboard</div><div class="wordmark" style="font-size:19px">online<i>//</i>offline</div><div class="nav act">Curate</div></div>
+<div class="scroll">
+<div class="issue"><div class="pages"><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="f"></i><i class="g"></i><i class="g"></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="t"><h4>Your Spring issue</h4><p>14 of 20 pages · <b>6 open</b></p></div></div>
+<div class="ctabs"><span>Contributors<em>9</em></span><span class="on">Collabs<em>2</em></span><span>Comms<em>1</em></span><span>Ads<em>2</em></span></div>
+<div class="legend"><span style="--c:var(--blue)"><i></i>Community</span><span style="--c:var(--green)"><i></i>Local</span><span style="--c:var(--purple)"><i></i>Private</span><span style="--c:var(--gold);margin-left:auto"><i></i>Yours</span></div>
+<div class="bcol"><h3>One Hundred Mornings<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>3</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1</span></div></div>
+<div class="bcol"><h3>Edges<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>1</span><span class="pill" style="--c:var(--green)"><svg><use href="#pin"/></svg>1</span><span class="pill" style="--c:var(--purple)"><svg><use href="#lock"/></svg>1</span></div></div>
+<div class="bcol"><h3>The Long Way Round<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>1</span></div></div>
+<div class="bcol"><h3>The Water Is Always There<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>2</span><span class="pill on" style="--c:var(--green)"><svg><use href="#pin"/></svg>1</span></div></div>
+<div class="bcol"><h3>Everyone Who Was There<i></i></h3><div class="pills"><span class="pill" style="--c:var(--blue)"><svg><use href="#ppl"/></svg>0</span></div></div>
+<div class="bcol" style="border-bottom:0"><h3>Night Shift</h3><div class="pills"><span class="pill on" style="--c:var(--purple)"><svg><use href="#lock"/></svg>2</span></div></div>
+<div class="hint">Each pill is one page in your issue.</div>
+</div>
+<div class="foot"><div class="price"><small>Your price</small>$21.00</div><span class="save">Save</span></div>
+</div>
+
+<div class="label" style="left:1390px;top:150px">Principles</div>
+<div class="sys" style="left:1390px;top:182px">
+<h2>What makes B′ intuitive</h2><p>The rules behind the changes, in priority order.</p>
+<ol>
+<li><b>One next step</b>The dashboard answers "what should I do?" before "what do I have?". Everything else is a menu.</li>
+<li><b>Recognize, don't read</b>Icons and color identify type; the only words are names. Status is a glyph.</li>
+<li><b>Decide inline, once</b>Invites get Join / Pass right where they appear. No detour to a detail page for a yes/no.</li>
+<li><b>Show the object you're building</b>Curators are assembling a printed issue. The page meter makes 20 slots physical and turns selection into filling a book.</li>
+<li><b>Neon is earned</b>Color at rest is a dot. Glow only on the primary action and on what you just changed.</li>
+<li><b>Price is a consequence, not a stat</b>It updates in the footer as you select. Never repeated on cards.</li>
+</ol>
+</div>
+</body></html>
