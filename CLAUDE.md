@@ -404,7 +404,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives) — no pages yet
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -565,6 +565,7 @@ Key Gotchas & Hard-Won Lessons
 
 ### Design
 - Never mix border shorthand with borderBottom on same element. No lucide-react (inline SVGs).
+- v2 wordmark in JSX: write the slashes as {'//'} — a bare // text node fails eslint react/jsx-no-comment-textnodes.
 - Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.
 
 ### Database
@@ -588,6 +589,8 @@ Key Gotchas & Hard-Won Lessons
 ### Onboarding
 - window.location.href (NOT router.push) for redirect. .maybeSingle() guard on profile_types insert.
 - DB writes on step 3 only. Middleware exempts /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico, /admin/*.
+- v2 step 2 shows Photo / Art / Writing pills; Writing opens Poetry / Essay sub-pills because profiles.content_type
+  only accepts poetry|essay (never write "writing"). Roles are radio rows → handleSelectRole → handleToggleContributor.
 
 ### Curate Page
 - Selections from DB on mount, not localStorage. Key magazine_selections_{user_id}. Address gate warns, never blocks.

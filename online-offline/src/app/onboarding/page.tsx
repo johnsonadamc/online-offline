@@ -2,29 +2,101 @@
 import React, { useState } from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
+import { Input, Pill, ProgressSteps, SectionLabel, SANS, SERIF, MONO } from '@/components/v2';
+
+// Design System v2 — README-pages.md §8 "/onboarding". Ink only: green is
+// reserved for "adds to the issue" and first appears on the dashboard.
 
 type ContentType = 'photography' | 'art' | 'poetry' | 'essay' | null;
 
-const CONTENT_PILLS: { label: string; value: NonNullable<ContentType> }[] = [
-  { label: 'Photography', value: 'photography' },
-  { label: 'Art', value: 'art' },
+// "Writing" covers poetry + essay (both gold). The DB column content_type only
+// accepts poetry | essay, so the Writing pill opens a Poetry / Essay choice.
+const WRITING_PILLS: { label: string; value: 'poetry' | 'essay' }[] = [
   { label: 'Poetry', value: 'poetry' },
   { label: 'Essay', value: 'essay' },
 ];
 
-function usePressState() {
-  const [state, setState] = useState<'rest' | 'pressing' | 'releasing'>('rest');
-  const press = (onRelease: () => void) => {
-    if (state !== 'rest') return;
-    setState('pressing');
-    setTimeout(() => {
-      setState('releasing');
-      onRelease();
-      setTimeout(() => setState('rest'), 220);
-    }, 160);
-  };
-  return { state, press };
+type Role = 'contributor' | 'curator' | 'both';
+
+// ── v2 chrome (design HTML .btn.ink / .btn.ghost / .radio / .opt) ────────────
+const btnBase: React.CSSProperties = {
+  font: `500 12px/1 ${SANS}`,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  padding: '15px 18px',
+  borderRadius: 5,
+  border: 0,
+  textAlign: 'center',
+  whiteSpace: 'nowrap',
+  cursor: 'pointer',
+  WebkitTapHighlightColor: 'transparent',
+};
+const inkBtn = (disabled?: boolean): React.CSSProperties => ({
+  ...btnBase,
+  flex: 1,
+  color: 'var(--bg)',
+  background: 'var(--ink)',
+  opacity: disabled ? 0.4 : 1,
+  cursor: disabled ? 'default' : 'pointer',
+});
+const ghostBtn: React.CSSProperties = {
+  ...btnBase,
+  flex: 'none',
+  color: 'var(--ink3)',
+  background: 'transparent',
+};
+
+function Radio({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: 20,
+        height: 20,
+        borderRadius: '50%',
+        border: `1px solid ${on ? 'var(--ink)' : 'var(--line2)'}`,
+        display: 'grid',
+        placeItems: 'center',
+        flexShrink: 0,
+      }}
+    >
+      {on && <span style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--ink)' }} />}
+    </span>
+  );
 }
+
+function OptionRow({ title, sub, on, onClick }: { title: string; sub?: string; on: boolean; onClick: () => void }) {
+  return (
+    <div
+      role="radio"
+      aria-checked={on}
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 14,
+        padding: '16px 0',
+        borderBottom: '1px solid var(--line)',
+        cursor: 'pointer',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <h4 style={{ margin: 0, font: `400 22px/1.1 ${SERIF}`, color: 'var(--ink)' }}>{title}</h4>
+        {sub && <p style={{ margin: '4px 0 0', font: `400 12.5px/1.3 ${SANS}`, color: 'var(--ink3)' }}>{sub}</p>}
+      </div>
+      <Radio on={on} />
+    </div>
+  );
+}
+
+const Wordmark = () => (
+  <div style={{ font: `400 19px/1 ${SERIF}`, color: 'var(--ink)' }}>
+    online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+  </div>
+);
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -39,9 +111,6 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const continueBtn = usePressState();
-  const backBtn = usePressState();
-  const enterBtn = usePressState();
 
   const step1Valid = firstName.trim().length > 0 && lastName.trim().length > 0;
   const step2Valid = isContributor || isCurator;
@@ -138,477 +207,163 @@ export default function OnboardingPage() {
     }
   };
 
-  // ── Step dots ────────────────────────────────────────────────────────────────
-  const StepDots = () => (
-    <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', marginBottom: '36px' }}>
-      {[1, 2, 3].map(n => (
-        <div key={n} style={{
-          width: n === step ? 20 : 6,
-          height: 6,
-          borderRadius: 3,
-          background: n === step
-            ? 'var(--neon-accent)'
-            : n < step
-              ? 'var(--paper-5)'
-              : 'var(--ground-4)',
-          transition: 'width 0.25s ease, background 0.25s ease',
-        }} />
-      ))}
-    </div>
-  );
 
-  // ── Shared container ─────────────────────────────────────────────────────────
-  const pageStyle: React.CSSProperties = {
-    minHeight: '100vh',
-    background: 'var(--lt-bg)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px 16px',
-    fontFamily: 'var(--font-sans)',
+  // ── v2 UI glue (state semantics unchanged: isContributor / isCurator / contentType) ──
+  const role: Role | null = isContributor && isCurator ? 'both' : isContributor ? 'contributor' : isCurator ? 'curator' : null;
+  const handleSelectRole = (next: Role) => {
+    const wantContributor = next !== 'curator';
+    const wantCurator = next !== 'contributor';
+    if (wantContributor !== isContributor) handleToggleContributor();
+    if (wantCurator !== isCurator) setIsCurator(wantCurator);
   };
 
-  const cardStyle: React.CSSProperties = {
-    width: '100%',
-    maxWidth: '440px',
-    position: 'relative',
-    zIndex: 1,
+  const isWriting = contentType === 'poetry' || contentType === 'essay';
+  const [writingOpen, setWritingOpen] = useState(false);
+  const showWriting = writingOpen || isWriting;
+  const handleWritingPill = () => {
+    if (isWriting && contentType) {
+      handleTogglePill(contentType); // clears it
+      setWritingOpen(false);
+    } else {
+      setWritingOpen(v => !v);
+    }
   };
 
-  // ── Press button builder ─────────────────────────────────────────────────────
-  const continueButtonStyle = (ps: 'rest' | 'pressing' | 'releasing'): React.CSSProperties => ({
-    display: 'block',
-    width: '100%',
-    padding: '13px 20px',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '10px',
-    fontWeight: 700,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'var(--neon-accent)',
-    background: ps === 'pressing' ? 'rgba(224,90,40,0.32)' : 'rgba(224,90,40,0.22)',
-    border: '1px solid rgba(224,90,40,0.55)',
-    borderBottom: ps === 'pressing' ? '1px solid rgba(224,90,40,0.55)' : '2px solid rgba(224,90,40,0.6)',
-    borderRadius: '2px',
-    cursor: 'pointer',
-    transform: ps === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
-    boxShadow: ps === 'pressing'
-      ? 'none'
-      : '0 2px 0 rgba(224,90,40,0.3), 0 0 14px rgba(224,90,40,0.08)',
-    transition: ps === 'releasing'
-      ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease'
-      : 'transform 0.08s, box-shadow 0.08s',
-    textShadow: '0 0 8px var(--glow-accent)',
-  });
+  const goBack = () => setStep(s => Math.max(1, s - 1));
+  const goNext = () => {
+    if (step === 1 && step1Valid) setStep(2);
+    else if (step === 2 && step2Valid) setStep(3);
+  };
+  const canContinue = step === 1 ? step1Valid : step === 2 ? step2Valid : false;
 
-  const backButtonStyle = (ps: 'rest' | 'pressing' | 'releasing'): React.CSSProperties => ({
-    display: 'block',
-    width: '100%',
-    padding: '11px 20px',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '10px',
-    fontWeight: 700,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'var(--paper-4)',
-    background: 'transparent',
-    border: '1px solid rgba(240,235,226,0.18)',
-    borderBottom: '1px solid rgba(240,235,226,0.18)',
-    borderRadius: '2px',
-    cursor: 'pointer',
-    transform: ps === 'pressing' ? 'translateY(1px)' : 'translateY(0)',
-    boxShadow: 'none',
-    transition: ps === 'releasing'
-      ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1)'
-      : 'transform 0.08s',
-  });
+  const hero: React.CSSProperties = { margin: 0, font: `400 30px/1.1 ${SERIF}`, color: 'var(--ink)' };
+  const heroSub: React.CSSProperties = { margin: '8px 0 0', font: `400 13px/1.4 ${SANS}`, color: 'var(--ink2)' };
 
-  // ── Role card ────────────────────────────────────────────────────────────────
-  const RoleCard = ({
-    selected,
-    onToggle,
-    title,
-    description,
-    accentColor,
-    glowColor,
-  }: {
-    selected: boolean;
-    onToggle: () => void;
-    title: string;
-    description: string;
-    accentColor: string;
-    glowColor: string;
-  }) => (
-    <div
-      onClick={onToggle}
-      style={{
-        padding: '18px 20px',
-        background: selected ? `rgba(${accentColor}, 0.07)` : 'var(--ground-2)',
-        border: selected
-          ? `1px solid rgba(${accentColor}, 0.35)`
-          : '1px solid var(--rule-mid)',
-        borderLeft: selected
-          ? `2px solid rgba(${accentColor}, 0.9)`
-          : '2px solid transparent',
-        borderRadius: '2px',
-        cursor: 'pointer',
-        transition: 'background 0.15s, border-color 0.15s',
-        boxShadow: selected ? `-3px 0 10px -2px rgba(${accentColor}, 0.25)` : 'none',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {/* Checkbox indicator */}
-        <div style={{
-          width: 16,
-          height: 16,
-          borderRadius: '2px',
-          border: selected
-            ? `1px solid rgba(${accentColor}, 0.8)`
-            : '1px solid var(--rule-strong)',
-          background: selected ? `rgba(${accentColor}, 0.2)` : 'transparent',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          transition: 'all 0.15s',
-          boxShadow: selected ? `0 0 6px rgba(${accentColor}, 0.3)` : 'none',
-        }}>
-          {selected && (
-            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-              <path d="M1 3.5L3.5 6L8 1" stroke={`rgba(${accentColor}, 1)`} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          )}
-        </div>
-        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', fontWeight: 400 }}>
-          {title}
-        </div>
+  return (
+    <div style={{
+      minHeight: '100dvh',
+      background: 'var(--bg)',
+      color: 'var(--ink)',
+      display: 'flex',
+      flexDirection: 'column',
+      fontFamily: SANS,
+    }}>
+      {/* Header — design `.top`: wordmark + mono "N / 3" */}
+      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '22px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 38, boxSizing: 'content-box' }}>
+        <Wordmark />
+        <SectionLabel>{step} / 3</SectionLabel>
       </div>
-      <div style={{
-        fontFamily: 'var(--font-sans)',
-        fontSize: '13px',
-        color: 'var(--paper-3)',
-        lineHeight: 1.5,
-        marginTop: '10px',
-        paddingLeft: '28px',
-        fontWeight: 300,
-      }}>
-        {description}
-      </div>
-    </div>
-  );
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 1 — Name
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 1) {
-    return (
-      <div style={pageStyle}>
-        <div style={cardStyle}>
-          {/* Wordmark */}
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.7, marginBottom: '10px' }}>
-              slowcial media
+      {/* Scroll region — design `.scroll` */}
+      <div style={{ flex: 1, width: '100%', maxWidth: 560, margin: '0 auto', padding: '0 24px 32px' }}>
+        <ProgressSteps total={3} current={step} style={{ paddingTop: 26 }} />
+
+        {step === 1 && (
+          <>
+            <div style={{ paddingTop: 34 }}>
+              <h2 style={hero}>What&rsquo;s your name?</h2>
+              <p style={heroSub}>As it should appear in print.</p>
             </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '32px', fontWeight: 400, color: 'var(--paper)', margin: 0, letterSpacing: '-0.01em' }}>
-              online//offline
-            </h1>
-          </div>
-
-          <StepDots />
-
-          <div style={{
-            background: 'var(--ground-2)',
-            border: '1px solid var(--rule-mid)',
-            borderRadius: '2px',
-            padding: '28px 24px',
-          }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '6px' }}>
-              Step 1 of 3
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, color: 'var(--paper)', margin: '0 0 24px', letterSpacing: '-0.01em' }}>
-              What's your name?
-            </h2>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-              {/* First name */}
-              <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '6px' }}>
-                  First name
-                </label>
-                <input
-                  type="text"
-                  value={firstName}
-                  onChange={e => setFirstName(e.target.value)}
-                  autoFocus
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'var(--ground-3)',
-                    border: '1px solid var(--rule-mid)',
-                    borderRadius: '2px',
-                    color: 'var(--paper)',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '15px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(224,90,40,0.5)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
-                />
-              </div>
-
-              {/* Last name */}
-              <div>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '6px' }}>
-                  Last name
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={e => setLastName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && step1Valid) continueBtn.press(() => setStep(2)); }}
-                  style={{
-                    width: '100%',
-                    padding: '10px 12px',
-                    background: 'var(--ground-3)',
-                    border: '1px solid var(--rule-mid)',
-                    borderRadius: '2px',
-                    color: 'var(--paper)',
-                    fontFamily: 'var(--font-sans)',
-                    fontSize: '15px',
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                  }}
-                  onFocus={e => { e.currentTarget.style.borderColor = 'rgba(224,90,40,0.5)'; }}
-                  onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-mid)'; }}
-                />
-              </div>
-            </div>
-
-            <button
-              disabled={!step1Valid}
-              onClick={() => continueBtn.press(() => setStep(2))}
-              style={{
-                ...continueButtonStyle(continueBtn.state),
-                opacity: step1Valid ? 1 : 0.35,
-                cursor: step1Valid ? 'pointer' : 'not-allowed',
-              }}
-            >
-              Continue →
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 2 — Role + Content Type
-  // ────────────────────────────────────────────────────────────────────────────
-  if (step === 2) {
-    return (
-      <div style={pageStyle}>
-        <div style={cardStyle}>
-          <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.7, marginBottom: '10px' }}>
-              slowcial media
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '32px', fontWeight: 400, color: 'var(--paper)', margin: 0, letterSpacing: '-0.01em' }}>
-              online//offline
-            </h1>
-          </div>
-
-          <StepDots />
-
-          <div style={{
-            background: 'var(--ground-2)',
-            border: '1px solid var(--rule-mid)',
-            borderRadius: '2px',
-            padding: '28px 24px',
-          }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '6px' }}>
-              Step 2 of 3
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, color: 'var(--paper)', margin: '0 0 8px', letterSpacing: '-0.01em' }}>
-              How will you participate?
-            </h2>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 300, color: 'var(--paper-3)', margin: '0 0 24px', lineHeight: 1.5 }}>
-              Select one or both. You can add a role later from your profile.
-            </p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              {/* Contributor card */}
-              <div>
-                <RoleCard
-                  selected={isContributor}
-                  onToggle={handleToggleContributor}
-                  title="Contributor"
-                  description="Submit photography, art, poetry, or essays each quarter. Your work may be selected for a curator's printed magazine."
-                  accentColor="224,90,40"
-                  glowColor="var(--glow-accent)"
-                />
-
-                {/* Content type pills — fade in when contributor selected */}
-                <div style={{
-                  overflow: 'hidden',
-                  maxHeight: isContributor ? '80px' : '0',
-                  opacity: isContributor ? 1 : 0,
-                  transition: 'max-height 0.3s ease, opacity 0.25s ease',
-                  marginTop: isContributor ? '10px' : '0',
-                  paddingLeft: '2px',
-                }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '8px' }}>
-                    What do you make?
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {CONTENT_PILLS.map(pill => {
-                      const active = contentType === pill.value;
-                      return (
-                        <button
-                          key={pill.value}
-                          onClick={() => handleTogglePill(pill.value)}
-                          style={{
-                            padding: '5px 12px',
-                            fontFamily: 'var(--font-mono)',
-                            fontSize: '9px',
-                            letterSpacing: '0.1em',
-                            textTransform: 'uppercase',
-                            color: active ? 'var(--neon-accent)' : 'var(--paper-4)',
-                            background: active ? 'rgba(224,90,40,0.14)' : 'var(--ground-3)',
-                            border: active ? '1px solid rgba(224,90,40,0.45)' : '1px solid var(--rule-mid)',
-                            borderRadius: '2px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          {pill.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Curator card */}
-              <RoleCard
-                selected={isCurator}
-                onToggle={() => setIsCurator(v => !v)}
-                title="Curator"
-                description="Browse contributor work each quarter and assemble a personalized printed magazine. You receive a physical copy."
-                accentColor="224,168,48"
-                glowColor="var(--glow-amber)"
+            <div style={{ paddingTop: 8 }}>
+              <Input
+                label="First name"
+                type="text"
+                value={firstName}
+                onChange={e => setFirstName(e.target.value)}
+                autoFocus
+                autoComplete="given-name"
+              />
+              <Input
+                label="Last name"
+                type="text"
+                value={lastName}
+                onChange={e => setLastName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && step1Valid) setStep(2); }}
+                autoComplete="family-name"
               />
             </div>
+          </>
+        )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <button
-                disabled={!step2Valid}
-                onClick={() => continueBtn.press(() => setStep(3))}
-                style={{
-                  ...continueButtonStyle(continueBtn.state),
-                  opacity: step2Valid ? 1 : 0.35,
-                  cursor: step2Valid ? 'pointer' : 'not-allowed',
-                }}
-              >
-                Continue →
-              </button>
-              <button
-                onClick={() => backBtn.press(() => setStep(1))}
-                style={backButtonStyle(backBtn.state)}
-              >
-                ← Back
-              </button>
+        {step === 2 && (
+          <>
+            <div style={{ paddingTop: 34 }}>
+              <h2 style={hero}>How will you take part?</h2>
+              <p style={heroSub}>You can add a role later from your profile.</p>
             </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+            <div role="radiogroup" aria-label="Role" style={{ paddingTop: 14 }}>
+              <OptionRow title="Contributor" sub="Submit work each season" on={role === 'contributor'} onClick={() => handleSelectRole('contributor')} />
+              <OptionRow title="Curator" sub="Assemble and receive the issue" on={role === 'curator'} onClick={() => handleSelectRole('curator')} />
+              <OptionRow title="Both" on={role === 'both'} onClick={() => handleSelectRole('both')} />
+            </div>
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // STEP 3 — Confirmation
-  // ────────────────────────────────────────────────────────────────────────────
-  return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.7, marginBottom: '10px' }}>
-            slowcial media
-          </div>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '32px', fontWeight: 400, color: 'var(--paper)', margin: 0, letterSpacing: '-0.01em' }}>
-            online//offline
-          </h1>
-        </div>
-
-        <StepDots />
-
-        <div style={{
-          background: 'var(--ground-2)',
-          border: '1px solid var(--rule-mid)',
-          borderRadius: '2px',
-          padding: '28px 24px',
-        }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: '6px' }}>
-            Step 3 of 3
-          </div>
-
-          {/* Name greeting */}
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', fontWeight: 400, color: 'var(--paper)', margin: '0 0 20px', letterSpacing: '-0.01em' }}>
-            Welcome, {firstName}.
-          </h2>
-
-          {/* Rule */}
-          <div style={{ height: '1px', background: 'var(--paper)', opacity: 0.08, boxShadow: '0 0 6px 1px rgba(240,235,226,0.15)', marginBottom: '20px' }} />
-
-          {/* Confirmation text */}
-          <p style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '16px',
-            fontStyle: 'italic',
-            color: 'var(--paper-2)',
-            lineHeight: 1.6,
-            margin: '0 0 12px',
-          }}>
-            {confirmationLine()}
-          </p>
-
-          <p style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '10px',
-            letterSpacing: '0.04em',
-            color: 'var(--paper-4)',
-            margin: '0 0 28px',
-            lineHeight: 1.6,
-          }}>
-            You can complete your profile — address, payment info — at any time.
-          </p>
-
-          {error && (
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--neon-accent)', marginBottom: '16px' }}>
-              {error}
-            </p>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {saving ? (
-              <div style={{ textAlign: 'center', padding: '13px', fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.1em', color: 'var(--paper-4)' }}>
-                loading…
-              </div>
-            ) : (
-              <button
-                onClick={() => enterBtn.press(handleEnter)}
-                style={continueButtonStyle(enterBtn.state)}
-              >
-                Enter online//offline →
-              </button>
+            {isContributor && (
+              <>
+                <div style={{ paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <SectionLabel>What do you make?</SectionLabel>
+                </div>
+                <div style={{ display: 'flex', gap: 6, padding: '12px 0 4px', flexWrap: 'wrap' }}>
+                  <Pill accent="blue" icon="camera" label="Photo" selected={contentType === 'photography'} onClick={() => handleTogglePill('photography')} />
+                  <Pill accent="purple" icon="brush" label="Art" selected={contentType === 'art'} onClick={() => handleTogglePill('art')} />
+                  <Pill accent="gold" icon="quill" label="Writing" selected={isWriting} tinted={!isWriting && writingOpen} onClick={handleWritingPill} />
+                </div>
+                {showWriting && (
+                  <div style={{ display: 'flex', gap: 6, padding: '6px 0 4px' }}>
+                    {WRITING_PILLS.map(p => (
+                      <Pill
+                        key={p.value}
+                        accent="gold"
+                        label={p.label}
+                        selected={contentType === p.value}
+                        tinted={contentType !== p.value}
+                        onClick={() => handleTogglePill(p.value)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </>
             )}
-            <button
-              onClick={() => backBtn.press(() => setStep(2))}
-              style={backButtonStyle(backBtn.state)}
-            >
-              ← Back
-            </button>
-          </div>
+          </>
+        )}
+
+        {step === 3 && (
+          <>
+            <div style={{ paddingTop: 34 }}>
+              <h2 style={hero}>Welcome, {firstName}.</h2>
+              <p style={heroSub}>Here&rsquo;s how you&rsquo;re joining this season.</p>
+            </div>
+            <div style={{ borderTop: '1px solid var(--line)', marginTop: 26, paddingTop: 22 }}>
+              <p style={{ margin: 0, font: `italic 400 19px/1.35 ${SERIF}`, color: 'var(--ink)' }}>
+                {confirmationLine()}
+              </p>
+              <p style={{ margin: '14px 0 0', font: `400 13px/1.4 ${SANS}`, color: 'var(--ink2)' }}>
+                You can complete your profile — address, payment info — at any time.
+              </p>
+            </div>
+            {error && (
+              <p role="alert" style={{ margin: '18px 0 0', font: `400 12px/1.5 ${MONO}`, color: 'var(--orange)' }}>
+                {error}
+              </p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Footer — design `.foot`: ghost Back + ink primary */}
+      <div style={{ borderTop: '1px solid var(--line)', background: 'var(--bg)' }}>
+        <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '16px 24px 26px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          {step > 1 ? (
+            <button type="button" onClick={goBack} disabled={saving} style={{ ...ghostBtn, opacity: saving ? 0.4 : 1 }}>Back</button>
+          ) : (
+            <span aria-hidden="true" style={{ ...ghostBtn, visibility: 'hidden' }}>Back</span>
+          )}
+          {step < 3 ? (
+            <button type="button" onClick={goNext} disabled={!canContinue} style={inkBtn(!canContinue)}>Continue</button>
+          ) : saving ? (
+            <div style={{ flex: 1, textAlign: 'center', font: `400 12px/1 ${MONO}`, color: 'var(--ink3)', padding: '15px 18px' }}>loading…</div>
+          ) : (
+            <button type="button" onClick={handleEnter} style={inkBtn(false)}>Enter online//offline →</button>
+          )}
         </div>
       </div>
     </div>

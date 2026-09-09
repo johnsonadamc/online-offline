@@ -2,6 +2,10 @@
 import React from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
+import { Input, SANS, SERIF } from '@/components/v2';
+
+// Design System v2 — README-pages.md §9 "/ sign in". Ink only (green is
+// reserved for "adds to the issue"; its first appearance is the dashboard).
 
 export default function Home() {
   const [email, setEmail] = React.useState('');
@@ -42,222 +46,96 @@ export default function Home() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'var(--lt-bg)',
+      minHeight: '100dvh',
+      background: 'var(--bg)',
+      color: 'var(--ink)',
       display: 'flex',
-      alignItems: 'center',
+      flexDirection: 'column',
       justifyContent: 'center',
-      padding: '16px',
-      fontFamily: 'var(--font-sans)',
+      padding: '40px 32px',
+      fontFamily: SANS,
     }}>
-      {/* Ambient glow */}
-      <div style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'radial-gradient(ellipse 60% 50% at 50% 40%, rgba(245,169,63,0.06) 0%, transparent 70%)',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }} />
-
-      <div style={{
-        position: 'relative',
-        zIndex: 1,
-        width: '100%',
-        maxWidth: '390px',
-      }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
-            letterSpacing: '0.15em',
-            textTransform: 'uppercase',
-            color: 'var(--neon-amber)',
-            marginBottom: '12px',
-            opacity: 0.7,
-          }}>
-            slowcial media
-          </div>
-          <h1 style={{
-            fontFamily: 'var(--font-serif)',
-            fontSize: '36px',
-            fontWeight: 400,
-            color: 'var(--paper-primary)',
-            letterSpacing: '-0.01em',
-            lineHeight: 1,
-            margin: 0,
-          }}>
-            online//offline
-          </h1>
-          <div style={{
-            width: '40px',
-            height: '1px',
-            background: 'var(--rule-color)',
-            margin: '16px auto 0',
-            opacity: 0.4,
-          }} />
-        </div>
-
-        {/* Card */}
-        <div style={{
-          background: 'var(--lt-surface)',
-          border: '1px solid var(--rule-color)',
-          borderRadius: '2px',
-          padding: '28px 24px',
+      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto' }}>
+        {/* Wordmark — design `.center .wm`: 34px serif, "//" in --ink3 */}
+        <h1 style={{
+          margin: 0,
+          font: `400 34px/1 ${SERIF}`,
+          textAlign: 'center',
+          color: 'var(--ink)',
+          letterSpacing: 0,
         }}>
-          {/* Mode label */}
-          <div style={{
-            fontFamily: 'var(--font-mono)',
-            fontSize: '10px',
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'var(--neon-amber)',
-            marginBottom: '20px',
-            opacity: 0.8,
-          }}>
-            {isSignUp ? 'Create account' : 'Sign in'}
+          online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+        </h1>
+        {/* 40px hairline — design `.center hr` */}
+        <div style={{ width: 40, height: 1, background: 'var(--line2)', margin: '22px auto 30px' }} />
+
+        <form onSubmit={handleAuth}>
+          <Input
+            type="email"
+            required
+            placeholder="Email"
+            aria-label="Email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <div style={{ paddingTop: 18 }}>
+            <Input
+              type="password"
+              required
+              placeholder="Password"
+              aria-label="Password"
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
 
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Email */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--paper-secondary)',
-                marginBottom: '6px',
-                opacity: 0.7,
-              }}>
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: 'var(--ground-raised)',
-                  border: '1px solid var(--rule-color)',
-                  borderRadius: '2px',
-                  color: 'var(--paper-primary)',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-color)'; }}
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label style={{
-                display: 'block',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '10px',
-                letterSpacing: '0.1em',
-                textTransform: 'uppercase',
-                color: 'var(--paper-secondary)',
-                marginBottom: '6px',
-                opacity: 0.7,
-              }}>
-                Password
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  background: 'var(--ground-raised)',
-                  border: '1px solid var(--rule-color)',
-                  borderRadius: '2px',
-                  color: 'var(--paper-primary)',
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: '14px',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--neon-amber)'; }}
-                onBlur={e => { e.currentTarget.style.borderColor = 'var(--rule-color)'; }}
-              />
-            </div>
-
-            {/* Submit */}
+          {/* Ink primary — design `.btn.ink` */}
+          <div style={{ paddingTop: 30, display: 'flex' }}>
             <button
               type="submit"
               disabled={loading}
-              className="press-btn-green"
               style={{
-                marginTop: '8px',
-                padding: '12px',
-                fontFamily: 'var(--font-mono)',
-                fontSize: '11px',
-                letterSpacing: '0.12em',
+                flex: 1,
+                font: `500 12px/1 ${SANS}`,
+                letterSpacing: '0.14em',
                 textTransform: 'uppercase',
-                cursor: loading ? 'not-allowed' : 'pointer',
-                opacity: loading ? 0.6 : 1,
+                padding: '15px 18px',
+                borderRadius: 5,
+                border: 0,
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                color: 'var(--bg)',
+                background: 'var(--ink)',
+                cursor: loading ? 'default' : 'pointer',
+                opacity: loading ? 0.4 : 1,
+                WebkitTapHighlightColor: 'transparent',
               }}
             >
-              {loading ? 'Working...' : (isSignUp ? 'Create Account' : 'Sign In')}
+              {loading ? 'Working…' : (isSignUp ? 'Create account' : 'Sign in')}
             </button>
-          </form>
-
-          {/* Divider */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            margin: '20px 0',
-          }}>
-            <div style={{ flex: 1, height: '1px', background: 'var(--rule-color)', opacity: 0.3 }} />
-            <span style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              color: 'var(--paper-secondary)',
-              opacity: 0.5,
-            }}>or</span>
-            <div style={{ flex: 1, height: '1px', background: 'var(--rule-color)', opacity: 0.3 }} />
           </div>
+        </form>
 
-          {/* Toggle mode */}
+        {/* Mode toggle — design `.link` */}
+        <div style={{ textAlign: 'center', paddingTop: 22 }}>
           <button
+            type="button"
             onClick={() => setIsSignUp(!isSignUp)}
             style={{
-              width: '100%',
-              padding: '10px',
               background: 'transparent',
-              border: '1px solid var(--rule-color)',
-              borderRadius: '2px',
-              color: 'var(--paper-secondary)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
+              border: 0,
+              padding: 0,
+              font: `400 13px/1 ${SANS}`,
+              color: 'var(--ink3)',
               cursor: 'pointer',
-              transition: 'border-color 0.15s, color 0.15s',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--neon-amber)';
-              e.currentTarget.style.color = 'var(--neon-amber)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--rule-color)';
-              e.currentTarget.style.color = 'var(--paper-secondary)';
+              WebkitTapHighlightColor: 'transparent',
             }}
           >
             {isSignUp ? 'Already have an account? Sign in' : 'Need an account? Sign up'}
           </button>
         </div>
-
       </div>
     </div>
   );
