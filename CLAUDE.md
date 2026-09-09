@@ -404,7 +404,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: (none — update this line as phases complete)
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives) — no pages yet
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -619,6 +619,8 @@ Key Gotchas & Hard-Won Lessons
 - Two Codespaces exist for different repos — check `git remote -v` if the log looks foreign.
 
 ### Repository Hygiene
+- ⚠️ The live app is the NESTED online-offline/ dir (package.json, src/, _design/redesign-b live there);
+  the repo root also has stale top-level src/ and _design/ copies — never edit those by mistake.
 - Never commit PDFs (→/tmp only; workspace copies for download are temporary) or files over 50MB.
   magazine-test.pdf + /tmp/magazine-*.pdf in .gitignore. .env.local is gitignored (.env* and .env.local).
 

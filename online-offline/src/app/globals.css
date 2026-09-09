@@ -79,6 +79,20 @@
   --chart-4:               38 76% 52%;
   --chart-5:              263 72% 73%;
   --radius:                0.125rem;
+
+  /* ── Design System v2 "B" tokens — coexist with v1 until Phase 13 ── */
+  --bg:     #0d0c0a;
+  --bg2:    #131210;
+  --line:   #24211d;
+  --line2:  #312d27;
+  --ink:    #ece7de;
+  --ink2:   #a49c90;
+  --ink3:   #6a635a;
+  --orange: oklch(0.74 0.13 45);
+  --gold:   oklch(0.8 0.11 85);
+  --green:  oklch(0.78 0.12 150);
+  --blue:   oklch(0.76 0.09 240);
+  --purple: oklch(0.74 0.1 300);
 }
 
 @layer base {
@@ -254,4 +268,19 @@
 @keyframes spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── Design System v2 support (components/v2 primitives) ── */
+.v2-field::placeholder {
+  color: var(--ink3);
+  opacity: 1;
+}
+@keyframes v2-fade-in {
+  from { opacity: 0; }
+}
+@keyframes v2-sheet-up {
+  from { transform: translateY(100%); }
+}
+@keyframes v2-toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
 }
