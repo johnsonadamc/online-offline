@@ -432,7 +432,6 @@ export default function CurationInterface() {
     async function loadData() {
       try {
         const { data: { user: debugUser } } = await supabase.auth.getUser();
-        console.log('curate page user:', debugUser?.id);
 
         if (debugUser) {
           const { data: addrData } = await supabase
@@ -1065,97 +1064,82 @@ export default function CurationInterface() {
                 </div>
               )}
 
-              {/* ══ COMMUNICATIONS ══ */}
-              {activeSection === 'comms' && (
-                <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
-                    Communications
-                  </div>
-
-                  {/* Toggle card */}
-                  {(() => {
-                    const isSelected = selectedCommunications.length > 0;
-                    const msgCount = communications.length;
-                    return (
-                      <div
-                        onClick={() => toggleItem('communications-page', 'communication')}
-                        style={{
-                          background: isSelected ? 'rgba(224,168,48,0.1)' : 'rgba(224,168,48,0.05)',
-                          border: `1px solid ${isSelected ? 'rgba(224,168,48,0.3)' : 'rgba(224,168,48,0.14)'}`,
-                          borderLeft: `3px solid var(--neon-amber)`,
-                          borderRadius: '1px',
-                          padding: '14px',
-                          cursor: 'pointer',
-                          position: 'relative',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '5px',
-                          boxShadow: isSelected
-                            ? '-4px 0 18px -1px rgba(224,168,48,0.4),0 0 20px rgba(224,168,48,0.08),inset 0 0 28px rgba(224,168,48,0.05)'
-                            : '-4px 0 12px -2px rgba(224,168,48,0.22),inset 0 0 30px rgba(224,168,48,0.03)',
-                          marginBottom: '8px',
-                          transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
-                          WebkitTapHighlightColor: 'transparent',
-                        } as React.CSSProperties}
-                      >
-                        {/* ✓ check */}
-                        <div style={{ position: 'absolute', top: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? 'var(--neon-green)' : 'transparent', textShadow: isSelected ? '0 0 8px var(--glow-green)' : 'none', transition: 'color 0.18s, text-shadow 0.18s' }}>✓</div>
-
-                        {/* "to Contributors" amber label */}
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 8px rgba(224,168,48,0.45)', display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '2px' }}>
-                          <span style={{ display: 'inline-block', width: '14px', height: '1px', background: 'var(--neon-amber)', opacity: 0.4, boxShadow: '0 0 4px rgba(224,168,48,0.4)' }} />
-                          Contributors
+              {/* ══ COMMUNICATIONS — same row/pill vocabulary as the Collabs tab; selected = gold (composition color) ══ */}
+              {activeSection === 'comms' && (() => {
+                const isSelected = selectedCommunications.length > 0;
+                const msgCount = communications.length;
+                const dimmed = !isSelected && remainingContent === 0;
+                return (
+                  <div>
+                    {/* Toggle row — the pill IS the toggle (same toggleItem call as before) */}
+                    <div style={{ padding: '16px 0', borderBottom: '1px solid var(--line)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ font: `400 20px/1.15 ${SERIF}`, color: 'var(--ink)' }}>Communications page</div>
+                          <p style={{ margin: '6px 0 0', font: `italic 400 14px/1.45 ${SERIF}`, color: 'var(--ink2)' }}>
+                            Notes from contributors, addressed to you as curator. One page, up to 10 notes.
+                          </p>
                         </div>
-
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '20px' }}>
-                          Include a communications page
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.5, marginTop: '2px' }}>
-                          Personal messages from contributors, addressed to you as curator. Auto-formatted. Up to 10 per page.
-                        </div>
-
-                        {/* Message count */}
-                        <div style={{ marginTop: '6px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
-                          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--neon-amber)', lineHeight: 1, textShadow: '0 0 12px rgba(224,168,48,0.5)' }}>{msgCount}</span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>messages this season</span>
+                        <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                          <button
+                            type="button"
+                            aria-pressed={isSelected}
+                            aria-label="Include a communications page"
+                            onClick={() => toggleItem('communications-page', 'communication')}
+                            style={{
+                              height: 34, minWidth: 34, padding: '0 10px', borderRadius: 17,
+                              borderWidth: 1, borderStyle: 'solid',
+                              borderColor: isSelected ? 'var(--gold)' : 'var(--line2)',
+                              background: isSelected ? 'color-mix(in oklch, var(--gold) 14%, var(--bg))' : 'transparent',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                              color: isSelected ? 'var(--gold)' : 'var(--ink3)',
+                              font: `400 12px/1 ${MONO}`,
+                              opacity: dimmed ? 0.4 : 1,
+                              cursor: 'pointer',
+                              transition: 'background 150ms, border-color 150ms, color 150ms',
+                              WebkitTapHighlightColor: 'transparent',
+                            }}
+                          >
+                            <Icon name="envelope" size={14} />
+                            <span>{msgCount}</span>
+                          </button>
                         </div>
                       </div>
-                    );
-                  })()}
+                    </div>
 
-                  {/* Static message previews */}
-                  {communications.length > 0 && (
-                    <>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '14px 0 8px' }}>
-                        Messages received
-                      </div>
-                      {filteredCommunications.length === 0 && searchTerm && (
-                        <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '13px', color: 'var(--lt-text-3)', padding: '8px 0' }}>
-                          No messages match &ldquo;{searchTerm}&rdquo;.
-                        </p>
-                      )}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {filteredCommunications.map(comm => (
+                    {/* Message previews — read-only rows, hairline separators */}
+                    {communications.length > 0 && (
+                      <div style={{ paddingTop: 16 }}>
+                        <div style={{ font: `500 10px/1 ${MONO}`, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--ink3)', paddingBottom: 4 }}>
+                          Received
+                        </div>
+                        {filteredCommunications.length === 0 && searchTerm && (
+                          <p style={{ margin: 0, padding: '14px 0 4px', font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+                            No notes match &ldquo;{searchTerm}&rdquo;.
+                          </p>
+                        )}
+                        {filteredCommunications.map((comm, i) => (
                           <div
                             key={comm.id}
-                            style={{ background: 'rgba(224,168,48,0.03)', border: '1px solid rgba(224,168,48,0.1)', borderRadius: '1px', padding: '11px 12px', display: 'flex', flexDirection: 'column', gap: '3px' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', borderBottom: i === filteredCommunications.length - 1 ? 'none' : '1px solid var(--line)' }}
                           >
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.6 }}>
-                              From {comm.profiles.first_name} {comm.profiles.last_name}
+                            <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', flex: 'none' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ font: `400 19px/1.1 ${SERIF}`, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {comm.subject}
+                              </div>
+                              <div style={{ marginTop: 4, font: `400 13.5px/1.3 ${SANS}`, color: 'var(--ink2)' }}>
+                                {comm.profiles.first_name} {comm.profiles.last_name}
+                              </div>
                             </div>
-                            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '13px', color: 'var(--lt-text-2)' }}>
-                              {comm.subject}
-                            </div>
-                            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.06em', color: 'var(--lt-text-3)' }}>
-                              submitted
-                            </div>
+                            <span style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', flex: 'none' }}>submitted</span>
                           </div>
                         ))}
                       </div>
-                    </>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* ══ ADS / CAMPAIGNS — design `.adnote` / `.cgrid` / `.acard` ══ */}
               {activeSection === 'ads' && (

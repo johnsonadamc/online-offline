@@ -85,8 +85,6 @@ export default function CreateCollabPage() {
         return;
       }
 
-      console.log('[create-collab] collab created:', collab.id);
-
       const { error: participantError } = await supabase
         .from('collab_participants')
         .insert({
@@ -104,8 +102,6 @@ export default function CreateCollabPage() {
         setSubmitting(false);
         return;
       }
-
-      console.log('[create-collab] lead participant inserted, redirecting to invite page');
 
       router.push(`/collabs/${collab.id}/invite`);
     } catch (err) {

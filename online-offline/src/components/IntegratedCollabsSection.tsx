@@ -393,11 +393,14 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   const sheetCities = sheetTemplate ? (citiesByTemplate[sheetTemplate.id] ?? []) : [];
 
   // ── v2 pieces (design `.bcol` / `.pills` / `.city`) ──────────────────────────
+  // Gold "yours" marker: 5px dot + 10px mono label so the dot is self-explaining (Phase 12).
   const GoldDot = () => (
     <span
-      aria-label="you contribute"
-      style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', verticalAlign: 'middle', marginLeft: 8 }}
-    />
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, verticalAlign: 'middle', marginLeft: 8, font: `500 10px/1 ${MONO}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap' }}
+    >
+      <span aria-hidden="true" style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)' }} />
+      yours
+    </span>
   );
 
   const titleButton = (label: string, joined: boolean, open: boolean, onClick?: () => void) => (

@@ -6,7 +6,7 @@ import { uploadMedia } from '@/lib/supabase/storage';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSupabase } from '@/lib/supabase/useSupabase';
-import { PageShell, Input, Textarea, SegmentedToggle, ChoiceCard, FocalPointFrame, ThumbStrip, SANS, SERIF, MONO } from '@/components/v2';
+import { PageShell, Input, Textarea, SegmentedToggle, ChoiceCard, FocalPointFrame, ThumbStrip, Toast, SANS, SERIF, MONO } from '@/components/v2';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,7 @@ export default function SubmissionForm() {
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [currentSlide, setCurrentSlide] = useState(0);
   const [saveStatus, setSaveStatus]     = useState<SaveStatus>('');
+  const [capToast, setCapToast]         = useState<string | null>(null); // image-cap toast (replaces alert)
   const fileInputRef = useRef<HTMLInputElement>(null);
   // frame swipe (prev/next): touch start point + the focal at touch start, restored if it was a swipe
   const swipeRef = useRef<{ x: number; y: number; fx: number; fy: number } | null>(null);
@@ -254,7 +255,7 @@ export default function SubmissionForm() {
 
   // ── add entry ─────────────────────────────────────────────────────────────────
   const handleAddEntry = useCallback(() => {
-    if (entries.length >= MAX_ENTRIES) { alert(`Maximum ${MAX_ENTRIES} images per submission.`); return; }
+    if (entries.length >= MAX_ENTRIES) { setCapToast(`Maximum ${MAX_ENTRIES} images per submission.`); return; }
     const newEntry: Entry = { id: generateUniqueId(), title: '', caption: '', selectedTags: [], imageUrl: null, isFeature: false, isFullSpread: false, focal_x: 50, focal_y: 50, aspect_ratio: null };
     setEntries(prev => [...prev, newEntry]);
     setCurrentSlide(entries.length);
@@ -533,6 +534,7 @@ export default function SubmissionForm() {
           )}
         </>
       )}
+      <Toast open={capToast !== null} message={capToast ?? ''} accent="orange" onClose={() => setCapToast(null)} />
     </PageShell>
   );
 }

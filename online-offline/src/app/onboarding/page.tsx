@@ -1,7 +1,6 @@
 "use client";
 import React, { useState } from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
-import { useRouter } from 'next/navigation';
 import { PageShell, Input, Pill, ProgressSteps, SectionLabel, SANS, SERIF, MONO } from '@/components/v2';
 
 // Design System v2 — README-pages.md §8 "/onboarding". Ink only: green is
@@ -99,7 +98,6 @@ const Wordmark = () => (
 );
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const supabase = useSupabase();
 
   const [step, setStep] = useState(1);
@@ -188,9 +186,6 @@ export default function OnboardingPage() {
               `Code: ${insertError.code}. Check RLS policies on profile_types.`
             );
           }
-          console.log('[onboarding] profile_types INSERT succeeded for type:', type, 'user:', user.id);
-        } else {
-          console.log('[onboarding] profile_types row already exists for type:', type, 'user:', user.id);
         }
       }
 

@@ -418,7 +418,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (shell, contributors, ads, collabs)
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (every screen except /admin is now v2)
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -474,7 +474,10 @@ Key v2 screen facts (full specs in the READMEs):
   outlined ink2; glow = added this session; one-line dot legend beneath (● Content ● Community ● Local ● Private
   ● Comms ○ Ads); contributor filter chips carry the 12px type icon (camera / brush / quill in the type color), not a
   dot; price ONLY in the sticky footer; the pill IS the
-  toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast.
+  toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast. The curator's own
+  participation is marked by the 5px gold dot + 10px mono gold "yours" (after a collab title and beside a city in the
+  local sheet, Phase 12). Comms tab = one row (serif title + italic desc) whose gold envelope pill (count = notes
+  received) is the toggle — same toggleItem('communications-page', 'communication') call; read-only note rows below.
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.
 - Auth/onboarding primary buttons are ink, not green.
@@ -621,6 +624,11 @@ Key Gotchas & Hard-Won Lessons
   useEffect reads cityVirtualId, and a component-scoped arrow there trips react-hooks/exhaustive-deps. The old
   `next.has(id) ? next.delete(id) : next.add(id)` ternary in toggleDesc was an eslint no-unused-expressions ERROR
   (pre-existing); it is an if/else now. There were no console.log lines left in this file to remove.
+- Phase 12 polish: /collabs "pills fill on tap" is a UI-only `tappedPill` state set in the Pill's onClick BEFORE the frozen
+  handleJoinClick runs (no joined map inside the handler); the community-join toast replaces the alert and router.push
+  waits 1200ms so the portal Toast is seen (same pattern as curate save). SubmissionForm's image-cap alert is a `capToast`.
+  Dashboard's v1 neon toasts are v2 <Toast duration={0}> driven by the unchanged showSuccess/showError 3s clears.
+  Last app-wide debug console.log lines (curate/onboarding/collabs create) are gone; only console.warn/error remain.
 
 ### Content / Submit
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.
@@ -792,9 +800,8 @@ Remaining / Known Issues ⚠️
 6. Stripe integration — curator payment not built; profile shows placeholder. The real launch gate.
 7. Subscription cancellation UI — blocked on Stripe.
 8. Playwright suite — needs onboarding, new profile, collab invite/accept, and v2 coverage.
-9. Debug console.log statements in collab invite/create/dashboard code — removed in redesign Phase 12.
-10. Test-data noise in collabs/selections (see Seed Data) — clean before launch.
-11. Personalization pass on the print-test content (real titles/captions/essay/poem for Adam's images).
+9. Test-data noise in collabs/selections (see Seed Data) — clean before launch.
+10. Personalization pass on the print-test content (real titles/captions/essay/poem for Adam's images).
 
 User Roles
 - Contributors: submit content, join/create collabs, invite, send communications

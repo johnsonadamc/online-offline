@@ -5,7 +5,7 @@ import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NextImage from 'next/image';
-import { PageShell, IconTile, TypeTile, SectionLabel, SwipeRow, Icon, accentVar, tint, SERIF, SANS, MONO } from '@/components/v2';
+import { PageShell, IconTile, TypeTile, SectionLabel, SwipeRow, Toast, Icon, accentVar, tint, SERIF, SANS, MONO } from '@/components/v2';
 import type { Accent, IconName, CollabMode } from '@/components/v2';
 
 import {
@@ -397,37 +397,39 @@ export default function Dashboard() {
   };
 
   // ── Inline dialog components (restyled) ───────────────────────────────────────────
+  // v2 tokens (Phase 12): --bg2 card, 1px --line2, radius 12, 45% scrim; ghost = outlined ink2,
+  // destructive = outlined orange (no filled colored panel per the color rules).
   const dialogOverlay: React.CSSProperties = {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
     display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50,
   };
   const dialogCard: React.CSSProperties = {
-    background: 'var(--ground-3)', border: '1px solid var(--rule-mid)',
-    borderRadius: '2px', maxWidth: '320px', width: '90%', padding: '20px',
+    background: 'var(--bg2)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)',
+    borderRadius: 12, maxWidth: '320px', width: '90%', padding: '20px',
+    boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
   };
   const dialogTitle: React.CSSProperties = {
-    fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--paper)',
-    marginBottom: '10px', opacity: 0.88,
+    font: `400 22px/1.1 ${SERIF}`, color: 'var(--ink)',
+    marginBottom: '10px',
   };
   const dialogBody: React.CSSProperties = {
-    fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--paper-3)',
-    marginBottom: '20px', lineHeight: 1.5,
+    font: `400 13.5px/1.5 ${SANS}`, color: 'var(--ink2)',
+    marginBottom: '20px',
   };
   const dialogFooter: React.CSSProperties = {
     display: 'flex', justifyContent: 'flex-end', gap: '10px',
   };
   const ghostBtn: React.CSSProperties = {
-    padding: '8px 14px', background: 'transparent',
-    border: '1px solid var(--rule-mid)', borderRadius: '2px',
-    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
-    textTransform: 'uppercase', color: 'var(--paper-3)', cursor: 'pointer',
+    padding: '10px 14px', background: 'transparent',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', borderRadius: 5,
+    font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--ink2)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   };
   const destructiveBtn: React.CSSProperties = {
-    padding: '8px 14px',
-    background: 'rgba(224,90,40,0.12)', border: '1px solid rgba(224,90,40,0.4)',
-    borderRadius: '2px',
-    fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
-    textTransform: 'uppercase', color: 'var(--neon-accent)', cursor: 'pointer',
+    padding: '10px 14px', background: 'transparent',
+    borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--orange)', borderRadius: 5,
+    font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em',
+    textTransform: 'uppercase', color: 'var(--orange)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
   };
 
   const ConfirmationDialog = () => {
@@ -516,7 +518,7 @@ export default function Dashboard() {
       maxHeight: activeSection === id ? '1400px' : '0',
       overflow: 'hidden',
       opacity: activeSection === id ? 1 : 0,
-      transition: 'max-height 0.4s cubic-bezier(0.4,0,0.2,1), opacity 0.3s ease',
+      transition: 'max-height 200ms ease-out, opacity 200ms ease-out', // README Interactions: open/close 200ms ease-out
     }}>
       <div style={{ paddingBottom: '20px' }}>{children}</div>
     </div>
@@ -613,16 +615,9 @@ export default function Dashboard() {
       )}
     >
       {/* ── Toasts ── */}
-      {successMessage && (
-        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(78,196,122,0.3)', borderLeft: '3px solid var(--neon-green)', padding: '10px 14px', borderRadius: '2px', boxShadow: '-3px 0 10px -2px var(--glow-green)' }}>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-green)' }}>{successMessage}</span>
-        </div>
-      )}
-      {errorMessage && (
-        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(224,90,40,0.3)', borderLeft: '3px solid var(--neon-accent)', padding: '10px 14px', borderRadius: '2px' }}>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-accent)' }}>{errorMessage}</span>
-        </div>
-      )}
+      {/* v2 Toast driven by the unchanged showSuccess/showError (they clear the message after 3s). */}
+      <Toast open={!!successMessage} message={successMessage} accent="green" duration={0} onClose={() => setSuccessMessage('')} />
+      <Toast open={!!errorMessage} message={errorMessage} accent="orange" duration={0} onClose={() => setErrorMessage('')} />
 
       {/* ── Dialogs ── */}
       <ConfirmationDialog />

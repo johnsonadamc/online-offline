@@ -68,6 +68,9 @@ export default function CollabsLibrary() {
   const [localCity, setLocalCity] = useState('');
 
   const [userCreatedCollabs, setUserCreatedCollabs] = useState<UserCreatedCollab[]>([]);
+  // Phase 12 UI-only state: community-join toast (replaces alert) + which pill was just tapped (fills with its mode color).
+  const [joinToast, setJoinToast] = useState<string | null>(null);
+  const [tappedPill, setTappedPill] = useState<{ id: string; mode: ParticipationMode } | null>(null);
 
   const showError = (message: string) => {
     setError({ message, isVisible: true });
@@ -316,8 +319,8 @@ export default function CollabsLibrary() {
       if (participantError) throw new Error(`Could not join collaboration: ${participantError.message}`);
 
       setAvailablePrompts(prev => prev.filter(c => c.id !== collabId));
-      alert(`You have successfully joined the ${title} collaboration in ${mode} mode.`);
-      router.push('/dashboard');
+      setJoinToast(`You have successfully joined the ${title} collaboration in ${mode} mode.`);
+      setTimeout(() => router.push('/dashboard'), 1200);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Could not join the collaboration');
     }
@@ -400,6 +403,7 @@ export default function CollabsLibrary() {
       columnStyle={{ paddingBottom: 40 }}
     >
       <Toast open={error.isVisible} message={error.message} accent="orange" duration={0} onClose={() => setError(prev => ({ ...prev, isVisible: false }))} />
+      <Toast open={joinToast !== null} message={joinToast ?? ''} accent="green" duration={2600} onClose={() => setJoinToast(null)} />
 
       {loading ? (
         <div style={{ paddingTop: 26, font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)', textAlign: 'center' }}>loading…</div>
@@ -418,7 +422,8 @@ export default function CollabsLibrary() {
                     icon={MODE_ICON[mode]}
                     label={mode === 'community' ? 'Community' : mode === 'local' ? 'Local' : 'Private'}
                     tinted
-                    onClick={() => handleJoinClick(collab.id, collab.name, mode)}
+                    selected={tappedPill?.id === collab.id && tappedPill.mode === mode}
+                    onClick={() => { setTappedPill({ id: collab.id, mode }); handleJoinClick(collab.id, collab.name, mode); }}
                     style={{ flex: 1 }}
                   />
                 ))}
