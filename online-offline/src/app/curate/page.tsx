@@ -5,6 +5,8 @@ import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import IntegratedCollabsSection from '@/components/IntegratedCollabsSection';
+import { PageShell, Sheet, Toast, SearchField, Icon, typeAccent, accentVar, SERIF, SANS, MONO } from '@/components/v2';
+import type { Accent, TileType } from '@/components/v2';
 
 import { getCurrentPeriod } from '@/lib/supabase/content';
 import { saveCuratorSelections } from '@/lib/supabase/curation';
@@ -160,7 +162,14 @@ export default function CurationInterface() {
 
   // ── Visual-only UI state ───────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<'contributors' | 'collabs' | 'comms' | 'ads'>('contributors');
-  const [savePress, setSavePress] = useState<'rest' | 'pressing' | 'releasing'>('rest');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; accent: 'green' | 'orange' } | null>(null);
+  // Page meter: slots that were already saved when the page loaded (or at the
+  // last save) render --ink2; anything above that is this session's work and
+  // renders green. Read-only derivation — nothing here is written anywhere.
+  const [savedSlots, setSavedSlots] = useState(0);
+  const savedSnapshotTaken = React.useRef(false);
 
   // ── CustomEvent listener from IntegratedCollabsSection (unchanged) ─────────
   useEffect(() => {
@@ -320,32 +329,28 @@ export default function CurationInterface() {
       const addrOk = !!(addrData?.address_line1 && String(addrData.address_line1).trim());
       setHasAddress(addrOk);
 
+      setSavedSlots(selectedCreators.length + selectedAds.length +
+        selectedCommunications.length + selectedCollabs.filter(id => id.trim() !== '').length);
+
       if (!addrOk) {
         setAddressBannerDismissed(false);
-        alert('Selections saved! Add your mailing address in your profile to receive your printed edition.');
+        setToast({ message: 'Selections saved. Add your mailing address in your profile to receive your printed edition.', accent: 'green' });
       } else {
-        alert('Your magazine selections have been saved!');
-        router.push('/dashboard');
+        setToast({ message: 'Your magazine selections have been saved.', accent: 'green' });
+        setTimeout(() => router.push('/dashboard'), 1200);
       }
     } catch (saveError) {
       console.error('Error saving selections:', saveError);
-      alert('There was an error saving your selections. ' +
-        (saveError instanceof Error ? saveError.message : 'Unknown error'));
+      setToast({
+        message: 'There was an error saving your selections. ' +
+          (saveError instanceof Error ? saveError.message : 'Unknown error'),
+        accent: 'orange',
+      });
     } finally {
       setSavingSelections(false);
     }
   };
 
-  // ── Press-btn save mechanic ────────────────────────────────────────────────
-  const pressSave = () => {
-    if (savePress !== 'rest' || savingSelections) return;
-    setSavePress('pressing');
-    setTimeout(() => {
-      setSavePress('releasing');
-      saveSelections();
-      setTimeout(() => setSavePress('rest'), 220);
-    }, 160);
-  };
 
   // ── Reset handler ──────────────────────────────────────────────────────────
   const handleReset = () => {
@@ -370,7 +375,8 @@ export default function CurationInterface() {
       }
     };
     cleanupDB();
-    alert('All selections have been reset');
+    setSavedSlots(0);
+    setToast({ message: 'All selections have been reset', accent: 'green' });
   };
 
   // ── Price calculation ──────────────────────────────────────────────────────
@@ -546,211 +552,263 @@ export default function CurationInterface() {
     }
   }, [loading, selectedCollabs.length]);
 
-  // ── Loading state ─────────────────────────────────────────────────────────
+  // ── v2 shell effects (read-only) ───────────────────────────────────────────
+  // Snapshot the slot count once, when the first load finishes: those bars
+  // render --ink2 ("saved"); anything selected afterwards renders green.
+  useEffect(() => {
+    if (loading || savedSnapshotTaken.current) return;
+    savedSnapshotTaken.current = true;
+    setSavedSlots(usedSlots);
+  }, [loading, usedSlots]);
+
+  const closeToast = useCallback(() => setToast(null), []);
+
+  // ── Loading state — v2: mono "loading…" inside the PageShell ──────────────
   if (loading) {
     return (
-      <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.14em', color: 'var(--lt-text-3)' }}>
-          loading…
-        </p>
-      </div>
+      <PageShell align="center">
+        <p style={{ margin: 0, textAlign: 'center', font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)' }}>loading…</p>
+      </PageShell>
     );
   }
 
-  // ── Error state ────────────────────────────────────────────────────────────
+  // ── Error state — v2: one italic serif line + quiet retry ─────────────────
   if (error) {
     return (
-      <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ maxWidth: '300px', textAlign: 'center', padding: '24px' }}>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', marginBottom: '10px', opacity: 0.88 }}>
-            Error loading data
-          </div>
-          <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--lt-text-2)', marginBottom: '20px' }}>
-            {error}
-          </div>
+      <PageShell align="center">
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ margin: 0, font: `italic 400 16px/1.4 ${SERIF}`, color: 'var(--ink2)' }}>{error}</p>
           <button
+            type="button"
             onClick={() => window.location.reload()}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--lt-text-2)', padding: '9px 18px', background: 'transparent', border: '1px solid rgba(235,225,205,0.18)', borderRadius: '2px', cursor: 'pointer' }}
+            style={{ marginTop: 18, background: 'transparent', border: 0, padding: 0, cursor: 'pointer', font: `500 11px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink2)' }}
           >
             Try again
           </button>
         </div>
-      </div>
+      </PageShell>
     );
   }
 
+  // ── v2 shell helpers (presentational; every action below is an existing handler) ──
+  const savedFilled = Math.min(savedSlots, usedSlots);
+
+  // Label for a collab selection id in the meter sheet. Template names live in
+  // IntegratedCollabsSection (Phase 11) — until then the id's shape is the label.
+  const collabLabel = (id: string): { name: string; sub: string; accent: Accent } => {
+    if (id.startsWith('community_')) return { name: 'Community collaboration', sub: 'community', accent: 'blue' };
+    if (id.startsWith('local_')) {
+      const rest = id.slice('local_'.length);
+      const sep = rest.indexOf('_');
+      const city = sep === -1 ? '' : rest.slice(sep + 1).replace(/_/g, ' ');
+      return { name: city ? `Local collaboration · ${city}` : 'Local collaboration', sub: 'local', accent: 'green' };
+    }
+    return { name: 'Private collaboration', sub: 'private', accent: 'purple' };
+  };
+
+  // Everything currently selected (the old "Added to magazine" list), one row
+  // per slot, each remove calling the SAME toggleItem args the tabs use.
+  const sheetRows: { key: string; name: string; sub: string; accent?: Accent; remove: () => void }[] = [
+    ...selectedCreators.map(id => {
+      const c = creators.find(x => x.id === id);
+      return {
+        key: `c-${id}`,
+        name: c?.name ?? 'Contributor',
+        sub: 'contributor',
+        accent: (c && typeAccent[c.contentType as TileType]) || 'orange',
+        remove: () => toggleItem(id, 'friend'),
+      };
+    }),
+    ...selectedCollabs.filter(id => id.trim() !== '').map(id => {
+      const l = collabLabel(id);
+      return { key: `k-${id}`, name: l.name, sub: l.sub, accent: l.accent, remove: () => toggleItem(id, 'collab') };
+    }),
+    ...(selectedCommunications.length > 0
+      ? [{ key: 'comms', name: 'Communications page', sub: 'communications', accent: 'gold' as Accent, remove: () => toggleItem('communications-page', 'communication') }]
+      : []),
+    ...selectedAds.map(id => {
+      const a = ads.find(x => x.id === id);
+      return { key: `a-${id}`, name: a?.name ?? 'Campaign', sub: 'ad · one page', remove: () => toggleItem(id, 'ad') };
+    }),
+  ];
+
+  const searchPlaceholder =
+    activeSection === 'contributors' ? 'Search contributors…' :
+    activeSection === 'collabs'       ? 'Search collaborations…' :
+    activeSection === 'comms'         ? 'Search communications…' :
+                                        'Search campaigns…';
+
+  const tabs = [
+    { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
+    { id: 'collabs' as const,      label: 'Collabs',      count: collabSlotCount },
+    { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
+    { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
+  ];
+
   // ── Main return ────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+    <PageShell
+      // Header — design `.top`: "‹ Dashboard", wordmark, "Curate" in green
+      header={(
+        <>
+          <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none', flex: 'none' }}>‹ Dashboard</Link>
+          <span style={{ font: `400 19px/1 ${SERIF}`, color: 'var(--ink)' }}>
+            online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+          </span>
+          <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--green)', flex: 'none' }}>Curate</span>
+        </>
+      )}
+      // Footer — design `.foot`: YOUR PRICE (calculatePrice) · Reset (handleReset) · green Save (saveSelections).
+      // Save is the only glowing element on the page. Price renders here and nowhere else.
+      footer={(
+        <>
+          <div style={{ flex: 'none' }}>
+            <div style={{ font: `400 10.5px/1 ${MONO}`, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--ink3)', marginBottom: 6 }}>Your price</div>
+            <div style={{ font: `400 26px/1 ${SERIF}`, color: 'var(--ink)', transition: 'opacity 150ms' }}>${calculatePrice().toFixed(2)}</div>
+          </div>
+          <button
+            type="button"
+            onClick={handleReset}
+            style={{ marginLeft: 'auto', marginRight: 4, background: 'transparent', border: 0, padding: '8px 0', cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)', WebkitTapHighlightColor: 'transparent' }}
+          >
+            Reset
+          </button>
+          <button
+            type="button"
+            onClick={saveSelections}
+            disabled={savingSelections}
+            style={{ flex: 'none', font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '15px 22px', borderRadius: 5, border: 0, whiteSpace: 'nowrap', cursor: savingSelections ? 'default' : 'pointer', color: 'var(--bg)', background: 'var(--green)', boxShadow: '0 0 28px color-mix(in oklch, var(--green) 35%, transparent)', opacity: savingSelections ? 0.6 : 1, WebkitTapHighlightColor: 'transparent' }}
+          >
+            {savingSelections ? 'Saving…' : 'Save'}
+          </button>
+        </>
+      )}
+    >
+      <Toast open={toast !== null} message={toast?.message ?? ''} accent={toast?.accent} onClose={closeToast} />
 
-        {/* Ambient glow */}
-        <div style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '390px', height: '220px', background: 'radial-gradient(ellipse at 50% 100%, rgba(210,190,150,0.07) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
-        {/* Glass overlay */}
-        <div style={{ position: 'fixed', top: '130px', left: '50%', transform: 'translateX(-50%)', width: 'calc(390px - 32px)', bottom: '72px', background: 'rgba(230,215,185,0.018)', border: '1px solid rgba(230,215,185,0.05)', borderRadius: '2px', pointerEvents: 'none', zIndex: 1 }} />
-
-        {/* ── Header ── */}
-        <div style={{ flexShrink: 0, padding: '20px 22px 0', position: 'relative', zIndex: 10 }}>
-          {/* Row 1: back · wordmark · badge */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <Link
-              href="/dashboard"
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--lt-text-3)', textDecoration: 'none', transition: 'color 0.15s' }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="15,18 9,12 15,6" />
-              </svg>
-              Dashboard
-            </Link>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', letterSpacing: '0.04em', color: 'var(--lt-text-2)' }}>
-              online<span style={{ color: 'rgba(235,225,205,0.28)', margin: '0 1px' }}>//</span>offline
+      {/* Meter sheet — everything selected, with remove → the same toggleItem the tabs call */}
+      <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} title="In your issue" subtitle={`${usedSlots} of ${maxContentPieces} pages · ${remainingContent} open`}>
+        {sheetRows.length === 0 ? (
+          <p style={{ margin: 0, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>Nothing selected yet.</p>
+        ) : (
+          sheetRows.map((row, i) => (
+            <div key={row.key} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: i === sheetRows.length - 1 ? 'none' : '1px solid var(--line)' }}>
+              <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', flex: 'none', background: row.accent ? accentVar(row.accent) : 'var(--line2)' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ font: `400 17px/1.15 ${SERIF}`, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.name}</div>
+                <div style={{ marginTop: 4, font: `400 11px/1 ${MONO}`, color: 'var(--ink3)' }}>{row.sub}</div>
+              </div>
+              <button
+                type="button"
+                onClick={row.remove}
+                style={{ flex: 'none', background: 'transparent', cursor: 'pointer', font: `500 11px/1 ${SANS}`, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', borderRadius: 5, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', color: 'var(--ink2)', WebkitTapHighlightColor: 'transparent' }}
+              >
+                Remove
+              </button>
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'rgba(78,196,122,0.6)', textShadow: '0 0 8px rgba(78,196,122,0.22)' }}>
-              Curate
-            </div>
-          </div>
-
-          {/* Thick rule */}
-          <div style={{ height: '1px', background: 'var(--lt-text)', opacity: 0.6, boxShadow: '0 0 6px 1px rgba(235,225,205,0.2), 0 0 18px rgba(235,225,205,0.06)', marginBottom: '10px' }} />
-
-          {/* Row 2: season · dash · deadline */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--lt-text-2)', whiteSpace: 'nowrap' }}>
-              {currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : '—'}
-            </span>
-            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, var(--lt-rule), transparent)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--lt-text-3)', whiteSpace: 'nowrap' }}>
-              {currentPeriod?.end_date ? (
-                <><strong style={{ color: 'var(--neon-accent)', fontWeight: 500, textShadow: '0 0 8px var(--glow-accent)' }}>{formatDeadline(currentPeriod.end_date)}</strong>{' remaining'}</>
-              ) : null}
-            </span>
-          </div>
-        </div>
-
-        {/* ── Search ── */}
-        <div style={{ flexShrink: 0, padding: '0 22px 8px', position: 'relative', zIndex: 10 }}>
-          <div style={{ position: 'relative' }}>
-            <div style={{ position: 'absolute', left: '11px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-3)" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </div>
-            <input
-              type="text"
-              placeholder={
-                activeSection === 'contributors' ? 'Search contributors…' :
-                activeSection === 'collabs'       ? 'Search collaborations…' :
-                activeSection === 'comms'         ? 'Search communications…' :
-                                                    'Search campaigns…'
-              }
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'rgba(235,225,205,0.05)',
-                border: '1px solid rgba(235,225,205,0.1)',
-                color: 'var(--lt-text)',
-                fontFamily: 'var(--font-sans)',
-                fontSize: '12px',
-                padding: '8px 12px 8px 34px',
-                borderRadius: '2px',
-                outline: 'none',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* ── Stats bar ── */}
-        <div style={{ flexShrink: 0, padding: '0 22px 0', display: 'flex', alignItems: 'center', position: 'relative', zIndex: 10 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Selected</div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', lineHeight: 1 }}>{usedSlots}</div>
-          </div>
-          <div style={{ width: '1px', height: '28px', background: 'var(--lt-rule)', marginRight: '14px', flexShrink: 0 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Remaining</div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', lineHeight: 1, color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>{remainingContent}</div>
-          </div>
-          <div style={{ width: '1px', height: '28px', background: 'var(--lt-rule)', marginRight: '14px', flexShrink: 0 }} />
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', paddingRight: '14px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Slots</div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text)', lineHeight: 1 }}>{maxContentPieces}</div>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '1px' }}>Your price</div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--lt-text-2)', lineHeight: 1 }}>${calculatePrice().toFixed(2)}</div>
-          </div>
-        </div>
-
-        {/* ── Address reminder banner ── */}
-        {!hasAddress && !addressBannerDismissed && (
-          <div style={{
-            flexShrink: 0, margin: '10px 22px 0',
-            padding: '8px 10px 8px 12px',
-            background: 'rgba(224,90,40,0.08)',
-            borderLeft: '2px solid var(--neon-accent)',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            gap: '8px',
-          }}>
-            <Link href="/profile" style={{
-              fontFamily: 'var(--font-mono)', fontSize: '10px',
-              letterSpacing: '0.12em', textTransform: 'uppercase',
-              color: 'var(--neon-accent)', textDecoration: 'none',
-            }}>
-              Add your mailing address to receive your printed edition →
-            </Link>
-            <button
-              onClick={() => setAddressBannerDismissed(true)}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
-                fontFamily: 'var(--font-mono)', fontSize: '11px',
-                color: 'var(--lt-text-3)', lineHeight: 1, flexShrink: 0,
-              }}
-            >×</button>
-          </div>
+          ))
         )}
+      </Sheet>
 
-        {/* ── Section tabs ── */}
-        <div style={{ flexShrink: 0, padding: '10px 22px 0', display: 'flex', borderBottom: '1px solid var(--lt-rule)', position: 'relative', zIndex: 10 }}>
-          {([
-            { id: 'contributors' as const, label: 'Contributors', count: selectedCreators.length },
-            { id: 'collabs' as const,      label: 'Collabs',      count: collabSlotCount },
-            { id: 'comms' as const,        label: 'Comms',        count: selectedCommunications.length },
-            { id: 'ads' as const,          label: 'Ads',          count: selectedAds.length },
-          ]).map(({ id, label, count }) => (
+      {/* ── Page meter — design `.issue` / `.pages`: 20 bars = the 20 slots (usedSlots / remainingContent) ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 22 }}>
+        <button
+          type="button"
+          onClick={() => setSheetOpen(true)}
+          aria-label={`${usedSlots} of ${maxContentPieces} pages selected — show what's in your issue`}
+          style={{ display: 'flex', alignItems: 'center', gap: 14, flex: 1, minWidth: 0, background: 'transparent', border: 0, padding: 0, textAlign: 'left', cursor: 'pointer', color: 'inherit', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <span style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 34, padding: '0 4px', borderBottom: '1px solid var(--line2)', flex: 'none' }}>
+            {Array.from({ length: maxContentPieces }, (_, i) => {
+              const saved = i < savedFilled;
+              const fresh = !saved && i < usedSlots;
+              return (
+                <i
+                  key={i}
+                  style={{
+                    display: 'block', width: 4, height: 28, borderRadius: 1,
+                    background: saved ? 'var(--ink2)' : fresh ? 'var(--green)' : 'var(--line2)',
+                    boxShadow: fresh ? '0 0 10px color-mix(in oklch, var(--green) 50%, transparent)' : 'none',
+                    transition: 'background 150ms, box-shadow 150ms',
+                  }}
+                />
+              );
+            })}
+          </span>
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ display: 'block', font: `400 20px/1 ${SERIF}`, color: 'var(--ink)' }}>
+              Your {currentPeriod?.season ?? ''} issue
+            </span>
+            <span style={{ display: 'block', margin: '5px 0 0', font: `400 12px/1.3 ${MONO}`, color: 'var(--ink3)' }}>
+              {usedSlots} of {maxContentPieces} pages · <b style={{ color: 'var(--green)', fontWeight: 500 }}>{remainingContent} open</b>
+            </span>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { if (searchOpen) setSearchTerm(''); setSearchOpen(o => !o); }}
+          aria-label={searchOpen ? 'Close search' : 'Search'}
+          aria-expanded={searchOpen}
+          style={{ flex: 'none', background: 'transparent', border: 0, padding: 4, cursor: 'pointer', color: searchOpen ? 'var(--ink)' : 'var(--ink3)', WebkitTapHighlightColor: 'transparent' }}
+        >
+          <Icon name="search" size={18} strokeWidth={1.5} />
+        </button>
+      </div>
+
+      {/* ── Search — the existing searchTerm field, revealed by the icon ── */}
+      {searchOpen && (
+        <SearchField
+          autoFocus
+          placeholder={searchPlaceholder}
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+          style={{ marginTop: 12 }}
+        />
+      )}
+
+      {/* ── Address reminder banner — above the tabs; warns, never blocks ── */}
+      {!hasAddress && !addressBannerDismissed && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+          <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--orange)', flex: 'none' }} />
+          <Link href="/profile" style={{ flex: 1, minWidth: 0, font: `400 13.5px/1.3 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none' }}>
+            Add your mailing address to receive your printed edition <span style={{ color: 'var(--ink3)' }}>›</span>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setAddressBannerDismissed(true)}
+            aria-label="Dismiss"
+            style={{ flex: 'none', background: 'transparent', border: 0, padding: '0 2px', cursor: 'pointer', font: `400 16px/1 ${SANS}`, color: 'var(--ink3)' }}
+          >×</button>
+        </div>
+      )}
+      {addressError && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, padding: '12px 0', borderBottom: '1px solid var(--line)' }}>
+          <span aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--orange)', flex: 'none' }} />
+          <span style={{ flex: 1, font: `400 13.5px/1.3 ${SANS}`, color: 'var(--ink2)' }}>
+            Your mailing address is required before we can print your edition.{' '}
+            <Link href="/profile" style={{ color: 'var(--ink)', textDecoration: 'underline' }}>Add it in your profile</Link>
+          </span>
+        </div>
+      )}
+
+      {/* ── Tabs — design `.ctabs`: same ids, same setActiveSection + setSearchTerm('') ── */}
+      <div style={{ display: 'flex', gap: 22, paddingTop: 22, borderBottom: '1px solid var(--line)' }}>
+        {tabs.map(({ id, label, count }) => {
+          const on = activeSection === id;
+          return (
             <button
               key={id}
+              type="button"
               onClick={() => { setActiveSection(id); setSearchTerm(''); }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '5px',
-                padding: '8px 0', marginRight: '18px',
-                fontFamily: 'var(--font-mono)', fontSize: '9px',
-                letterSpacing: '0.14em', textTransform: 'uppercase',
-                color: activeSection === id ? 'var(--lt-text)' : 'var(--lt-text-3)',
-                background: 'none', border: 'none',
-                borderBottom: activeSection === id ? '1px solid rgba(235,225,205,0.35)' : '1px solid transparent',
-                marginBottom: '-1px', cursor: 'pointer',
-                transition: 'color 0.2s',
-                whiteSpace: 'nowrap',
-                WebkitTapHighlightColor: 'transparent',
-              }}
+              style={{ position: 'relative', display: 'flex', gap: 6, alignItems: 'baseline', background: 'transparent', border: 0, padding: '0 0 12px', marginBottom: -1, cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
             >
               {label}
-              {count > 0 && (
-                <span style={{
-                  width: '14px', height: '14px', borderRadius: '50%',
-                  background: 'var(--neon-green)', color: '#0f0e0b',
-                  fontFamily: 'var(--font-mono)', fontSize: '7px', fontWeight: 700,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                }}>
-                  {count}
-                </span>
-              )}
+              <em style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', fontStyle: 'normal' }}>{count}</em>
+              {on && <span aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: 'var(--ink)' }} />}
             </button>
-          ))}
-        </div>
-
+          );
+        })}
+      </div>
         {/* ── Proof scroll area ── */}
         {(() => {
           // Content-type → neon color map used by creator cards
@@ -759,12 +817,11 @@ export default function CurationInterface() {
             art:     { neon: 'var(--neon-purple)', bannerBg: 'linear-gradient(135deg,rgba(168,136,232,0.1) 0%,rgba(168,136,232,0.04) 100%)', bgSel: 'rgba(168,136,232,0.06)', borderSel: 'rgba(168,136,232,0.25)', shadowSel: '-4px 0 14px -2px rgba(168,136,232,0.38)',                                    glowRgba: 'rgba(168,136,232,0.7)', glyph: '✦' },
             poetry:  { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '✦' },
             essay:   { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '∿' },
-            music:   { neon: 'var(--neon-green)',  bannerBg: 'linear-gradient(135deg,rgba(78,196,122,0.1) 0%,rgba(78,196,122,0.04) 100%)',   bgSel: 'rgba(78,196,122,0.06)',   borderSel: 'rgba(78,196,122,0.25)',   shadowSel: '-4px 0 14px -2px rgba(78,196,122,0.38)',                                     glowRgba: 'rgba(78,196,122,0.7)',   glyph: '♩' },
           };
           const getType = (t: string) => tc[t] || tc.photo;
 
           return (
-            <div style={{ flex: 1, overflowY: 'auto', padding: '14px 22px 80px', position: 'relative', zIndex: 10, WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+            <div style={{ paddingTop: 16, paddingBottom: 32 }}>
 
               {/* ══ CONTRIBUTORS ══ */}
               {activeSection === 'contributors' && (
@@ -1060,87 +1117,7 @@ export default function CurationInterface() {
           );
         })()}
 
-        {/* ── Action bar ── */}
-        <div style={{
-          position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)',
-          width: '390px', maxWidth: '100vw',
-          padding: '12px 22px',
-          background: 'rgba(15,14,11,0.96)',
-          borderTop: '1px solid var(--lt-rule)',
-          display: 'flex', alignItems: 'center', gap: '10px',
-          zIndex: 200,
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-        } as React.CSSProperties}>
-
-          {/* Price */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '2px' }}>
-              Your price
-            </div>
-            <div style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--lt-text)', lineHeight: 1 }}>
-              ${calculatePrice().toFixed(2)}
-            </div>
-          </div>
-
-          {/* Reset */}
-          <button
-            onClick={handleReset}
-            style={{
-              padding: '9px 14px',
-              background: 'transparent',
-              border: '1px solid rgba(235,225,205,0.12)',
-              borderRadius: '2px',
-              fontFamily: 'var(--font-mono)', fontSize: '8px',
-              letterSpacing: '0.14em', textTransform: 'uppercase',
-              color: 'var(--lt-text-3)',
-              cursor: 'pointer',
-              transition: 'border-color 0.2s, color 0.2s',
-              WebkitTapHighlightColor: 'transparent',
-            } as React.CSSProperties}
-          >
-            Reset
-          </button>
-
-          {/* Address gate message */}
-          {addressError && (
-            <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              letterSpacing: '0.04em',
-              color: 'var(--neon-accent)',
-              lineHeight: 1.6,
-              maxWidth: '260px',
-              textAlign: 'right',
-            }}>
-              Your mailing address is required before we can print your edition.{' '}
-              <a href="/profile" style={{ color: 'var(--neon-accent)', textDecoration: 'underline' }}>
-                Add it in your profile →
-              </a>
-            </div>
-          )}
-
-          {/* Save — press-btn-green mechanic */}
-          <button
-            onClick={pressSave}
-            disabled={savingSelections}
-            className={`press-btn-green${savePress === 'pressing' ? ' pressing' : ''}${savePress === 'releasing' ? ' releasing' : ''}`}
-          >
-            {savingSelections ? 'Saving…' : 'Save selections'}
-          </button>
-
-        </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }
 
-function formatDeadline(endDate: string): string {
-  const diff = new Date(endDate).getTime() - Date.now();
-  if (diff <= 0) return '0d';
-  const days = Math.floor(diff / 86400000);
-  const hours = Math.floor((diff % 86400000) / 3600000);
-  if (days > 1) return `${days}d`;
-  if (days === 1) return `${hours + 24}h`;
-  return `${hours}h`;
-}

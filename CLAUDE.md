@@ -226,7 +226,7 @@ middleware race condition before session cookie is set).
 
 Curate Page — Address Gate
 - Selections always save to DB regardless of address
-- If address_line1 missing, persistent banner below the stats/meter linking to /profile
+- If address_line1 missing, persistent banner between the page meter/search row and the tabs (above the tabs, v2 Phase 9) linking to /profile
 - Banner dismissible per session; hasAddress = !!profile.address_line1
 - Address gate WARNS but never BLOCKS saves
 
@@ -418,7 +418,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (shell)
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -665,6 +665,14 @@ Key Gotchas & Hard-Won Lessons
 ### Curate Page
 - Selections from DB on mount, not localStorage. Key magazine_selections_{user_id}. Address gate warns, never blocks.
 - The save payload is what the generator reads. Any UI change to curate must leave the written rows identical.
+- Curate v2 shell (Phase 9): the meter's saved/fresh split is a ONE-TIME snapshot of usedSlots taken by a ref-guarded
+  useEffect when `loading` flips false; the temp_selected_collabs restore effect fires in the same commit but lands in the
+  NEXT render, so restored-but-unsaved collabs correctly show green. Save and Reset re-snapshot. Navigating right after
+  setToast unmounts the toast (it's a portal in this page), so save waits 1200ms before router.push('/dashboard'). The meter
+  Sheet labels collab ids by shape (community_ / local_<tid>_<City> / private) — template names stay inside
+  IntegratedCollabsSection until Phase 11. Three pre-existing no-unused-vars errors remain in tab-body code
+  (privateCollabTemplateMap, expandedCards, toggleCardExpansion); Next 16 `next build` does not lint, so Vercel is unaffected —
+  clear them in Phases 10–12.
 
 ### Magazine Templates
 - ImageFrame hides crosshair/dot/label when real image present; its inner <img> hardcodes object-fit cover
