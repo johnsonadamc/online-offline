@@ -1,17 +1,28 @@
 'use client';
 
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Accent, accentVar, SANS, tint } from './shared';
 
 // Design HTML `.bitem.swiped .leave`: swipe left reveals an 84px action button
 // (18% accent tint, accent text, r8, 11px sans .12em uppercase).
-// Fallbacks per README: long-press (touch) and a hover "···" (desktop) open
-// the same action. The gesture must not steal vertical scroll (axis lock) or
-// the row's own tap (a tap while open only closes the row).
+//
+// Input rules (README "SwipeRow"):
+// - TOUCH: swipe-left opens the action; long-press (500ms, cancelled by >8px of
+//   movement) opens it too and never fires the row's tap on release. A tap on a
+//   row at rest (translateX 0) ALWAYS reaches the row's own onClick. Only a row
+//   that is swiped open consumes a tap, to close itself.
+// - HOVER-CAPABLE devices only ((hover: hover) and (pointer: fine)): a "···"
+//   button appears on hover in its OWN reserved 32px right column (the row
+//   content gets that much right padding), so it can never sit over the
+//   consumer's right slot. Clicking it opens the same action inline and stops
+//   propagation. It never renders on touch devices, where :hover sticks after a
+//   tap. Showing "···" never puts the row in the open state.
 
 const ACTION_W = 84;
 const OPEN_X = -(ACTION_W + 12);
 const LONG_PRESS_MS = 500;
+const MOVE_TOLERANCE = 8;
+const HOVER_COL_W = 32;
 
 export interface SwipeRowProps {
   /** Action button text, e.g. "Leave", "Withdraw", "Delete". */
@@ -25,14 +36,33 @@ export interface SwipeRowProps {
   children: React.ReactNode;
 }
 
+/** True only on devices that can really hover (mouse/trackpad), false on touch and during SSR. */
+function useHoverCapable(): boolean {
+  const [capable, setCapable] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    const update = () => setCapable(mq.matches);
+    update();
+    mq.addEventListener?.('change', update);
+    return () => mq.removeEventListener?.('change', update);
+  }, []);
+  return capable;
+}
+
 export function SwipeRow({ action, accent = 'orange', onAction, disabled, children }: SwipeRowProps) {
+  const hoverCapable = useHoverCapable();
   const [open, setOpen] = useState(false);
   const [dragX, setDragX] = useState<number | null>(null);
   const [hovered, setHovered] = useState(false);
   const start = useRef<{ x: number; y: number } | null>(null);
   const axis = useRef<'h' | 'v' | null>(null);
   const longPress = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set only when a gesture (swipe / long-press) already handled this touch, so the
+  // click the browser synthesizes afterwards must not reach the row. Reset on every
+  // new touch and auto-cleared, so a stale flag can never eat a later tap.
   const suppressClick = useRef(false);
+  const suppressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearLongPress = useCallback(() => {
     if (longPress.current) {
@@ -41,15 +71,30 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
     }
   }, []);
 
+  const armSuppress = useCallback(() => {
+    suppressClick.current = true;
+    if (suppressTimer.current) clearTimeout(suppressTimer.current);
+    suppressTimer.current = setTimeout(() => {
+      suppressClick.current = false;
+      suppressTimer.current = null;
+    }, 400);
+  }, []);
+
+  useEffect(() => () => {
+    clearLongPress();
+    if (suppressTimer.current) clearTimeout(suppressTimer.current);
+  }, [clearLongPress]);
+
   const onTouchStart = (e: React.TouchEvent) => {
     if (disabled) return;
     const t = e.touches[0];
     start.current = { x: t.clientX, y: t.clientY };
     axis.current = null;
+    suppressClick.current = false; // a new gesture starts clean
     clearLongPress();
     longPress.current = setTimeout(() => {
       longPress.current = null;
-      suppressClick.current = true;
+      armSuppress(); // the release after a long-press is not a tap
       setOpen(true);
     }, LONG_PRESS_MS);
   };
@@ -59,9 +104,9 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
     const t = e.touches[0];
     const dx = t.clientX - start.current.x;
     const dy = t.clientY - start.current.y;
-    if (axis.current === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+    if (axis.current === null && (Math.abs(dx) > MOVE_TOLERANCE || Math.abs(dy) > MOVE_TOLERANCE)) {
       axis.current = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v';
-      clearLongPress();
+      clearLongPress(); // any real movement cancels the long-press
     }
     if (axis.current !== 'h') return; // vertical scroll keeps working untouched
     const base = open ? OPEN_X : 0;
@@ -73,14 +118,16 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
     if (dragX !== null) {
       const nowOpen = dragX < OPEN_X / 2;
       setOpen(nowOpen);
-      if (nowOpen || open) suppressClick.current = true;
+      if (nowOpen || open) armSuppress(); // a swipe that opened/closed is not a tap
       setDragX(null);
     }
     start.current = null;
     axis.current = null;
   };
 
-  // A tap on an open row closes it instead of activating the row.
+  // Tap semantics: a row at rest lets the click through to the consumer's onClick.
+  // A row that is swiped open consumes the tap to close itself. A click that trails
+  // a swipe/long-press is swallowed.
   const onClickCapture = (e: React.MouseEvent) => {
     if (suppressClick.current) {
       suppressClick.current = false;
@@ -96,13 +143,14 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
   };
 
   const x = dragX !== null ? dragX : open ? OPEN_X : 0;
+  const showHoverAffordance = hoverCapable && hovered && !open && dragX === null;
 
   if (disabled) return <div>{children}</div>;
 
   return (
     <div
       style={{ position: 'relative', overflow: 'hidden' }}
-      onMouseEnter={() => setHovered(true)}
+      onMouseEnter={() => hoverCapable && setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
       <div
@@ -114,31 +162,39 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
         style={{
           transform: `translateX(${x}px)`,
           transition: dragX !== null ? 'none' : 'transform 200ms ease-out',
+          // Reserved "···" column on hover-capable devices only; nothing on touch.
+          paddingRight: hoverCapable ? HOVER_COL_W : 0,
+          boxSizing: 'border-box',
+          WebkitTouchCallout: 'none', // no iOS callout on long-press
         }}
       >
         {children}
       </div>
 
-      {/* Desktop fallback: "···" appears on hover, toggles the action. */}
-      {hovered && !open && x === 0 && (
+      {/* Desktop fallback: "···" in its own right column; opens the action inline. */}
+      {showHoverAffordance && (
         <button
           type="button"
           aria-label={`${action} options`}
           onClick={(e) => {
-            e.stopPropagation();
+            e.preventDefault();
+            e.stopPropagation(); // never the row's navigation
             setOpen(true);
           }}
           style={{
             position: 'absolute',
-            right: 8,
-            top: '50%',
-            transform: 'translateY(-50%)',
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: HOVER_COL_W,
             background: 'transparent',
             borderWidth: 0,
+            padding: 0,
             color: 'var(--ink3)',
             font: `500 16px/1 ${SANS}`,
             letterSpacing: '0.1em',
-            padding: '8px 6px',
+            display: 'grid',
+            placeItems: 'center',
             cursor: 'pointer',
           }}
         >
@@ -150,6 +206,7 @@ export function SwipeRow({ action, accent = 'orange', onAction, disabled, childr
         <button
           type="button"
           onClick={(e) => {
+            e.preventDefault();
             e.stopPropagation();
             setOpen(false);
             onAction();

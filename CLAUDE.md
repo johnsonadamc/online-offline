@@ -460,6 +460,7 @@ RosterRow, StatusDot, Brief, ProgressSteps, Toggle, PageShell. Use these; do not
 Every v2 page root is <PageShell>; page background is never set on an inner container. (PageShell = root
 min-height 100dvh / width 100% / --bg / overflow-x hidden + centered 560px column, padding 0 24px, border-box,
 min-width 0; `header` and sticky `footer` slots. body background in globals.css is --bg as well.)
+SwipeRow: hover "···" only on (hover:hover) devices, in its own reserved right column; a tap on a non-open row always navigates.
 
 Key v2 screen facts (full specs in the READMEs):
 - Dashboard: section subtitles removed (count + "Up next" strip replace them); Up next shows at most one

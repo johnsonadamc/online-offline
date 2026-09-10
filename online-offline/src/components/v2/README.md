@@ -36,10 +36,21 @@ community blue, local green, private purple). `icons.tsx` holds the inline SVG s
   0 = manual), `onClose`. *No mock exists in the design HTML — styling derived from
   the system vocabulary (`--bg2` card, `--line2` border, r12, sans 13.5).*
 - **SwipeRow** — `action: string`, `accent?` (default orange), `onAction`
-  (caller runs its existing confirm), `disabled?`, `children`. Touch swipe-left
-  reveals an 84px action; axis-locked so vertical scroll is untouched; a tap while
-  open closes instead of activating the row. Fallbacks: long-press (500ms) and a
-  hover "···" button open the same action.
+  (caller runs its existing confirm), `disabled?`, `children`. Rules:
+  - **Tap**: a row at rest (translateX 0) always passes the tap to the consumer's
+    own `onClick` on the inner element. Only a row that is swiped open consumes a
+    tap, to close itself. Buttons inside the row must `stopPropagation`.
+  - **Swipe** (touch): after 8px the gesture locks to one axis — vertical keeps
+    page scroll untouched, horizontal drags the row; past half the 84px action it
+    snaps open. The click the browser synthesizes after a swipe is swallowed.
+  - **Long-press** (touch): 500ms, cancelled by >8px of movement, opens the action
+    and never fires the row's tap on release.
+  - **Hover "···"**: rendered ONLY on `(hover: hover) and (pointer: fine)` devices
+    (matchMedia), never on touch where :hover sticks after a tap. It lives in its
+    own reserved 32px right column (the row content gets 32px right padding on
+    those devices, 0 on touch), so it can never overlap the consumer's right slot.
+    Clicking it opens the same inline action and stops propagation; showing it
+    never puts the row in the open state.
 - **Input** — all `<input>` props + `label?` (10px mono above), `serif?` (26px title
   variant). Borderless, bottom hairline, ink on focus.
 - **Select** — all `<select>` props + `label?`; native select styled like Input with
