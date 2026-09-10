@@ -404,7 +404,8 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile,
+/dashboard (shell — Phase 3: header, season bar, tabs, section rows; expanded section contents are still v1 until Phase 4)
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -585,6 +586,10 @@ Key Gotchas & Hard-Won Lessons
   `boxSizing: 'content-box'` (the Phase 1–2 header rows) is 48px wider than a 390px viewport — the page scrolled
   sideways and the body's v1 --ground showed as a grey halo. Never set content-box on a padded 100%-wide element;
   PageShell owns the header/column/footer geometry now, and Input/Select/Textarea set border-box explicitly.
+- Dashboard v2 shell (Phase 3): the v1 section chrome was a web of helpers keyed on activeSection (sectionColors,
+  iconStroke/iconFilter/iconBox*, OpenRule, ChevronIcon). Removing SectionHeader/OpenRule makes ALL of them dead —
+  delete them together or eslint no-unused-vars fails. The page has two PRE-EXISTING unused-var lint errors
+  (recentActivity, pressSubmit) that predate v2; `next build` does not run eslint, so they do not block Vercel.
 - Profile v2 (Phase 2): the design's 28px role tile is not a primitive (IconTile is 48px, TypeTile only takes content/collab
   types) — render it inline with tint(accent) + <Icon>. Keep the old tab state out; the page is one scroll.
 - Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.

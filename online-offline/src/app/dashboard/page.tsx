@@ -5,6 +5,8 @@ import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NextImage from 'next/image';
+import { PageShell, IconTile, Icon, SERIF, SANS, MONO } from '@/components/v2';
+import type { Accent, IconName } from '@/components/v2';
 
 import {
   fetchCurrentPeriodDraft,
@@ -104,6 +106,9 @@ interface ConfirmActionState {
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────────────────
+
+// v2 meaning map for the dashboard rows: content orange, collabs blue, comms gold.
+const SECTION_ACCENT: Record<string, Accent> = { content: 'orange', collabs: 'blue', comms: 'gold' };
 
 export default function Dashboard() {
   const router = useRouter();
@@ -500,36 +505,13 @@ export default function Dashboard() {
   // ── Loading state ──────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', letterSpacing: '0.14em', color: 'var(--paper-4)' }}>
-          loading…
-        </p>
-      </div>
+      <PageShell align="center">
+        <p style={{ margin: 0, textAlign: 'center', font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)' }}>loading…</p>
+      </PageShell>
     );
   }
 
   // ── Shared style helpers ───────────────────────────────────────────────────────────────────
-  const sectionColors: Record<string, { neon: string; glow: string; rgba01: string; rgba04: string }> = {
-    content: {
-      neon: 'var(--neon-accent)',
-      glow: 'var(--glow-accent)',
-      rgba01: 'rgba(224,90,40,0.1)',
-      rgba04: 'rgba(224,90,40,0.4)',
-    },
-    collabs: {
-      neon: 'var(--neon-blue)',
-      glow: 'var(--glow-blue)',
-      rgba01: 'rgba(90,159,212,0.1)',
-      rgba04: 'rgba(90,159,212,0.4)',
-    },
-    comms: {
-      neon: 'var(--neon-amber)',
-      glow: 'var(--glow-amber)',
-      rgba01: 'rgba(224,168,48,0.1)',
-      rgba04: 'rgba(224,168,48,0.4)',
-    },
-  };
-
   const modeStyle: Record<string, { border: string; shadow: string; label: string }> = {
     community: {
       border: 'var(--neon-blue)',
@@ -548,25 +530,7 @@ export default function Dashboard() {
     },
   };
 
-  const iconStroke = (sec: string) =>
-    activeSection === sec ? sectionColors[sec].neon : 'var(--paper-4)';
-  const iconFilter = (sec: string) =>
-    activeSection === sec ? `drop-shadow(0 0 4px ${sectionColors[sec].glow})` : 'none';
-  const iconBoxBg = (sec: string) =>
-    activeSection === sec ? sectionColors[sec].rgba01 : 'var(--ground-3)';
-  const iconBoxBorder = (sec: string) =>
-    activeSection === sec ? sectionColors[sec].rgba04 : 'var(--rule-mid)';
-  const iconBoxShadow = (sec: string) =>
-    activeSection === sec
-      ? `0 0 10px 2px ${sectionColors[sec].glow}, 0 0 28px 4px ${sectionColors[sec].rgba01}, inset 0 0 10px ${sectionColors[sec].rgba01}`
-      : 'inset 0 1px 4px rgba(0,0,0,0.5)';
-
-  // ── SVG helpers for section icons ────────────────────────────────────────────────
-  const ChevronIcon = () => (
-    <svg width="12" height="12" viewBox="0 0 24 24">
-      <polyline points="9,18 15,12 9,6" stroke="var(--paper-5)" strokeWidth="2" fill="none" />
-    </svg>
-  );
+  // ── SVG helpers ──
   const XIcon = () => (
     <svg width="11" height="11" viewBox="0 0 24 24">
       <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" />
@@ -574,54 +538,24 @@ export default function Dashboard() {
     </svg>
   );
 
-  const SectionHeader = ({
-    id, label, subtitle, icon,
-  }: {
-    id: string; label: string; subtitle: string; icon: React.ReactNode;
-  }) => (
-    <div
-      onClick={() => toggleSection(id)}
-      style={{ padding: '17px 0', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
-    >
-      <div style={{
-        width: '40px', height: '40px', flexShrink: 0,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderRadius: '2px',
-        background: iconBoxBg(id),
-        border: `1px solid ${iconBoxBorder(id)}`,
-        boxShadow: iconBoxShadow(id),
-        transition: 'background 0.3s, border-color 0.3s, box-shadow 0.3s',
-      }}>
-        {icon}
+  // v2 section row (design `.brow`): 48px IconTile, serif 24 title, serif 20 count, 14px chevron.
+  // Active row's tile takes the section color. Tap → toggleSection (unchanged).
+  const SectionRow = ({ id, label, count, icon }: { id: string; label: string; count: number; icon: IconName }) => {
+    const open = activeSection === id;
+    return (
+      <div
+        role="button"
+        aria-expanded={open}
+        onClick={() => toggleSection(id)}
+        style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 0', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+      >
+        <IconTile icon={icon} accent={open ? SECTION_ACCENT[id] : undefined} style={{ transition: 'border-color 0.2s, color 0.2s, background 0.2s' }} />
+        <h3 style={{ margin: 0, font: `400 24px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1, minWidth: 0 }}>{label}</h3>
+        <span style={{ font: `400 20px/1 ${SERIF}`, color: 'var(--ink2)', flex: 'none' }}>{count}</span>
+        <Icon name="chevron" size={14} strokeWidth={1.5} style={{ color: 'var(--ink3)', transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 200ms' }} />
       </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{
-          fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--paper)',
-          lineHeight: 1.1, marginBottom: '2px', opacity: 0.88,
-          textShadow: activeSection === id ? `0 0 16px ${sectionColors[id].rgba01.replace('0.1', '0.2')}` : 'none',
-          transition: 'text-shadow 0.3s',
-        }}>{label}</div>
-        <div style={{ fontSize: '11px', color: 'var(--paper-4)' }}>{subtitle}</div>
-      </div>
-      <div style={{
-        width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        transform: activeSection === id ? 'rotate(90deg)' : 'rotate(0deg)',
-        transition: 'transform 0.28s cubic-bezier(0.4,0,0.2,1)',
-      }}>
-        <ChevronIcon />
-      </div>
-    </div>
-  );
-
-  const OpenRule = ({ id }: { id: string }) => (
-    <div style={{
-      height: '1px', marginBottom: '2px',
-      opacity: activeSection === id ? 1 : 0,
-      background: sectionColors[id].neon,
-      boxShadow: `0 0 8px 1px ${sectionColors[id].glow}`,
-      transition: 'opacity 0.3s',
-    }} />
-  );
+    );
+  };
 
   const Expandable = ({ id, children }: { id: string; children: React.ReactNode }) => (
     <div style={{
@@ -634,118 +568,93 @@ export default function Dashboard() {
     </div>
   );
 
-  // ── Main return ────────────────────────────────────────────────────────────────────────────
+  // ── Season bar data (from the already-loaded period; CountdownTimer unchanged) ──
+  const periodStart = currentPeriod ? new Date(currentPeriod.start_date).getTime() : 0;
+  const periodEnd = currentPeriod ? new Date(currentPeriod.end_date).getTime() : 0;
+  const nowMs = Date.now();
+  const elapsedPct = periodEnd > periodStart
+    ? Math.min(100, Math.max(0, ((nowMs - periodStart) / (periodEnd - periodStart)) * 100))
+    : 0;
+  const daysLeft = periodEnd ? Math.ceil((periodEnd - nowMs) / 86400000) : Infinity;
+  const urgent = daysLeft <= 7; // the only urgency signal: stronger orange + glow
+
+  const tabStyle = (on: boolean): React.CSSProperties => ({
+    font: `500 13px/1 ${SANS}`,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    color: on ? 'var(--ink)' : 'var(--ink3)',
+    background: 'none',
+    borderWidth: '0 0 1px 0',
+    borderStyle: 'solid',
+    borderColor: on ? 'var(--ink)' : 'transparent',
+    padding: '0 0 14px',
+    marginBottom: -1,
+    cursor: on ? 'default' : 'pointer',
+    WebkitTapHighlightColor: 'transparent',
+  });
+
+  // ── Main return ──────────────────────────────────────────────────────────────
   return (
-    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh' }}>
-      <div style={{ maxWidth: '390px', margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative' }}>
-
-        {/* ── Toasts ── */}
-        {successMessage && (
-          <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(78,196,122,0.3)', borderLeft: '3px solid var(--neon-green)', padding: '10px 14px', borderRadius: '2px', boxShadow: '-3px 0 10px -2px var(--glow-green)' }}>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-green)' }}>{successMessage}</span>
+    <PageShell
+      // Header — design `.top`: wordmark 22px serif ("//" in --ink3) + 32px avatar → /profile
+      header={(
+        <>
+          <div style={{ font: `400 22px/1 ${SERIF}`, color: 'var(--ink)' }}>
+            online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
           </div>
-        )}
-        {errorMessage && (
-          <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(224,90,40,0.3)', borderLeft: '3px solid var(--neon-accent)', padding: '10px 14px', borderRadius: '2px' }}>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-accent)' }}>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* ── Dialogs ── */}
-        <ConfirmationDialog />
-        <DeleteCommDialog />
-        <DeleteContentDialog />
-
-        {/* ── Header ── */}
-        <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
-          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '15px', letterSpacing: '0.04em', color: 'var(--paper)', opacity: 0.88, textShadow: '0 0 20px var(--glow-paper)' }}>
-            online<span style={{ color: 'var(--paper-5)', margin: '0 1px' }}>//</span>offline
-          </div>
-          <Link href="/profile" style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, textDecoration: 'none' }}>
-            {avatarUrl ? (
-              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                <NextImage src={avatarUrl} alt="Profile" fill sizes="28px" style={{ objectFit: 'cover' }} />
-              </div>
-            ) : (
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, color: 'var(--paper-3)' }}>
-                ○
-              </span>
-            )}
+          <Link href="/profile" aria-label="Profile" style={{ width: 32, height: 32, borderRadius: '50%', overflow: 'hidden', position: 'relative', flex: 'none', display: 'block', background: 'linear-gradient(135deg,#4a4f47,#26292a)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)' }}>
+            {avatarUrl && <NextImage src={avatarUrl} alt="Profile" fill sizes="32px" style={{ objectFit: 'cover' }} />}
           </Link>
+        </>
+      )}
+    >
+      {/* ── Toasts ── */}
+      {successMessage && (
+        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(78,196,122,0.3)', borderLeft: '3px solid var(--neon-green)', padding: '10px 14px', borderRadius: '2px', boxShadow: '-3px 0 10px -2px var(--glow-green)' }}>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-green)' }}>{successMessage}</span>
         </div>
-
-        {/* ── Thick rule ── */}
-        <div style={{ height: '1px', background: 'var(--paper)', margin: '13px 26px 0', opacity: 0.8, boxShadow: '0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08)', position: 'relative', zIndex: 10 }} />
-
-        {/* ── Period strip ── */}
-        <div style={{ padding: '9px 26px 0', display: 'flex', alignItems: 'center', gap: '10px', position: 'relative', zIndex: 10 }}>
-          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-3)', whiteSpace: 'nowrap' }}>
-            {currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : '—'}
-          </span>
-          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, var(--rule-mid), transparent)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--paper-4)', whiteSpace: 'nowrap' }}>
-            {currentPeriod?.end_date && (
-              <><strong style={{ color: 'var(--neon-accent)', fontWeight: 500, textShadow: '0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12)' }}><CountdownTimer endDate={currentPeriod.end_date} /></strong>{' remaining'}</>
-            )}
-          </span>
+      )}
+      {errorMessage && (
+        <div style={{ position: 'fixed', top: '16px', right: '16px', zIndex: 1000, background: 'var(--ground-3)', border: '1px solid rgba(224,90,40,0.3)', borderLeft: '3px solid var(--neon-accent)', padding: '10px 14px', borderRadius: '2px' }}>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--neon-accent)' }}>{errorMessage}</span>
         </div>
+      )}
 
-        {/* ── Tab bar ── */}
-        <div style={{ display: 'flex', padding: '0 26px', borderBottom: '1px solid var(--rule)', marginTop: '14px', position: 'relative', zIndex: 10 }}>
-          <button
-            style={{
-              padding: '12px 0', marginRight: '26px',
-              fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: 'var(--paper)', opacity: 0.88,
-              background: 'none', border: 'none',
-              borderBottom: '1px solid var(--paper)',
-              marginBottom: '-1px', cursor: 'default',
-              textShadow: '0 0 12px var(--glow-paper)',
-            }}
-          >
-            Contribute
-          </button>
-          <button
-            onClick={() => router.push('/curate')}
-            style={{
-              padding: '12px 0', marginRight: '26px',
-              fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 400,
-              letterSpacing: '0.1em', textTransform: 'uppercase',
-              color: 'var(--paper-5)',
-              background: 'none', border: 'none',
-              borderBottom: '1px solid transparent',
-              marginBottom: '-1px', cursor: 'pointer',
-              transition: 'color 0.2s',
-            }}
-          >
-            Curate
-          </button>
-        </div>
+      {/* ── Dialogs ── */}
+      <ConfirmationDialog />
+      <DeleteCommDialog />
+      <DeleteContentDialog />
+
+      {/* ── Season bar — design `.season`: italic serif name, 1px track with orange elapsed fill, mono days remaining ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingTop: 22 }}>
+        <span style={{ font: `italic 400 17px/1 ${SERIF}`, color: 'var(--ink2)', whiteSpace: 'nowrap' }}>
+          {currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : '—'}
+        </span>
+        <span aria-hidden="true" style={{ flex: 1, minWidth: 0, height: 1, background: 'var(--line2)', position: 'relative' }}>
+          <span style={{ position: 'absolute', left: 0, top: urgent ? -0.5 : 0, height: urgent ? 2 : 1, width: `${elapsedPct}%`, background: 'var(--orange)', boxShadow: urgent ? '0 0 8px color-mix(in oklch, var(--orange) 60%, transparent)' : 'none', transition: 'width 0.4s' }} />
+        </span>
+        <span style={{ font: `400 12px/1 ${MONO}`, color: 'var(--ink2)', whiteSpace: 'nowrap' }}>
+          {currentPeriod?.end_date && (
+            <><b style={{ color: 'var(--orange)', fontWeight: 500, textShadow: urgent ? '0 0 10px color-mix(in oklch, var(--orange) 55%, transparent)' : 'none' }}><CountdownTimer endDate={currentPeriod.end_date} /></b>{' remaining'}</>
+          )}
+        </span>
+      </div>
+
+      {/* ── Tabs — design `.tabs`: CONTRIBUTE (active, ink underline) / CURATE → /curate ── */}
+      <div style={{ display: 'flex', gap: 26, paddingTop: 26, borderWidth: '0 0 1px 0', borderStyle: 'solid', borderColor: 'var(--line)' }}>
+        <button type="button" style={tabStyle(true)}>Contribute</button>
+        <button type="button" onClick={() => router.push('/curate')} style={tabStyle(false)}>Curate</button>
+      </div>
 
         {/* ══════════════════════
             CONTRIBUTE TAB
         ══════════════════════ */}
         {(
-          <div style={{ padding: '16px 26px 80px', position: 'relative', zIndex: 10 }}>
+          <div style={{ padding: '6px 0 80px' }}>
 
             {/* ── Content section ── */}
-            <div style={{ borderTop: '1px solid var(--rule)', overflow: 'hidden' }}>
-              <SectionHeader
-                id="content"
-                label="Content"
-                subtitle={contentSubmission ? 'Your work this season — 1 submission' : 'No submissions yet this season'}
-                icon={
-                  <svg width="20" height="20" viewBox="0 0 24 24" overflow="visible">
-                    <rect x="2" y="7" width="20" height="14" rx="1.5" stroke={iconStroke('content')} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" style={{ filter: iconFilter('content'), transition: 'stroke 0.3s, filter 0.3s' }} />
-                    <circle cx="12" cy="14" r="4.5" stroke={iconStroke('content')} strokeWidth="1.5" fill="none" style={{ filter: iconFilter('content'), transition: 'stroke 0.3s, filter 0.3s' }} />
-                    <circle cx="12" cy="14" r="2" stroke={iconStroke('content')} strokeWidth="1.5" fill="none" style={{ transition: 'stroke 0.3s' }} />
-                    <rect x="7" y="5" width="4" height="3" rx="1" fill={iconStroke('content')} style={{ transition: 'fill 0.3s' }} />
-                    <line x1="17" y1="9.5" x2="20" y2="9.5" stroke={iconStroke('content')} strokeWidth="1.5" strokeLinecap="round" style={{ transition: 'stroke 0.3s' }} />
-                  </svg>
-                }
-              />
-              <OpenRule id="content" />
+            <div style={{ borderBottom: '1px solid var(--line)', overflow: 'hidden' }}>
+              <SectionRow id="content" label="Content" count={contentSubmission ? 1 : 0} icon="camera" />
               <Expandable id="content">
                 {/* Content item or empty state */}
                 {contentSubmission ? (
@@ -835,30 +744,9 @@ export default function Dashboard() {
             {(() => {
               const pendingInvites = activeCollabs.filter(c => c.isPendingInvite);
               const activeOnes = activeCollabs.filter(c => !c.isPendingInvite);
-              const collabSubtitle = (() => {
-                const parts = [];
-                if (activeOnes.length > 0) parts.push(`${activeOnes.length} active`);
-                if (pendingInvites.length > 0) parts.push(`${pendingInvites.length} invitation${pendingInvites.length > 1 ? 's' : ''}`);
-                return parts.length > 0 ? parts.join(' · ') : 'No active collaborations';
-              })();
               return (
-            <div style={{ borderTop: '1px solid var(--rule)', overflow: 'hidden' }}>
-              <SectionHeader
-                id="collabs"
-                label="Collaborations"
-                subtitle={collabSubtitle}
-                icon={
-                  <svg width="20" height="20" viewBox="0 0 24 24" overflow="visible">
-                    <circle cx="6" cy="9" r="2.5" stroke={iconStroke('collabs')} strokeWidth="1.3" fill="none" style={{ filter: iconFilter('collabs'), transition: 'stroke 0.3s, filter 0.3s' }} />
-                    <path d="M1,20 C1,15.5 3.5,13.5 6,13.5 C7.2,13.5 8.3,14 9.1,14.8" stroke={iconStroke('collabs')} strokeWidth="1.3" fill="none" style={{ transition: 'stroke 0.3s' }} />
-                    <circle cx="18" cy="9" r="2.5" stroke={iconStroke('collabs')} strokeWidth="1.3" fill="none" style={{ transition: 'stroke 0.3s' }} />
-                    <path d="M23,20 C23,15.5 20.5,13.5 18,13.5 C16.8,13.5 15.7,14 14.9,14.8" stroke={iconStroke('collabs')} strokeWidth="1.3" fill="none" style={{ transition: 'stroke 0.3s' }} />
-                    <circle cx="12" cy="8" r="3" stroke={iconStroke('collabs')} strokeWidth="1.5" fill="none" style={{ filter: iconFilter('collabs'), transition: 'stroke 0.3s, filter 0.3s' }} />
-                    <path d="M5.5,21 C5.5,16 8.2,14 12,14 C15.8,14 18.5,16 18.5,21" stroke={iconStroke('collabs')} strokeWidth="1.5" fill="none" style={{ transition: 'stroke 0.3s' }} />
-                  </svg>
-                }
-              />
-              <OpenRule id="collabs" />
+            <div style={{ borderBottom: '1px solid var(--line)', overflow: 'hidden' }}>
+              <SectionRow id="collabs" label="Collaborations" count={activeCollabs.length} icon="people" />
               <Expandable id="collabs">
                 {/* Pending invitations first */}
                 {pendingInvites.map(collab => (
@@ -1018,27 +906,8 @@ export default function Dashboard() {
             })()}
 
             {/* ── Communications section ── */}
-            <div style={{ borderTop: '1px solid var(--rule)', overflow: 'hidden' }}>
-              <SectionHeader
-                id="comms"
-                label="Communications"
-                subtitle={
-                  communications.length === 0
-                    ? 'No messages yet'
-                    : communications.filter(c => c.status === 'draft').length > 0
-                    ? `${communications.filter(c => c.status === 'draft').length} draft in progress`
-                    : `${communications.length} sent this season`
-                }
-                icon={
-                  <svg width="20" height="20" viewBox="0 0 24 24" overflow="visible">
-                    <rect x="2" y="8" width="20" height="13" rx="1.5" stroke={iconStroke('comms')} strokeWidth="1.5" fill="none" style={{ filter: iconFilter('comms'), transition: 'stroke 0.3s, filter 0.3s' }} />
-                    <line x1="6" y1="14" x2="14" y2="14" stroke={iconStroke('comms')} strokeWidth="1.2" strokeLinecap="round" style={{ opacity: 0.5, transition: 'stroke 0.3s' }} />
-                    <path d="M2,8 L12,3 L22,8" stroke={iconStroke('comms')} strokeWidth="1.5" fill="none" strokeLinejoin="round" style={{ transition: 'stroke 0.3s' }} />
-                    <circle cx="12" cy="8" r="1.2" fill={iconStroke('comms')} style={{ transition: 'fill 0.3s' }} />
-                  </svg>
-                }
-              />
-              <OpenRule id="comms" />
+            <div style={{ overflow: 'hidden' }}>
+              <SectionRow id="comms" label="Communications" count={communications.length} icon="envelope" />
               <Expandable id="comms">
                 {communications.length > 0 ? (
                   communications.map(comm => (
@@ -1127,11 +996,7 @@ export default function Dashboard() {
 
           </div>
         )}
-
-
-
-      </div>
-    </div>
+    </PageShell>
   );
 }
 
