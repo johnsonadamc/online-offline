@@ -468,7 +468,8 @@ Key v2 screen facts (full specs in the READMEs):
   item by priority (pending invite → collab due ≤14d → draft communication → no content yet); Leave/
   Withdraw/Delete are swipe-left actions with long-press + hover "···" fallbacks; collab row body is still
   one tap to /collabs/[id]/submit.
-- Curate: page meter (20 bars) replaces the stats strip; price ONLY in the sticky footer; the pill IS the
+- Curate: page meter (20 bars) colored by composition — contributors orange, collabs by mode, comms gold, ads
+  outlined ink2; glow = added this session; dot legend beneath; price ONLY in the sticky footer; the pill IS the
   toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast.
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.
@@ -680,6 +681,12 @@ Key Gotchas & Hard-Won Lessons
   (isRealMedia) and fall back to the type gradient / brand wordmark. Filter chips + the one-time legend
   (localStorage oo_curate_legend_seen) are local state only. `expandedCards`/`toggleCardExpansion`, the `tc` map and the
   lucide `Camera` import are gone; only `privateCollabTemplateMap` (collabs tab, Phase 11) still trips no-unused-vars.
+- Curate meter refinement (post-Phase 10): the "added this session" glow is keyed on a Set of selection KEYS
+  (c:<id> / k:<collabId> / comm / a:<id>) snapshotted once when `loading` flips false and re-snapshotted after Save/Reset —
+  a count snapshot mis-glowed when a saved pick was swapped for a new one. Bar order = contributors, collabs by mode
+  (community → local → private, parsed from the id shape), comms, ads. TABS: at 390px the column is 342px and
+  "CONTRIBUTORS 9" at 12px/.12em is ~119px, wider than a quarter — cells are flex 1 1 0 with min-width max-content
+  (no gap), so the three short tabs share the remainder equally and the row never exceeds the column.
 
 ### Magazine Templates
 - ImageFrame hides crosshair/dot/label when real image present; its inner <img> hardcodes object-fit cover

@@ -14,6 +14,16 @@ import { sendFollowRequest } from '@/lib/supabase/profiles';
 
 const CURATE_LEGEND_KEY = 'oo_curate_legend_seen';
 
+type BarKind = 'contributor' | 'community' | 'local' | 'private' | 'comms' | 'ad';
+const barColor: Record<BarKind, string> = {
+  contributor: 'var(--orange)',
+  community: 'var(--blue)',
+  local: 'var(--green)',
+  private: 'var(--purple)',
+  comms: 'var(--gold)',
+  ad: 'var(--ink2)',
+};
+
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
 interface Creator {
@@ -169,10 +179,10 @@ export default function CurationInterface() {
   const [showLegend, setShowLegend] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; accent: 'green' | 'orange' } | null>(null);
-  // Page meter: slots that were already saved when the page loaded (or at the
-  // last save) render --ink2; anything above that is this session's work and
-  // renders green. Read-only derivation — nothing here is written anywhere.
-  const [savedSlots, setSavedSlots] = useState(0);
+  // Page meter: the selection keys that were already saved when the page loaded
+  // (re-snapshotted after Save / Reset). A bar whose key is NOT in this set glows
+  // as "added this session". Read-only derivation — nothing here is written.
+  const [savedKeys, setSavedKeys] = useState<Set<string>>(() => new Set());
   const savedSnapshotTaken = React.useRef(false);
 
   // ── CustomEvent listener from IntegratedCollabsSection (unchanged) ─────────
@@ -328,8 +338,7 @@ export default function CurationInterface() {
       const addrOk = !!(addrData?.address_line1 && String(addrData.address_line1).trim());
       setHasAddress(addrOk);
 
-      setSavedSlots(selectedCreators.length + selectedAds.length +
-        selectedCommunications.length + selectedCollabs.filter(id => id.trim() !== '').length);
+      setSavedKeys(new Set(selectionKeys));
 
       if (!addrOk) {
         setAddressBannerDismissed(false);
@@ -374,7 +383,7 @@ export default function CurationInterface() {
       }
     };
     cleanupDB();
-    setSavedSlots(0);
+    setSavedKeys(new Set());
     setToast({ message: 'All selections have been reset', accent: 'green' });
   };
 
@@ -549,14 +558,36 @@ export default function CurationInterface() {
     }
   }, [loading, selectedCollabs.length]);
 
+  // ── Page meter composition (read-only) ─────────────────────────────────────
+  // One key per slot, in meter order: contributors, then collabs by mode
+  // (community → local → private), then the communications page, then ads.
+  // Mode is parsed from the id shape (community_<tid> / local_<tid>_<City> / private = collab id).
+  const collabMode = (id: string): 'community' | 'local' | 'private' =>
+    id.startsWith('community_') ? 'community' : id.startsWith('local_') ? 'local' : 'private';
+  const selectedCollabIds = selectedCollabs.filter(id => id.trim() !== '');
+  const orderedCollabs = (['community', 'local', 'private'] as const)
+    .flatMap(mode => selectedCollabIds.filter(id => collabMode(id) === mode));
+  const selectionKeys: string[] = [
+    ...selectedCreators.map(id => `c:${id}`),
+    ...orderedCollabs.map(id => `k:${id}`),
+    ...(selectedCommunications.length > 0 ? ['comm'] : []),
+    ...selectedAds.map(id => `a:${id}`),
+  ];
+  const barSlots: { kind: BarKind; saved: boolean }[] = [
+    ...selectedCreators.map(id => ({ kind: 'contributor' as BarKind, saved: savedKeys.has(`c:${id}`) })),
+    ...orderedCollabs.map(id => ({ kind: collabMode(id) as BarKind, saved: savedKeys.has(`k:${id}`) })),
+    ...(selectedCommunications.length > 0 ? [{ kind: 'comms' as BarKind, saved: savedKeys.has('comm') }] : []),
+    ...selectedAds.map(id => ({ kind: 'ad' as BarKind, saved: savedKeys.has(`a:${id}`) })),
+  ].slice(0, maxContentPieces);
+
   // ── v2 shell effects (read-only) ───────────────────────────────────────────
-  // Snapshot the slot count once, when the first load finishes: those bars
-  // render --ink2 ("saved"); anything selected afterwards renders green.
+  // Snapshot the saved selection keys once, when the first load finishes.
   useEffect(() => {
     if (loading || savedSnapshotTaken.current) return;
     savedSnapshotTaken.current = true;
-    setSavedSlots(usedSlots);
-  }, [loading, usedSlots]);
+    setSavedKeys(new Set(selectionKeys));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const closeToast = useCallback(() => setToast(null), []);
 
@@ -643,8 +674,6 @@ export default function CurationInterface() {
   ];
 
   // ── v2 shell helpers (presentational; every action below is an existing handler) ──
-  const savedFilled = Math.min(savedSlots, usedSlots);
-
   // Label for a collab selection id in the meter sheet. Template names live in
   // IntegratedCollabsSection (Phase 11) — until then the id's shape is the label.
   const collabLabel = (id: string): { name: string; sub: string; accent: Accent } => {
@@ -762,8 +791,13 @@ export default function CurationInterface() {
         )}
       </Sheet>
 
-      {/* ── Page meter — design `.issue` / `.pages`: 20 bars = the 20 slots (usedSlots / remainingContent) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 22 }}>
+      {/* ── Page meter — design `.issue` / `.pages`. Title line, then bars (colored by what
+          each slot holds) + a right-aligned two-line stat + the search icon. Read-only:
+          usedSlots / remainingContent and the selection arrays; nothing is written. ── */}
+      <h4 style={{ margin: 0, paddingTop: 22, font: `400 20px/1 ${SERIF}`, color: 'var(--ink)' }}>
+        Your {currentPeriod?.season ?? ''} issue
+      </h4>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, paddingTop: 12 }}>
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
@@ -772,27 +806,30 @@ export default function CurationInterface() {
         >
           <span style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 34, padding: '0 4px', borderBottom: '1px solid var(--line2)', flex: 'none' }}>
             {Array.from({ length: maxContentPieces }, (_, i) => {
-              const saved = i < savedFilled;
-              const fresh = !saved && i < usedSlots;
+              const slot = barSlots[i];
+              const color = slot ? barColor[slot.kind] : 'var(--line2)';
+              const outlined = slot?.kind === 'ad';
+              const glow = !!slot && !slot.saved;
               return (
                 <i
                   key={i}
                   style={{
-                    display: 'block', width: 4, height: 28, borderRadius: 1,
-                    background: saved ? 'var(--ink2)' : fresh ? 'var(--green)' : 'var(--line2)',
-                    boxShadow: fresh ? '0 0 10px color-mix(in oklch, var(--green) 50%, transparent)' : 'none',
-                    transition: 'background 150ms, box-shadow 150ms',
+                    display: 'block', width: 4, height: 28, borderRadius: 1, boxSizing: 'border-box',
+                    background: !slot ? 'var(--line2)' : outlined ? 'transparent' : color,
+                    borderWidth: outlined ? 1 : 0, borderStyle: 'solid', borderColor: color,
+                    boxShadow: glow ? `0 0 10px color-mix(in oklch, ${color} 50%, transparent)` : 'none',
+                    transition: 'background 150ms, border-color 150ms, box-shadow 150ms',
                   }}
                 />
               );
             })}
           </span>
-          <span style={{ flex: 1, minWidth: 0 }}>
-            <span style={{ display: 'block', font: `400 20px/1 ${SERIF}`, color: 'var(--ink)' }}>
-              Your {currentPeriod?.season ?? ''} issue
+          <span style={{ flex: 1, minWidth: 0, textAlign: 'right' }}>
+            <span style={{ display: 'block', font: `400 12px/1 ${MONO}`, color: 'var(--ink2)', whiteSpace: 'nowrap' }}>
+              {usedSlots} of {maxContentPieces} pages
             </span>
-            <span style={{ display: 'block', margin: '5px 0 0', font: `400 12px/1.3 ${MONO}`, color: 'var(--ink3)' }}>
-              {usedSlots} of {maxContentPieces} pages · <b style={{ color: 'var(--green)', fontWeight: 500 }}>{remainingContent} open</b>
+            <span style={{ display: 'block', marginTop: 5, font: `500 12px/1 ${MONO}`, color: 'var(--green)', whiteSpace: 'nowrap' }}>
+              {remainingContent} open
             </span>
           </span>
         </button>
@@ -805,6 +842,19 @@ export default function CurationInterface() {
         >
           <Icon name="search" size={18} strokeWidth={1.5} />
         </button>
+      </div>
+
+      {/* Meter legend — always visible, 10px mono --ink3; ads are outlined (a paid page) */}
+      <div aria-hidden="true" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingTop: 10, font: `400 10px/1 ${MONO}`, color: 'var(--ink3)' }}>
+        {([
+          ['Contributors', 'contributor'], ['Community', 'community'], ['Local', 'local'],
+          ['Private', 'private'], ['Comms', 'comms'], ['Ads', 'ad'],
+        ] as [string, BarKind][]).map(([label, kind]) => (
+          <span key={kind} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+            <i style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', boxSizing: 'border-box', background: kind === 'ad' ? 'transparent' : barColor[kind], borderWidth: kind === 'ad' ? 1 : 0, borderStyle: 'solid', borderColor: barColor[kind] }} />
+            {label}
+          </span>
+        ))}
       </div>
 
       {/* ── Search — the existing searchTerm field, revealed by the icon ── */}
@@ -844,7 +894,11 @@ export default function CurationInterface() {
       )}
 
       {/* ── Tabs — design `.ctabs`: same ids, same setActiveSection + setSearchTerm('') ── */}
-      <div style={{ display: 'flex', gap: 22, paddingTop: 22, borderBottom: '1px solid var(--line)' }}>
+      {/* Cells share the column equally (flex 1 1 0). At 390px the column is 342px and
+          "CONTRIBUTORS 9" alone is ~119px, wider than a quarter, so each cell's floor is
+          its own content (min-width max-content): the three short tabs split the rest
+          equally and the row never exceeds the column. No gap — the cells meet. */}
+      <div style={{ display: 'flex', paddingTop: 22, borderBottom: '1px solid var(--line)', width: '100%', boxSizing: 'border-box' }}>
         {tabs.map(({ id, label, count }) => {
           const on = activeSection === id;
           return (
@@ -852,11 +906,11 @@ export default function CurationInterface() {
               key={id}
               type="button"
               onClick={() => { setActiveSection(id); setSearchTerm(''); }}
-              style={{ position: 'relative', display: 'flex', gap: 6, alignItems: 'baseline', background: 'transparent', border: 0, padding: '0 0 12px', marginBottom: -1, cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
+              style={{ position: 'relative', flex: '1 1 0', minWidth: 'max-content', boxSizing: 'border-box', display: 'flex', gap: 6, alignItems: 'baseline', justifyContent: 'center', textAlign: 'center', background: 'transparent', border: 0, padding: '0 4px 12px', marginBottom: -1, cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
             >
               {label}
               <em style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', fontStyle: 'normal' }}>{count}</em>
-              {on && <span aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 1, background: 'var(--ink)' }} />}
+              {on && <span aria-hidden="true" style={{ position: 'absolute', left: 4, right: 4, bottom: 0, height: 1, background: 'var(--ink)' }} />}
             </button>
           );
         })}
