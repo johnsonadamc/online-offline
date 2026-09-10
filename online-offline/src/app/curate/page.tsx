@@ -5,12 +5,14 @@ import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import IntegratedCollabsSection from '@/components/IntegratedCollabsSection';
-import { PageShell, Sheet, Toast, SearchField, Icon, typeAccent, accentVar, SERIF, SANS, MONO } from '@/components/v2';
-import type { Accent, TileType } from '@/components/v2';
+import { PageShell, Sheet, Toast, SearchField, Icon, TypeTile, typeAccent, accentVar, SERIF, SANS, MONO } from '@/components/v2';
+import type { Accent, TileType, IconName } from '@/components/v2';
 
 import { getCurrentPeriod } from '@/lib/supabase/content';
 import { saveCuratorSelections } from '@/lib/supabase/curation';
 import { sendFollowRequest } from '@/lib/supabase/profiles';
+
+const CURATE_LEGEND_KEY = 'oo_curate_legend_seen';
 
 // ── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -28,7 +30,6 @@ interface Creator {
   identityBannerUrl?: string;
   previousQuarter: boolean;
   type: 'friend';
-  icon: React.ElementType;
   isPrivate?: boolean;
 }
 
@@ -157,12 +158,15 @@ export default function CurationInterface() {
   const [hasAddress, setHasAddress] = useState(true);
   const [addressBannerDismissed, setAddressBannerDismissed] = useState(false);
   const [pendingRequestMap, setPendingRequestMap] = useState<Record<string, boolean>>({});
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   const [accessibleProfiles, setAccessibleProfiles] = useState<string[]>([]);
 
   // ── Visual-only UI state ───────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<'contributors' | 'collabs' | 'comms' | 'ads'>('contributors');
   const [searchOpen, setSearchOpen] = useState(false);
+  // Contributors tab: filter chips (client-side on contentType; Writing = poetry + essay)
+  // and the one-time dot legend (localStorage flag). Neither touches the save payload.
+  const [typeFilter, setTypeFilter] = useState<'all' | 'photography' | 'art' | 'writing'>('all');
+  const [showLegend, setShowLegend] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; accent: 'green' | 'orange' } | null>(null);
   // Page meter: slots that were already saved when the page loaded (or at the
@@ -210,11 +214,6 @@ export default function CurationInterface() {
       console.error('Error loading accessible profiles:', err);
     }
   }, [supabase]);
-
-  const toggleCardExpansion = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const getPeriodId = async (): Promise<string | null> => {
     if (currentPeriod?.id) return currentPeriod.id;
@@ -454,7 +453,6 @@ export default function CurationInterface() {
             .order('first_name');
 
           if (!profilesError && profilesData) {
-            const Camera = (await import('lucide-react')).Camera;
             const formattedCreators: Creator[] = profilesData.map(profile => ({
               id: profile.id,
               name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Unnamed Creator',
@@ -469,7 +467,6 @@ export default function CurationInterface() {
               identityBannerUrl: profile.identity_banner_url || undefined,
               previousQuarter: false,
               type: 'friend' as const,
-              icon: Camera,
               isPrivate: !profile.is_public,
             }));
             setCreators(formattedCreators);
@@ -563,6 +560,15 @@ export default function CurationInterface() {
 
   const closeToast = useCallback(() => setToast(null), []);
 
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(CURATE_LEGEND_KEY)) {
+        setShowLegend(true);
+        localStorage.setItem(CURATE_LEGEND_KEY, '1');
+      }
+    } catch { /* storage unavailable — no legend */ }
+  }, []);
+
   // ── Loading state — v2: mono "loading…" inside the PageShell ──────────────
   if (loading) {
     return (
@@ -589,6 +595,52 @@ export default function CurationInterface() {
       </PageShell>
     );
   }
+
+  // ── Contributor / ad card helpers (presentational) ─────────────────────────
+  // profiles.content_type is photography | art | poetry | essay; loadData falls back
+  // to 'photo' when null. Music is not a content type.
+  const creatorTile = (t: string): 'photography' | 'art' | 'poetry' | 'essay' =>
+    t === 'art' || t === 'poetry' || t === 'essay' ? t : 'photography';
+  const tileIcon: Record<'photography' | 'art' | 'poetry' | 'essay', IconName> = {
+    photography: 'camera', art: 'brush', poetry: 'quill', essay: 'quill',
+  };
+  // loadData substitutes a /api/placeholder URL when avatar_url is null; that route
+  // does not exist, so treat it as "no image" rather than render a broken cover.
+  const isRealMedia = (url?: string) => !!url && !url.startsWith('/api/placeholder');
+
+  const matchesFilter = (t: string) =>
+    typeFilter === 'all' ||
+    (typeFilter === 'writing' ? (t === 'poetry' || t === 'essay') : creatorTile(t) === typeFilter);
+
+  // The frozen selected-first sort (filteredCreators) narrowed by the chips.
+  const visibleCreators = filteredCreators.filter(c => matchesFilter(c.contentType));
+  // Private profiles the curator cannot access: the sort drops them, so they are
+  // derived separately (read-only) and appended after the sorted grid.
+  const visibleLocked = creators
+    .filter(c => c.isPrivate && !accessibleProfiles.includes(c.id))
+    .filter(c =>
+      searchTerm === '' ||
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.bio.toLowerCase().includes(searchTerm.toLowerCase()))
+    .filter(c => matchesFilter(c.contentType));
+
+  // Design `.ccard.on .chk` / `.acard.on .chk`: 22px green disc, glow, ink check.
+  const checkDisc: React.CSSProperties = {
+    position: 'absolute', top: 10, right: 10, zIndex: 2, width: 22, height: 22, borderRadius: '50%',
+    background: 'var(--green)', display: 'grid', placeItems: 'center',
+    boxShadow: '0 0 14px color-mix(in oklch, var(--green) 45%, transparent)',
+  };
+  const checkMark: React.CSSProperties = {
+    width: 8, height: 4, borderLeft: '1.5px solid var(--bg)', borderBottom: '1.5px solid var(--bg)',
+    transform: 'rotate(-45deg) translate(1px, -1px)',
+  };
+  // Design `.acard .ban.a/.b/.c/.d`: dark brand-tinted gradients, rotated by index.
+  const adGradients = [
+    'linear-gradient(160deg, #2a2218, #15120e)',
+    'linear-gradient(160deg, #1a2430, #0f1418)',
+    'linear-gradient(160deg, #22182a, #120f16)',
+    'linear-gradient(160deg, #1a2a20, #0f1613)',
+  ];
 
   // ── v2 shell helpers (presentational; every action below is an existing handler) ──
   const savedFilled = Math.min(savedSlots, usedSlots);
@@ -811,35 +863,63 @@ export default function CurationInterface() {
       </div>
         {/* ── Proof scroll area ── */}
         {(() => {
-          // Content-type → neon color map used by creator cards
-          const tc: Record<string, { neon: string; bannerBg: string; bgSel: string; borderSel: string; shadowSel: string; glowRgba: string; glyph: string }> = {
-            photo:   { neon: 'var(--neon-blue)',   bannerBg: 'linear-gradient(135deg,rgba(90,159,212,0.1) 0%,rgba(90,159,212,0.04) 100%)',   bgSel: 'rgba(90,159,212,0.06)',   borderSel: 'rgba(90,159,212,0.25)',   shadowSel: '-4px 0 14px -2px rgba(90,159,212,0.4),0 0 18px rgba(90,159,212,0.07)',  glowRgba: 'rgba(90,159,212,0.7)',   glyph: '○' },
-            art:     { neon: 'var(--neon-purple)', bannerBg: 'linear-gradient(135deg,rgba(168,136,232,0.1) 0%,rgba(168,136,232,0.04) 100%)', bgSel: 'rgba(168,136,232,0.06)', borderSel: 'rgba(168,136,232,0.25)', shadowSel: '-4px 0 14px -2px rgba(168,136,232,0.38)',                                    glowRgba: 'rgba(168,136,232,0.7)', glyph: '✦' },
-            poetry:  { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '✦' },
-            essay:   { neon: 'var(--neon-amber)',  bannerBg: 'linear-gradient(135deg,rgba(224,168,48,0.1) 0%,rgba(224,168,48,0.04) 100%)',   bgSel: 'rgba(224,168,48,0.06)',   borderSel: 'rgba(224,168,48,0.25)',   shadowSel: '-4px 0 14px -2px rgba(224,168,48,0.38)',                                     glowRgba: 'rgba(224,168,48,0.7)',   glyph: '∿' },
-          };
-          const getType = (t: string) => tc[t] || tc.photo;
+          // Collabs + comms bodies below are still v1 (Phases 11–12).
 
           return (
             <div style={{ paddingTop: 16, paddingBottom: 32 }}>
 
-              {/* ══ CONTRIBUTORS ══ */}
+              {/* ══ CONTRIBUTORS — design `.filt` / `.legend` / `.cgrid` / `.ccard` ══ */}
               {activeSection === 'contributors' && (
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
-                    Contributors{currentPeriod ? ` · ${currentPeriod.season} ${currentPeriod.year}` : ''}
+                  {/* Filter chips — client-side only on contentType; Writing = poetry + essay. No writes. */}
+                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                    {([
+                      { id: 'all' as const,         label: 'All' },
+                      { id: 'photography' as const, label: 'Photo',   accent: 'blue' as Accent },
+                      { id: 'art' as const,         label: 'Art',     accent: 'purple' as Accent },
+                      { id: 'writing' as const,     label: 'Writing', accent: 'gold' as Accent },
+                    ]).map(chip => {
+                      const on = typeFilter === chip.id;
+                      return (
+                        <button
+                          key={chip.id}
+                          type="button"
+                          onClick={() => setTypeFilter(chip.id)}
+                          aria-pressed={on}
+                          style={{ height: 30, padding: '0 12px', borderRadius: 15, borderWidth: 1, borderStyle: 'solid', borderColor: on ? 'var(--ink2)' : 'var(--line2)', background: 'transparent', display: 'flex', alignItems: 'center', gap: 6, color: on ? 'var(--ink)' : 'var(--ink3)', font: `400 12px/1 ${SANS}`, whiteSpace: 'nowrap', cursor: 'pointer', flex: 'none', WebkitTapHighlightColor: 'transparent' }}
+                        >
+                          {chip.accent && <i aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: accentVar(chip.accent), display: 'block' }} />}
+                          {chip.label}
+                        </button>
+                      );
+                    })}
                   </div>
 
-                  {filteredCreators.length === 0 ? (
-                    <div style={{ padding: '32px', textAlign: 'center', fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--lt-text-3)' }}>
-                      No contributors found
+                  {/* One-time dot legend (localStorage oo_curate_legend_seen) */}
+                  {showLegend && (
+                    <div style={{ display: 'flex', gap: 18, paddingTop: 18, font: `400 11.5px/1 ${SANS}`, color: 'var(--ink3)' }}>
+                      {([['Photo', 'blue'], ['Art', 'purple'], ['Writing', 'gold']] as [string, Accent][]).map(([label, a]) => (
+                        <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <i aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: accentVar(a), display: 'block' }} />
+                          {label}
+                        </span>
+                      ))}
                     </div>
+                  )}
+
+                  {visibleCreators.length === 0 && visibleLocked.length === 0 ? (
+                    <p style={{ margin: 0, paddingTop: 24, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+                      {searchTerm ? `No contributors match “${searchTerm}”.` : 'No contributors yet.'}
+                    </p>
                   ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '14px' }}>
-                      {filteredCreators.map(creator => {
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 16 }}>
+                      {/* Accessible contributors — the frozen selected-first order; tap → toggleItem(id, 'friend') */}
+                      {visibleCreators.map(creator => {
                         const isSelected = selectedCreators.includes(creator.id);
-                        const isPending = pendingRequestMap[creator.id];
-                        const colors = getType(creator.contentType);
+                        const tile = creatorTile(creator.contentType);
+                        const accent = typeAccent[tile];
+                        const dimmed = !isSelected && remainingContent === 0;
+                        const cover = creator.identityBannerUrl || (isRealMedia(creator.avatar) ? creator.avatar : undefined);
                         const displayName = creator.firstName
                           ? `${creator.firstName.charAt(0)}. ${creator.lastName}`
                           : creator.name;
@@ -847,72 +927,69 @@ export default function CurationInterface() {
                         return (
                           <div
                             key={creator.id}
-                            onClick={() => !creator.isPrivate && toggleItem(creator.id, 'friend')}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isSelected}
+                            onClick={() => toggleItem(creator.id, 'friend')}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleItem(creator.id, 'friend'); } }}
                             style={{
-                              background: isSelected ? colors.bgSel : 'var(--lt-card)',
-                              border: `1px solid ${isSelected ? colors.borderSel : 'var(--lt-card-bdr)'}`,
-                              borderLeft: isSelected ? `3px solid ${colors.neon}` : '1px solid var(--lt-card-bdr)',
-                              borderRadius: '1px',
-                              cursor: creator.isPrivate ? 'default' : 'pointer',
-                              position: 'relative',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              overflow: 'hidden',
-                              opacity: creator.isPrivate && !accessibleProfiles.includes(creator.id) ? 0.55 : 1,
-                              boxShadow: isSelected ? colors.shadowSel : 'none',
-                              transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
+                              position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                              borderRadius: 12, background: 'var(--bg2)',
+                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--green)' : 'var(--line)',
+                              opacity: dimmed ? 0.4 : 1,
+                              cursor: dimmed ? 'default' : 'pointer',
+                              transition: 'border-color 150ms, opacity 150ms',
                               WebkitTapHighlightColor: 'transparent',
                             } as React.CSSProperties}
                           >
-                            {/* ✓ check */}
-                            <div style={{ position: 'absolute', top: '8px', right: '9px', zIndex: 10, fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? colors.neon : 'transparent', textShadow: isSelected ? `0 0 8px ${colors.glowRgba}` : 'none', transition: 'color 0.18s, text-shadow 0.18s', filter: 'drop-shadow(0 0 3px rgba(0,0,0,0.6))' }}>✓</div>
+                            {isSelected && <span aria-hidden="true" style={checkDisc}><span style={checkMark} /></span>}
 
-                            {/* Banner */}
-                            <div style={{ width: '100%', height: '72px', flexShrink: 0, background: colors.bannerBg, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
-                              {creator.identityBannerUrl ? (
-                                <img src={creator.identityBannerUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }} />
+                            {/* Cover — identity banner → avatar → type-tinted gradient + type icon */}
+                            <div style={{ height: 78, flex: 'none', display: 'grid', placeItems: 'center', overflow: 'hidden', color: accentVar(accent), opacity: 0.9, background: `linear-gradient(135deg, color-mix(in oklch, ${accentVar(accent)} 14%, var(--bg2)), var(--bg2))` }}>
+                              {cover ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                               ) : (
-                                <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '28px', lineHeight: 1, opacity: 0.25, color: colors.neon, userSelect: 'none' }}>
-                                  {colors.glyph}
-                                </span>
+                                <Icon name={tileIcon[tile]} size={22} strokeWidth={1.4} />
                               )}
                             </div>
 
-                            {/* Body */}
-                            <div style={{ padding: '9px 10px 10px', display: 'flex', flexDirection: 'column', gap: '3px', flex: 1 }}>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>
-                                {creator.creatorType}
-                              </div>
-                              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '14px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '18px' }}>
-                                {displayName}
-                              </div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.4, marginTop: '1px' }}>
-                                {creator.isPrivate ? 'Private profile' : currentPeriod ? `${currentPeriod.season} ${currentPeriod.year}` : ''}
-                              </div>
-
-                              {creator.isPrivate && !accessibleProfiles.includes(creator.id) && !isPending && (
-                                <button
-                                  onClick={e => handleRequestFollow(creator.id, e)}
-                                  style={{ marginTop: '5px', padding: '5px 0', width: '100%', textAlign: 'center', background: 'rgba(90,159,212,0.12)', border: '1px solid rgba(90,159,212,0.24)', borderRadius: '1px', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#7fbfe8', cursor: 'pointer' }}
-                                >
-                                  Request access
-                                </button>
-                              )}
-                              {creator.isPrivate && !accessibleProfiles.includes(creator.id) && isPending && (
-                                <div style={{ marginTop: '5px', padding: '5px 0', textAlign: 'center', fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>
-                                  Request pending
-                                </div>
-                              )}
+                            {/* Body — serif 17 "F. Lastname" + 20px TypeTile */}
+                            <div style={{ padding: '11px 12px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <h4 style={{ margin: 0, font: `400 17px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</h4>
+                              <TypeTile type={tile} size={20} />
                             </div>
+                          </div>
+                        );
+                      })}
 
-                            {/* Lock icon */}
-                            {creator.isPrivate && !accessibleProfiles.includes(creator.id) && (
-                              <div style={{ position: 'absolute', bottom: '8px', right: '9px', zIndex: 10 }}>
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--lt-text-3)" strokeWidth="2">
-                                  <rect x="3" y="11" width="18" height="11" rx="2" />
-                                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                                </svg>
-                              </div>
+                      {/* Private profiles without access — 70%, lock in cover, Request access → handleRequestFollow */}
+                      {visibleLocked.map(creator => {
+                        const isPending = pendingRequestMap[creator.id];
+                        const displayName = creator.firstName
+                          ? `${creator.firstName.charAt(0)}. ${creator.lastName}`
+                          : creator.name;
+                        return (
+                          <div
+                            key={creator.id}
+                            style={{ position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: 12, background: 'var(--bg2)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line)', opacity: 0.7 }}
+                          >
+                            <div style={{ height: 78, flex: 'none', display: 'grid', placeItems: 'center', color: 'var(--ink3)', background: 'var(--bg2)' }}>
+                              <Icon name="lock" size={22} strokeWidth={1.4} />
+                            </div>
+                            <div style={{ padding: '11px 12px 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <h4 style={{ margin: 0, font: `400 17px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayName}</h4>
+                            </div>
+                            {isPending ? (
+                              <div style={{ margin: '0 12px 12px', padding: '9px 0', textAlign: 'center', font: `500 10.5px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink3)' }}>Request sent</div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={e => handleRequestFollow(creator.id, e)}
+                                style={{ margin: '0 12px 12px', padding: '9px 0', textAlign: 'center', background: 'transparent', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', borderRadius: 5, font: `500 10.5px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink2)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}
+                              >
+                                Request access
+                              </button>
                             )}
                           </div>
                         );
@@ -1031,83 +1108,69 @@ export default function CurationInterface() {
                 </div>
               )}
 
-              {/* ══ ADS / CAMPAIGNS ══ */}
+              {/* ══ ADS / CAMPAIGNS — design `.adnote` / `.cgrid` / `.acard` ══ */}
               {activeSection === 'ads' && (
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
-                    Campaigns · each reduces your price by ${adDiscountAmount}
+                  {/* Note line + running total from the existing discount math (selectedAds.length × adDiscountAmount) */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, font: `italic 400 13.5px/1.2 ${SERIF}`, color: 'var(--ink3)' }}>
+                    <span>Each ad is one page and takes ${adDiscountAmount} off.</span>
+                    <b style={{ font: `400 12px/1 ${MONO}`, color: 'var(--green)', flex: 'none' }}>−${(selectedAds.length * adDiscountAmount).toFixed(2)}</b>
                   </div>
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '14px' }}>
-                    {filteredAds.length === 0 && (
-                      <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '13px', color: 'var(--lt-text-3)', padding: '8px 0' }}>
-                        {searchTerm ? `No campaigns match “${searchTerm}”.` : 'No campaigns this period.'}
-                      </p>
-                    )}
-                    {filteredAds.map(ad => {
-                      const isSelected = selectedAds.includes(ad.id);
-                      return (
-                        <div
-                          key={ad.id}
-                          onClick={() => toggleItem(ad.id, 'ad')}
-                          style={{
-                            background: isSelected ? 'rgba(78,196,122,0.09)' : 'rgba(78,196,122,0.04)',
-                            border: `1px solid ${isSelected ? 'rgba(78,196,122,0.28)' : 'rgba(78,196,122,0.12)'}`,
-                            borderRadius: '1px',
-                            padding: '14px',
-                            cursor: 'pointer',
-                            position: 'relative',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: 0,
-                            boxShadow: isSelected ? '0 0 20px rgba(78,196,122,0.08),inset 0 0 24px rgba(78,196,122,0.04)' : 'none',
-                            overflow: 'hidden',
-                            transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
-                            WebkitTapHighlightColor: 'transparent',
-                          } as React.CSSProperties}
-                        >
-                          {/* Green top-edge glow line */}
-                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '1px', background: 'var(--neon-green)', boxShadow: isSelected ? '0 0 12px 2px rgba(78,196,122,0.55),0 0 30px 4px rgba(78,196,122,0.18)' : '0 0 8px 1px rgba(78,196,122,0.45),0 0 20px 2px rgba(78,196,122,0.15)', opacity: isSelected ? 1 : 0.6 }} />
+                  {filteredAds.length === 0 ? (
+                    <p style={{ margin: 0, paddingTop: 24, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+                      {searchTerm ? `No campaigns match “${searchTerm}”.` : 'No campaigns this period.'}
+                    </p>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, paddingTop: 16 }}>
+                      {filteredAds.map((ad, i) => {
+                        const isSelected = selectedAds.includes(ad.id);
+                        const dimmed = !isSelected && remainingContent === 0;
+                        const cover = isRealMedia(ad.avatar) ? ad.avatar : undefined;
+                        return (
+                          <div
+                            key={ad.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={isSelected}
+                            onClick={() => toggleItem(ad.id, 'ad')}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleItem(ad.id, 'ad'); } }}
+                            style={{
+                              position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+                              borderRadius: 12, background: 'var(--bg2)',
+                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--green)' : 'var(--line)',
+                              opacity: dimmed ? 0.4 : 1,
+                              cursor: dimmed ? 'default' : 'pointer',
+                              transition: 'border-color 150ms, opacity 150ms',
+                              WebkitTapHighlightColor: 'transparent',
+                            } as React.CSSProperties}
+                          >
+                            {isSelected && <span aria-hidden="true" style={checkDisc}><span style={checkMark} /></span>}
 
-                          {/* ✓ check */}
-                          <div style={{ position: 'absolute', top: '10px', right: '10px', fontFamily: 'var(--font-mono)', fontSize: '14px', color: isSelected ? 'var(--neon-green)' : 'transparent', textShadow: isSelected ? '0 0 8px var(--glow-green)' : 'none', transition: 'color 0.18s, text-shadow 0.18s' }}>✓</div>
-
-                          {/* Price hero */}
-                          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '10px', paddingTop: '4px' }}>
-                            <div>
-                              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(78,196,122,0.6)', marginBottom: '2px' }}>
-                                Price reduction
-                              </div>
-                              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '36px', lineHeight: 1, color: 'var(--neon-green)', textShadow: '0 0 16px rgba(78,196,122,0.55),0 0 40px rgba(78,196,122,0.2)', letterSpacing: '-0.01em' }}>
-                                ${ad.discount}
-                              </div>
+                            {/* Cover — brand image, else the name as a wordmark on a dark brand-tinted gradient */}
+                            <div style={{ height: 96, flex: 'none', position: 'relative', display: 'grid', placeItems: 'center', overflow: 'hidden', background: adGradients[i % adGradients.length] }}>
+                              {cover ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={cover} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                              ) : (
+                                <>
+                                  <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'repeating-linear-gradient(135deg, rgba(255,255,255,0.025) 0 6px, transparent 6px 12px)' }} />
+                                  <span style={{ position: 'relative', padding: '0 12px', maxWidth: '100%', boxSizing: 'border-box', font: `400 22px/1.1 ${SERIF}`, letterSpacing: '-0.01em', color: 'var(--ink)', opacity: 0.9, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ad.name}</span>
+                                </>
+                              )}
                             </div>
-                          </div>
 
-                          {/* Divider */}
-                          <div style={{ height: '1px', background: 'rgba(78,196,122,0.12)', marginBottom: '10px' }} />
-
-                          {/* Name + bio */}
-                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', color: 'var(--lt-text)', lineHeight: 1.2, paddingRight: '20px', marginBottom: '3px' }}>
-                            {ad.name}
+                            {/* Body — serif 17 name + mono green −$N (campaigns.discount) as the only meta */}
+                            <div style={{ padding: '11px 12px 12px', display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                              <h4 style={{ margin: 0, font: `400 17px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ad.name}</h4>
+                              <p style={{ margin: 0, font: `400 12px/1 ${MONO}`, color: 'var(--green)', flex: 'none' }}>−${ad.discount}</p>
+                            </div>
+                            {ad.bio && (
+                              <p style={{ margin: '-2px 12px 12px', font: `400 12px/1.35 ${SANS}`, color: 'var(--ink3)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>{ad.bio}</p>
+                            )}
                           </div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.06em', color: 'var(--lt-text-2)', lineHeight: 1.4 }}>
-                            {ad.bio}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Savings note */}
-                  {selectedAds.length > 0 && (
-                    <div style={{ padding: '10px 12px', background: 'rgba(78,196,122,0.05)', border: '1px solid rgba(78,196,122,0.1)', borderRadius: '1px' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '3px' }}>
-                        Total savings
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '16px', color: 'var(--neon-green)', textShadow: '0 0 10px rgba(78,196,122,0.4)' }}>
-                        ${selectedAds.length * adDiscountAmount} off your magazine
-                      </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
