@@ -404,7 +404,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -463,11 +463,23 @@ first-joiner-lead, invite two-step fetch (no PostgREST embed), onboarding window
 address gate warns-never-blocks. Verified per phase by the gates in PLAYBOOK.md (Gate A = curate selection
 snapshot must be byte-identical; Gate B = page-specific DB writes; Gate C = commit on origin/main).
 
-Profile Page — Structure (mobile-first)
-1 IDENTITY (avatar, name, city, bio, identity banner) · 2 YOUR ROLES (add-only cards, content type) ·
-3 MAILING ADDRESS (5 structured fields + ON FILE indicator) · 4 PAYMENT (placeholder, Stripe pending) · 5 SAVE
-(v2 adds: public-profile toggle, ACCESS REQUESTS, CONNECTIONS, BLOCKED — only if the handlers already exist.)
-Inputs: transparent bg, bottom hairline, radius 0. Side-by-side pairs: flex gap 12px, each flex:1 min-width:0.
+Profile Page — Structure (v2, mobile-first, single scroll — no tabs; redesign Phase 2)
+Header: "‹ Dashboard" · wordmark · "Profile" gold. Sections in code order, mono SectionLabels:
+1 IDENTITY — 64px avatar + "Change photo" (uploadAvatar); First/Last two-up Inputs; City Select (CITIES); Bio Textarea;
+  identity-banner dashed 88px drop zone (uploadBanner) + note "Shown to curators… Not a preview of submitted work."
+2 YOUR ROLES — role cards (28px tinted tile + serif name + mono green "active", or outlined "Add" → addRole); ADD-ONLY;
+  contributor shows Pills Photo / Art / Writing → Writing opens Poetry / Essay sub-pills (content_type is always
+  poetry|essay, never "writing"). Below: Public profile Toggle (gold) → isPublic, "?" expands the permissions note.
+3 MAILING ADDRESS — 5 Inputs (line1, line2, city | state zip); green mono "on file" beside the label when address_line1 set.
+4 PAYMENT — one italic serif line per role (curator "Card on file: coming soon." / contributor "Contributor payments:
+  coming soon."); no logic, Stripe pending.
+5 ACCESS REQUESTS — hidden when empty; RosterRow + green "Approve" (handleApproveRequest) / quiet "Deny" (handleDenyRequest).
+6 CONNECTIONS — SearchField (searchProfiles → "Request" = handleFollowRequest, pendingRequestMap → "requested");
+  RosterRows merge private profiles you follow + your followers by id; "···" opens a Sheet: Remove (handleUnfollow,
+  rows you follow) / Block (handleBlockUser, rows that follow you).
+7 BLOCKED — hidden when empty; "Unblock" → handleUnblockUser.
+Footer: sticky green primary Save → updateProfile (same upsert payload). Toasts via v2 Toast, driven by showSuccess/showError.
+Inputs: v2 Input/Select/Textarea (transparent bg, bottom hairline, radius 0). Two-ups: grid 1fr 1fr gap 16, each min-width:0.
 
 City List (src/lib/constants/cities.ts CITIES array)
 Atlanta, Austin, Boston, Chicago, Dallas, Denver, Houston, Los Angeles, Miami, Nashville,
@@ -566,6 +578,10 @@ Key Gotchas & Hard-Won Lessons
 ### Design
 - Never mix border shorthand with borderBottom on same element. No lucide-react (inline SVGs).
 - v2 wordmark in JSX: write the slashes as {'//'} — a bare // text node fails eslint react/jsx-no-comment-textnodes.
+- _design/redesign-b/PLAYBOOK.md does NOT exist in the repo (only README.md, README-pages.md + the HTML frames). Phase
+  specs come from README-pages.md + the frames' CSS; the per-phase gates (A/B/C) are enforced manually per session.
+- Profile v2 (Phase 2): the design's 28px role tile is not a primitive (IconTile is 48px, TypeTile only takes content/collab
+  types) — render it inline with tint(accent) + <Icon>. Keep the old tab state out; the page is one scroll.
 - Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.
 
 ### Database
@@ -620,6 +636,9 @@ Key Gotchas & Hard-Won Lessons
 - Diverged with local VS Code commit (e.g. CLAUDE.md edit): git fetch origin && git reset --hard origin/main
   (safe only when local change is reproducible). Vercel production branch must be main.
 - Two Codespaces exist for different repos — check `git remote -v` if the log looks foreign.
+- Claude Code sandbox has NO node_modules: run `npm ci` in online-offline/ before `npx tsc --noEmit` / `npx eslint` /
+  `npx next build`. A bare global `tsc` (TypeScript 6) fails with TS5101 "baseUrl is deprecated" — that's the wrong
+  compiler, not a project error.
 
 ### Repository Hygiene
 - ⚠️ The live app is the NESTED online-offline/ dir (package.json, src/, _design/redesign-b live there);

@@ -5,6 +5,25 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { sendFollowRequest, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
 import { CITIES } from '@/lib/constants/cities';
+import {
+  Input, Select, Textarea, Pill, SectionLabel, Sheet, Toast, SearchField, RosterRow, Toggle,
+  Icon, accentVar, tint, SERIF, SANS, MONO,
+} from '@/components/v2';
+import type { Accent, IconName } from '@/components/v2';
+
+// "Writing" covers poetry + essay (both gold). profiles.content_type only
+// accepts poetry | essay, so the Writing pill opens a Poetry / Essay choice.
+const WRITING_PILLS: { label: string; value: 'poetry' | 'essay' }[] = [
+  { label: 'Poetry', value: 'poetry' },
+  { label: 'Essay', value: 'essay' },
+];
+
+// v2 wordmark (design `.wordmark`): 19px serif, "//" in --ink3.
+const Wordmark = () => (
+  <div style={{ font: `400 19px/1 ${SERIF}`, color: 'var(--ink)' }}>
+    online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+  </div>
+);
 
 interface Follower {
   id: string;
@@ -85,7 +104,10 @@ export default function ProfilePage() {
     curatorPaymentInfo: { cardNumber: '', expiryDate: '', cvv: '' },
   });
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'permissions'>('profile');
+  // v2 UI-only state: Writing sub-pills open, permissions note open, "···" sheet target
+  const [writingOpen, setWritingOpen] = useState(false);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [menuFor, setMenuFor] = useState<string | null>(null);
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [following, setFollowing] = useState<Following[]>([]);
   const [followRequests, setFollowRequests] = useState<FollowRequest[]>([]);
@@ -529,549 +551,430 @@ export default function ProfilePage() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    background: 'transparent',
-    borderTop: 'none',
-    borderLeft: 'none',
-    borderRight: 'none',
-    borderBottom: '1px solid var(--rule-mid)',
-    borderRadius: 0,
-    padding: '12px 0',
-    fontFamily: 'var(--font-sans)',
-    fontSize: 15,
-    color: 'var(--paper)',
-    width: '100%',
-    outline: 'none',
-    boxSizing: 'border-box',
+  // ── v2 chrome (design HTML .top / .sec / .sb / .rolecard / .tr / .pay / .btn.pri) ──
+  const hasAddress = profile.address_line1.trim().length > 0;
+  const isContributor = profile.profileTypes.includes('contributor');
+  const isCurator = profile.profileTypes.includes('curator');
+
+  // "Writing" covers poetry + essay (both gold). profiles.content_type only
+  // accepts poetry | essay, so the Writing pill opens a Poetry / Essay choice
+  // (same pattern as onboarding step 2). content_type always keeps a value here.
+  const isWriting = profile.contentType === 'poetry' || profile.contentType === 'essay';
+  const showWriting = writingOpen || isWriting;
+  const setContentType = (value: string) => {
+    setProfile(prev => ({ ...prev, contentType: value }));
+    if (value !== 'poetry' && value !== 'essay') setWritingOpen(false);
   };
+  const handleWritingPill = () => {
+    if (isWriting) return; // already writing — the sub-pills stay open
+    setWritingOpen(v => !v);
+  };
+
+  // Connections = private profiles you have access to (following) + people who
+  // have access to you (followers), merged by id. Same rows the old tab showed.
+  type Connection = { id: string; firstName: string; lastName: string; avatar: string; youFollow: boolean; followsYou: boolean; since: string };
+  const connectionMap = new Map<string, Connection>();
+  following.filter(f => f.isPrivate).forEach(f => {
+    connectionMap.set(f.id, { id: f.id, firstName: f.firstName, lastName: f.lastName, avatar: f.avatar, youFollow: true, followsYou: false, since: f.followingSince });
+  });
+  followers.forEach(f => {
+    const existing = connectionMap.get(f.id);
+    if (existing) existing.followsYou = true;
+    else connectionMap.set(f.id, { id: f.id, firstName: f.firstName, lastName: f.lastName, avatar: f.avatar, youFollow: false, followsYou: true, since: f.followingSince });
+  });
+  const connections = Array.from(connectionMap.values());
+  const menuTarget = connections.find(c => c.id === menuFor) || null;
+
+  const shortName = (first: string, last: string) => (first && last ? `${first.charAt(0)}. ${last}` : `${first}${last}`.trim() || 'Unnamed');
+  const initialOf = (first: string, last: string) => (first || last || '?').charAt(0).toLowerCase();
+
+  const sectionRow: React.CSSProperties = { paddingTop: 26, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' };
+  const sectionLabelStyle: React.CSSProperties = { color: 'var(--ink2)' };
+  const smallBtnBase: React.CSSProperties = {
+    font: `500 10.5px/1 ${SANS}`,
+    letterSpacing: '0.12em',
+    textTransform: 'uppercase',
+    padding: '8px 10px',
+    borderRadius: 5,
+    borderWidth: 1,
+    borderStyle: 'solid',
+    background: 'transparent',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+    flex: 'none',
+    WebkitTapHighlightColor: 'transparent',
+  };
+  const smallBtn: React.CSSProperties = { ...smallBtnBase, color: 'var(--ink2)', borderColor: 'var(--line2)' };
+  const smallBtnAccent = (a: Accent): React.CSSProperties => ({ ...smallBtnBase, color: accentVar(a), borderColor: accentVar(a) });
+  const quietBtn: React.CSSProperties = { ...smallBtnBase, color: 'var(--ink3)', borderColor: 'transparent', paddingRight: 0 };
+  const quietText: React.CSSProperties = { font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', flex: 'none' };
+  const emptyLine: React.CSSProperties = { margin: 0, padding: '14px 0 0', font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' };
+  const payLine: React.CSSProperties = { marginTop: 12, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line)', borderRadius: 8, padding: 14, font: `italic 400 14px/1.4 ${SERIF}`, color: 'var(--ink3)' };
+  const sheetRow = (color: string): React.CSSProperties => ({
+    display: 'block',
+    width: '100%',
+    textAlign: 'left',
+    background: 'transparent',
+    borderWidth: '0 0 1px 0',
+    borderStyle: 'solid',
+    borderColor: 'var(--line)',
+    padding: '16px 0',
+    font: `400 17px/1.1 ${SERIF}`,
+    color,
+    cursor: 'pointer',
+  });
+
+  // 28px tinted icon tile for role cards (design `.ti`), colored per role.
+  const roleTile = (accent: Accent, icon: IconName) => (
+    <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: 7, display: 'grid', placeItems: 'center', color: accentVar(accent), background: tint(accent), flex: 'none' }}>
+      <Icon name={icon} />
+    </span>
+  );
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--paper-4)' }}>loading…</p>
+      <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ margin: 0, font: `400 12px/1 ${MONO}`, color: 'var(--ink3)' }}>loading…</p>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', fontFamily: 'var(--font-sans)' }}>
-      {/* Ambient glow */}
-      <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(245,169,63,0.05) 0%, transparent 70%)', pointerEvents: 'none', zIndex: 0 }} />
+    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--ink)', display: 'flex', flexDirection: 'column', fontFamily: SANS }}>
+      <Toast open={!!successMessage} message={successMessage} accent="green" duration={0} onClose={() => setSuccessMessage('')} />
+      <Toast open={!!errorMessage} message={errorMessage} accent="orange" duration={0} onClose={() => setErrorMessage('')} />
 
-      {/* Toast messages */}
-      {successMessage && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 100, background: 'rgba(16,185,129,0.15)', borderTop: '1px solid rgba(16,185,129,0.4)', borderLeft: '1px solid rgba(16,185,129,0.4)', borderRight: '1px solid rgba(16,185,129,0.4)', borderBottom: '1px solid rgba(16,185,129,0.4)', borderRadius: 2, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#10b981' }}>{successMessage}</span>
-        </div>
-      )}
-      {errorMessage && (
-        <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 100, background: 'rgba(239,68,68,0.15)', borderTop: '1px solid rgba(239,68,68,0.4)', borderLeft: '1px solid rgba(239,68,68,0.4)', borderRight: '1px solid rgba(239,68,68,0.4)', borderBottom: '1px solid rgba(239,68,68,0.4)', borderRadius: 2, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>{errorMessage}</span>
-        </div>
-      )}
-
-      {/* Header */}
-      <div style={{ position: 'relative', zIndex: 1, padding: '16px 16px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <Link href="/dashboard" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-3)', textDecoration: 'none', opacity: 0.7 }}>
-            ← Dashboard
-          </Link>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--paper)', letterSpacing: '-0.01em' }}>online//offline</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(245,169,63,0.1)', borderTop: '1px solid rgba(245,169,63,0.25)', borderLeft: '1px solid rgba(245,169,63,0.25)', borderRight: '1px solid rgba(245,169,63,0.25)', borderBottom: '1px solid rgba(245,169,63,0.25)', borderRadius: 2, padding: '3px 8px' }}>Profile</span>
-        </div>
-
-        {/* Tab bar */}
-        <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--rule-mid)' }}>
-          {(['profile', 'permissions'] as const).map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ position: 'relative', padding: '12px 16px', background: 'none', borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none', cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: activeTab === tab ? 'var(--neon-amber)' : 'var(--paper-3)', opacity: activeTab === tab ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {tab === 'permissions' ? 'Permissions' : 'Profile'}
-              {tab === 'permissions' && followRequests.length > 0 && (
-                <span style={{ background: '#ef4444', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, borderRadius: 99, padding: '1px 5px', minWidth: 16, textAlign: 'center' }}>{followRequests.length}</span>
-              )}
-              {activeTab === tab && <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0, height: 2, background: 'var(--neon-amber)' }} />}
-            </button>
-          ))}
-        </div>
+      {/* Header — design `.top`: "‹ Dashboard", wordmark, "Profile" in gold */}
+      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '22px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 38, boxSizing: 'content-box' }}>
+        <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none' }}>‹ Dashboard</Link>
+        <Wordmark />
+        <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--gold)' }}>Profile</span>
       </div>
 
-      {/* Content */}
-      <div style={{ position: 'relative', zIndex: 1, padding: 16, paddingBottom: 32 }}>
-        {activeTab === 'profile' ? (
-          <div style={{ padding: '0 0 32px' }}>
+      {/* Scroll region — design `.scroll` */}
+      <div style={{ flex: 1, width: '100%', maxWidth: 560, margin: '0 auto', padding: '0 24px 32px', boxSizing: 'border-box' }}>
 
-            {/* ── 1. IDENTITY ── */}
-            <div style={{ paddingBottom: 24, borderBottom: '1px solid var(--rule)' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-accent)', marginBottom: 20 }}>Identity</div>
+        {/* ── 1. IDENTITY ── */}
+        <div style={{ ...sectionRow, paddingTop: 22 }}>
+          <SectionLabel style={sectionLabelStyle}>Identity</SectionLabel>
+        </div>
 
-              {/* Avatar upload */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 24 }}>
-                <div style={{ position: 'relative', marginBottom: 10 }}>
-                  <div style={{ width: 80, height: 80, borderRadius: '50%', overflow: 'hidden', background: 'var(--ground-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flexShrink: 0 }}>
-                    {avatarPreview || avatarUrl ? (
-                      <Image src={avatarPreview || avatarUrl || ''} alt="Avatar" fill sizes="80px" style={{ objectFit: 'cover' }} />
-                    ) : (
-                      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--paper-3)" strokeWidth="1.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    style={{ position: 'absolute', bottom: -2, right: -2, width: 26, height: 26, borderRadius: '50%', background: 'var(--neon-accent)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none', borderBottom: 'none' }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                  </button>
-                </div>
-                <input type="file" ref={fileInputRef} onChange={uploadAvatar} accept="image/*" style={{ display: 'none' }} />
-              </div>
-
-              {/* First / Last name */}
-              <div style={{ display: 'flex', gap: 12 }}>
-                {([
-                  { label: 'First name', key: 'firstName', placeholder: 'First name' },
-                  { label: 'Last name',  key: 'lastName',  placeholder: 'Last name' },
-                ] as const).map(({ label, key, placeholder }) => (
-                  <div key={key} style={{ flex: 1, minWidth: 0 }}>
-                    <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 2 }}>{label}</label>
-                    <input
-                      value={profile[key]}
-                      onChange={e => setProfile(prev => ({ ...prev, [key]: e.target.value }))}
-                      placeholder={placeholder}
-                      style={inputStyle}
-                      onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                      onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* City */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 2 }}>City</label>
-                <select
-                  value={profile.city}
-                  onChange={e => setProfile(prev => ({ ...prev, city: e.target.value }))}
-                  style={inputStyle}
-                  onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                  onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-                >
-                  <option value="">Select a city</option>
-                  {CITIES.map(city => (
-                    <option key={city} value={city}>{city}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Bio */}
-              <div style={{ marginTop: 16 }}>
-                <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 2 }}>Bio</label>
-                <textarea
-                  value={profile.bio}
-                  onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))}
-                  placeholder="A few words about your practice"
-                  rows={3}
-                  style={{ ...inputStyle, resize: 'vertical', lineHeight: 1.5 }}
-                  onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                  onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-                />
-              </div>
-
-              {/* Identity banner */}
-              <div style={{ marginTop: 24 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 6 }}>Creative Identity Banner</div>
-                <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-3)', margin: '0 0 10px', lineHeight: 1.5 }}>
-                  Shown to curators when selecting contributors — not a preview of submitted work.
-                </p>
-                <div
-                  onClick={() => bannerInputRef.current?.click()}
-                  style={{ position: 'relative', width: '100%', height: 120, background: 'var(--ground-3)', cursor: 'pointer', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px dashed var(--rule-mid)', borderLeft: '1px dashed var(--rule-mid)', borderRight: '1px dashed var(--rule-mid)', borderBottom: '1px dashed var(--rule-mid)' }}
-                >
-                  {bannerPreview || bannerUrl ? (
-                    <img src={bannerPreview || bannerUrl || ''} alt="Identity banner" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  ) : (
-                    <div style={{ textAlign: 'center' }}>
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--paper-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4, display: 'block', margin: '0 auto 6px' }}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--paper-3)', opacity: 0.5 }}>Click to upload</div>
-                    </div>
-                  )}
-                  {uploadingBanner && (
-                    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--paper-4)', letterSpacing: '0.08em' }}>loading…</div>
-                    </div>
-                  )}
-                </div>
-                <input type="file" ref={bannerInputRef} onChange={uploadBanner} accept="image/*" style={{ display: 'none' }} />
-              </div>
-            </div>
-
-            {/* ── 2. YOUR ROLES ── */}
-            <div style={{ paddingTop: 24, paddingBottom: 24, borderBottom: '1px solid var(--rule)' }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-accent)', marginBottom: 20 }}>Your Roles</div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {(['contributor', 'curator'] as const).map(type => {
-                  const has = profile.profileTypes.includes(type);
-                  const accentRgb = type === 'contributor' ? '224,90,40' : '224,168,48';
-                  return (
-                    <div key={type}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 2, background: has ? `rgba(${accentRgb},0.06)` : 'var(--ground-3)', borderTop: `1px solid ${has ? `rgba(${accentRgb},0.3)` : 'var(--rule-mid)'}`, borderLeft: `1px solid ${has ? `rgba(${accentRgb},0.3)` : 'var(--rule-mid)'}`, borderRight: `1px solid ${has ? `rgba(${accentRgb},0.3)` : 'var(--rule-mid)'}`, borderBottom: `1px solid ${has ? `rgba(${accentRgb},0.3)` : 'var(--rule-mid)'}` }}>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: has ? 'var(--paper)' : 'var(--paper-3)', textTransform: 'capitalize', fontWeight: has ? 400 : 300 }}>{type}</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: has ? `rgba(${accentRgb},0.8)` : 'var(--paper-5)', marginTop: 2, textTransform: 'uppercase' }}>
-                            {has ? 'active' : 'not set'}
-                          </div>
-                        </div>
-                        {!has ? (
-                          <button
-                            onClick={() => addRole(type)}
-                            disabled={addingRole}
-                            style={{ padding: '6px 12px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: `rgba(${accentRgb},0.9)`, background: `rgba(${accentRgb},0.1)`, borderTop: `1px solid rgba(${accentRgb},0.35)`, borderLeft: `1px solid rgba(${accentRgb},0.35)`, borderRight: `1px solid rgba(${accentRgb},0.35)`, borderBottom: `1px solid rgba(${accentRgb},0.35)`, borderRadius: 2, cursor: addingRole ? 'not-allowed' : 'pointer', opacity: addingRole ? 0.6 : 1, minHeight: 44 }}
-                          >
-                            {addingRole ? 'loading…' : '+ Add'}
-                          </button>
-                        ) : (
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: `rgba(${accentRgb},1)`, background: `rgba(${accentRgb},0.12)`, borderTop: `1px solid rgba(${accentRgb},0.3)`, borderLeft: `1px solid rgba(${accentRgb},0.3)`, borderRight: `1px solid rgba(${accentRgb},0.3)`, borderBottom: `1px solid rgba(${accentRgb},0.3)`, borderRadius: 2, padding: '4px 8px' }}>Active</span>
-                        )}
-                      </div>
-
-                      {/* Content type selector — contributors only */}
-                      {has && type === 'contributor' && (
-                        <div style={{ paddingTop: 14, paddingLeft: 14, paddingRight: 14, paddingBottom: 14, background: 'var(--ground-2)', marginTop: 2, borderRadius: 2 }}>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-4)', marginBottom: 10 }}>Primary Creative Medium</div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                            {[
-                              { value: 'photography', label: 'Photography', color: 'rgba(90,159,212,0.8)',  bg: 'rgba(90,159,212,0.08)',  border: 'rgba(90,159,212,0.3)' },
-                              { value: 'art',         label: 'Art',         color: 'rgba(168,136,232,0.8)', bg: 'rgba(168,136,232,0.08)', border: 'rgba(168,136,232,0.3)' },
-                              { value: 'poetry',      label: 'Poetry',      color: 'rgba(224,168,48,0.9)',  bg: 'rgba(224,168,48,0.08)',  border: 'rgba(224,168,48,0.3)' },
-                              { value: 'essay',       label: 'Essay',       color: 'rgba(224,168,48,0.9)',  bg: 'rgba(224,168,48,0.08)',  border: 'rgba(224,168,48,0.3)' },
-                            ].map(({ value, label, color, bg, border }) => {
-                              const active = profile.contentType === value;
-                              return (
-                                <button
-                                  key={value}
-                                  onClick={() => setProfile(prev => ({ ...prev, contentType: value }))}
-                                  style={{ padding: '10px 12px', borderRadius: 2, borderTop: `1px solid ${active ? border : 'var(--rule)'}`, borderLeft: `1px solid ${active ? border : 'var(--rule)'}`, borderRight: `1px solid ${active ? border : 'var(--rule)'}`, borderBottom: `1px solid ${active ? border : 'var(--rule)'}`, background: active ? bg : 'transparent', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
-                                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: active ? color : 'var(--paper-3)', textTransform: 'capitalize' }}>{label}</span>
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Visibility toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--rule)' }}>
-                <div>
-                  <div style={{ fontFamily: 'var(--font-sans)', fontSize: 14, color: 'var(--paper)', marginBottom: 2 }}>{profile.isPublic ? 'Public Profile' : 'Private Profile'}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-4)', letterSpacing: '0.06em' }}>{profile.isPublic ? 'Visible to everyone' : 'Approved users only'}</div>
-                </div>
-                <div onClick={() => setProfile(prev => ({ ...prev, isPublic: !prev.isPublic }))} style={{ width: 40, height: 22, borderRadius: 11, background: profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.12)', borderTop: `1px solid ${profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.25)'}`, borderLeft: `1px solid ${profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.25)'}`, borderRight: `1px solid ${profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.25)'}`, borderBottom: `1px solid ${profile.isPublic ? 'var(--neon-amber)' : 'rgba(255,255,255,0.25)'}`, cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                  <div style={{ position: 'absolute', top: 2, left: profile.isPublic ? 20 : 2, width: 16, height: 16, borderRadius: '50%', background: profile.isPublic ? '#1a1408' : 'rgba(255,255,255,0.7)', transition: 'left 0.2s' }} />
-                </div>
-              </div>
-            </div>
-
-            {/* ── 3. MAILING ADDRESS ── */}
-            <div style={{ paddingTop: 24, paddingBottom: 24, borderBottom: '1px solid var(--rule)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-accent)' }}>Mailing Address</div>
-                {profile.address_line1.trim() && (
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--neon-green)' }}>On File</div>
-                )}
-              </div>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-3)', margin: '0 0 16px', lineHeight: 1.5 }}>
-                Required to receive your printed edition.
-              </p>
-              <input
-                value={profile.address_line1}
-                onChange={e => setProfile(prev => ({ ...prev, address_line1: e.target.value }))}
-                placeholder="Street address"
-                style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-              />
-              <input
-                value={profile.address_line2}
-                onChange={e => setProfile(prev => ({ ...prev, address_line2: e.target.value }))}
-                placeholder="Apt, suite, etc. (optional)"
-                style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-              />
-              <input
-                value={profile.address_city}
-                onChange={e => setProfile(prev => ({ ...prev, address_city: e.target.value }))}
-                placeholder="City"
-                style={inputStyle}
-                onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-              />
-              <div style={{ display: 'flex', gap: 12 }}>
-                <input
-                  value={profile.address_state}
-                  onChange={e => setProfile(prev => ({ ...prev, address_state: e.target.value }))}
-                  placeholder="State"
-                  style={{ ...inputStyle, flex: 1, minWidth: 0 }}
-                  onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                  onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-                />
-                <input
-                  value={profile.address_zip}
-                  onChange={e => setProfile(prev => ({ ...prev, address_zip: e.target.value }))}
-                  placeholder="ZIP"
-                  style={{ ...inputStyle, flex: 1, minWidth: 0 }}
-                  onFocus={e => { e.currentTarget.style.borderBottom = '1px solid var(--paper-3)'; }}
-                  onBlur={e => { e.currentTarget.style.borderBottom = '1px solid var(--rule-mid)'; }}
-                />
-              </div>
-            </div>
-
-            {/* ── 4. PAYMENT DETAILS ── */}
-            {(profile.profileTypes.includes('contributor') || profile.profileTypes.includes('curator')) && (
-              <div style={{ paddingTop: 24, paddingBottom: 24, borderBottom: '1px solid var(--rule)' }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-accent)', marginBottom: 20 }}>Payment Details</div>
-
-                {profile.profileTypes.includes('contributor') && (
-                  <div style={{ background: 'rgba(224,168,48,0.06)', borderTop: '1px solid rgba(224,168,48,0.2)', borderLeft: '1px solid rgba(224,168,48,0.2)', borderRight: '1px solid rgba(224,168,48,0.2)', borderBottom: '1px solid rgba(224,168,48,0.2)', borderRadius: 2, padding: 12, marginBottom: 12 }}>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--neon-amber)', marginBottom: 4 }}>Contributor Payments Coming Soon</div>
-                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-3)', margin: 0 }}>We&apos;re working on integrating a secure payment system for contributors.</p>
-                  </div>
-                )}
-
-                {profile.profileTypes.includes('curator') && (
-                  <div>
-                    <div style={{ background: 'rgba(224,168,48,0.06)', borderTop: '1px solid rgba(224,168,48,0.2)', borderLeft: '1px solid rgba(224,168,48,0.2)', borderRight: '1px solid rgba(224,168,48,0.2)', borderBottom: '1px solid rgba(224,168,48,0.2)', borderRadius: 2, padding: 12, marginBottom: 12 }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--neon-amber)', marginBottom: 4 }}>Stripe Integration Coming Soon</div>
-                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, fontWeight: 300, color: 'var(--paper-3)', margin: 0 }}>We&apos;re integrating with Stripe for secure payment processing.</p>
-                    </div>
-                    <div style={{ borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>Quarterly Subscription</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', letterSpacing: '0.06em' }}>$25.00 per quarter</div>
-                        </div>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#10b981', background: 'rgba(16,185,129,0.1)', borderTop: '1px solid rgba(16,185,129,0.3)', borderLeft: '1px solid rgba(16,185,129,0.3)', borderRight: '1px solid rgba(16,185,129,0.3)', borderBottom: '1px solid rgba(16,185,129,0.3)', borderRadius: 2, padding: '3px 7px' }}>Current</span>
-                      </div>
-                      <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {[['Next billing date', 'June 15, 2025'], ['Payment method', 'Pending setup']].map(([label, val]) => (
-                          <div key={label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', letterSpacing: '0.06em' }}>{label}</span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper)' }}>{val}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+        {/* Avatar — design `.avrow`: 64px avatar + "Change photo" → uploadAvatar */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 14 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden', position: 'relative', flex: 'none', background: 'linear-gradient(135deg,#4a4f47,#26292a)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)' }}>
+            {(avatarPreview || avatarUrl) && (
+              <Image src={avatarPreview || avatarUrl || ''} alt="Avatar" fill sizes="64px" style={{ objectFit: 'cover' }} />
             )}
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{ background: 'transparent', border: 0, padding: 0, cursor: uploading ? 'default' : 'pointer', font: `500 11px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink2)', opacity: uploading ? 0.4 : 1 }}
+          >
+            {uploading ? 'uploading…' : 'Change photo'}
+          </button>
+          <input type="file" ref={fileInputRef} onChange={uploadAvatar} accept="image/*" style={{ display: 'none' }} />
+        </div>
 
-            {/* ── 5. SAVE ── */}
-            <div style={{ paddingTop: 24 }}>
-              <button
-                onClick={updateProfile}
-                style={{ width: '100%', padding: '14px 0', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-accent)', background: 'rgba(224,90,40,0.08)', borderTop: '1px solid rgba(224,90,40,0.3)', borderLeft: '1px solid rgba(224,90,40,0.3)', borderRight: '1px solid rgba(224,90,40,0.3)', borderBottom: '2px solid rgba(224,90,40,0.4)', borderRadius: 2, cursor: 'pointer', boxShadow: '0 2px 0 rgba(224,90,40,0.2), 0 3px 6px rgba(0,0,0,0.4)', minHeight: 44 }}
-              >
-                Save Profile
-              </button>
+        {/* First / Last two-up — design `.two` */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ minWidth: 0 }}>
+            <Input label="First" value={profile.firstName} placeholder="First name" onChange={e => setProfile(prev => ({ ...prev, firstName: e.target.value }))} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <Input label="Last" value={profile.lastName} placeholder="Last name" onChange={e => setProfile(prev => ({ ...prev, lastName: e.target.value }))} />
+          </div>
+        </div>
+
+        <Select label="City" value={profile.city} onChange={e => setProfile(prev => ({ ...prev, city: e.target.value }))}>
+          <option value="">Select a city</option>
+          {CITIES.map(city => (
+            <option key={city} value={city}>{city}</option>
+          ))}
+        </Select>
+
+        <Textarea label="Bio" value={profile.bio} placeholder="A few words about your practice" onChange={e => setProfile(prev => ({ ...prev, bio: e.target.value }))} />
+
+        {/* Identity banner — design `.banner`: dashed 88px drop zone → uploadBanner */}
+        <div style={{ paddingTop: 18 }}>
+          <SectionLabel style={{ display: 'block', marginBottom: 8 }}>Identity banner</SectionLabel>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => bannerInputRef.current?.click()}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); bannerInputRef.current?.click(); } }}
+            style={{ marginTop: 8, height: 88, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--line2)', background: 'var(--bg2)', display: 'grid', placeItems: 'center', font: `italic 400 13px/1 ${SERIF}`, color: 'var(--ink3)', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
+          >
+            {bannerPreview || bannerUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={bannerPreview || bannerUrl || ''} alt="Identity banner" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            ) : (
+              <span>Add a banner</span>
+            )}
+            {uploadingBanner && (
+              <span style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(13,12,10,0.6)', font: `400 12px/1 ${MONO}`, color: 'var(--ink2)', fontStyle: 'normal' }}>uploading…</span>
+            )}
+          </div>
+          <input type="file" ref={bannerInputRef} onChange={uploadBanner} accept="image/*" style={{ display: 'none' }} />
+          <p style={{ margin: '8px 0 0', font: `400 11.5px/1.4 ${SANS}`, color: 'var(--ink3)' }}>
+            Shown to curators when selecting contributors. Not a preview of submitted work.
+          </p>
+        </div>
+
+        {/* ── 2. YOUR ROLES — add-only, no removal UI ── */}
+        <div style={sectionRow}>
+          <SectionLabel style={sectionLabelStyle}>Your roles</SectionLabel>
+        </div>
+
+        {([
+          { type: 'contributor', label: 'Contributor', accent: 'orange', icon: 'camera' },
+          { type: 'curator', label: 'Curator', accent: 'gold', icon: 'envelope' },
+        ] as { type: 'contributor' | 'curator'; label: string; accent: Accent; icon: IconName }[]).map(role => {
+          const has = profile.profileTypes.includes(role.type);
+          return (
+            <div key={role.type}>
+              {/* Role card — design `.rolecard` */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderWidth: '0 0 1px 0', borderStyle: 'solid', borderColor: 'var(--line)' }}>
+                {roleTile(role.accent, role.icon)}
+                <h4 style={{ margin: 0, font: `400 20px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1 }}>{role.label}</h4>
+                {has ? (
+                  <span style={{ font: `400 11px/1 ${MONO}`, color: 'var(--green)' }}>active</span>
+                ) : (
+                  <button type="button" onClick={() => addRole(role.type)} disabled={addingRole} style={{ ...smallBtn, opacity: addingRole ? 0.4 : 1, cursor: addingRole ? 'default' : 'pointer' }}>
+                    {addingRole ? 'loading…' : 'Add'}
+                  </button>
+                )}
+              </div>
+
+              {/* Content type — contributors only. Design `.types`: Photo / Art / Writing */}
+              {has && role.type === 'contributor' && (
+                <div style={{ padding: '12px 0 4px 42px' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    <Pill accent="blue" icon="camera" label="Photo" selected={profile.contentType === 'photography'} onClick={() => setContentType('photography')} />
+                    <Pill accent="purple" icon="brush" label="Art" selected={profile.contentType === 'art'} onClick={() => setContentType('art')} />
+                    <Pill accent="gold" icon="quill" label="Writing" selected={isWriting} tinted={!isWriting && writingOpen} onClick={handleWritingPill} />
+                  </div>
+                  {showWriting && (
+                    <div style={{ display: 'flex', gap: 6, padding: '6px 0 0' }}>
+                      {WRITING_PILLS.map(p => (
+                        <Pill
+                          key={p.value}
+                          accent="gold"
+                          label={p.label}
+                          selected={profile.contentType === p.value}
+                          tinted={profile.contentType !== p.value}
+                          onClick={() => setContentType(p.value)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Public profile toggle — design `.tr` + `.tog` (gold) → isPublic */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 0', borderWidth: '0 0 1px 0', borderStyle: 'solid', borderColor: 'var(--line)' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h4 style={{ margin: 0, font: `400 17px/1.1 ${SERIF}`, color: 'var(--ink)' }}>Public profile</h4>
+            <p style={{ margin: '4px 0 0', font: `400 12px/1 ${SANS}`, color: 'var(--ink3)' }}>{profile.isPublic ? 'Visible to everyone' : 'Approved users only'}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="About permissions"
+            aria-expanded={permissionsOpen}
+            onClick={() => setPermissionsOpen(v => !v)}
+            style={{ width: 22, height: 22, borderRadius: '50%', borderWidth: 1, borderStyle: 'solid', borderColor: permissionsOpen ? 'var(--ink2)' : 'var(--line2)', background: 'transparent', color: permissionsOpen ? 'var(--ink2)' : 'var(--ink3)', font: `500 11px/1 ${MONO}`, display: 'grid', placeItems: 'center', padding: 0, cursor: 'pointer', flex: 'none' }}
+          >
+            ?
+          </button>
+          <Toggle checked={profile.isPublic} accent="gold" onChange={checked => setProfile(prev => ({ ...prev, isPublic: checked }))} />
+        </div>
+        {permissionsOpen && (
+          <ul style={{ margin: 0, padding: '12px 0 0 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {[
+              'Public profiles are visible to everyone',
+              'Private profiles require access requests',
+              'You can only receive communications from users you have approved',
+              'Blocking a user prevents them from requesting access',
+            ].map(line => (
+              <li key={line} style={{ font: `400 11.5px/1.4 ${SANS}`, color: 'var(--ink3)' }}>{line}</li>
+            ))}
+          </ul>
+        )}
+
+        {/* ── 3. MAILING ADDRESS — "on file" when address_line1 is set ── */}
+        <div style={sectionRow}>
+          <SectionLabel style={sectionLabelStyle}>
+            Mailing address
+            {hasAddress && <b style={{ color: 'var(--green)', fontWeight: 500, marginLeft: 10 }}>on file</b>}
+          </SectionLabel>
+        </div>
+        <p style={{ margin: '8px 0 0', font: `400 11.5px/1.4 ${SANS}`, color: 'var(--ink3)' }}>Required to receive your printed edition.</p>
+        <div style={{ paddingTop: 12 }}>
+          <Input value={profile.address_line1} placeholder="Street address" autoComplete="address-line1" onChange={e => setProfile(prev => ({ ...prev, address_line1: e.target.value }))} />
+        </div>
+        <div style={{ paddingTop: 12 }}>
+          <Input value={profile.address_line2} placeholder="Apt, suite (optional)" autoComplete="address-line2" onChange={e => setProfile(prev => ({ ...prev, address_line2: e.target.value }))} />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, paddingTop: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <Input value={profile.address_city} placeholder="City" autoComplete="address-level2" onChange={e => setProfile(prev => ({ ...prev, address_city: e.target.value }))} />
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Input value={profile.address_state} placeholder="State" autoComplete="address-level1" onChange={e => setProfile(prev => ({ ...prev, address_state: e.target.value }))} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Input value={profile.address_zip} placeholder="ZIP" inputMode="numeric" autoComplete="postal-code" onChange={e => setProfile(prev => ({ ...prev, address_zip: e.target.value }))} />
             </div>
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        </div>
 
-            {/* Find private profiles */}
-            <div style={{ background: 'var(--ground-2)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Find Private Profiles
-              </div>
-              <div style={{ padding: 14 }}>
-                <div style={{ position: 'relative' }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--paper-3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  <input
-                    placeholder="Search by name…"
-                    value={searchQuery}
-                    onChange={e => { setSearchQuery(e.target.value); searchProfiles(e.target.value); }}
-                    style={{ width: '100%', padding: '8px 10px 8px 30px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper)', fontFamily: 'var(--font-sans)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }}
-                    onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--neon-amber)'; }}
-                    onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
-                  />
-                </div>
-                {searchResults.length > 0 && (
-                  <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {searchResults.map(p => (
-                      <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.1)', borderTop: '1px solid rgba(245,169,63,0.2)', borderLeft: '1px solid rgba(245,169,63,0.2)', borderRight: '1px solid rgba(245,169,63,0.2)', borderBottom: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
-                            {p.firstName.charAt(0)}{p.lastName.charAt(0)}
-                          </div>
-                          <div>
-                            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{p.firstName} {p.lastName}</div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--paper-3)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6 }}>Private profile</span>
-                            </div>
-                          </div>
-                        </div>
-                        {pendingRequestMap[p.id] ? (
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', color: 'var(--neon-amber)', borderTop: '1px solid rgba(245,169,63,0.3)', borderLeft: '1px solid rgba(245,169,63,0.3)', borderRight: '1px solid rgba(245,169,63,0.3)', borderBottom: '1px solid rgba(245,169,63,0.3)', borderRadius: 2, padding: '3px 8px' }}>Pending</span>
-                        ) : (
-                          <button onClick={() => handleFollowRequest(p.id)} className="press-btn" style={{ padding: '5px 10px', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                            Request Access
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+        {/* ── 4. PAYMENT — placeholders, no logic (Stripe pending) ── */}
+        {(isContributor || isCurator) && (
+          <>
+            <div style={sectionRow}>
+              <SectionLabel style={sectionLabelStyle}>Payment</SectionLabel>
             </div>
+            {isCurator && <div style={payLine}>Card on file: coming soon.</div>}
+            {isContributor && <div style={payLine}>Contributor payments: coming soon.</div>}
+          </>
+        )}
 
-            {/* Pending access requests */}
-            {followRequests.length > 0 && (
-              <div style={{ background: 'var(--ground-2)', borderTop: '1px solid rgba(239,68,68,0.3)', borderLeft: '1px solid rgba(239,68,68,0.3)', borderRight: '1px solid rgba(239,68,68,0.3)', borderBottom: '1px solid rgba(239,68,68,0.3)', borderRadius: 2 }}>
-                <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#ef4444', opacity: 0.9 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                  Access Requests
-                  <span style={{ background: '#ef4444', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, borderRadius: 99, padding: '1px 6px' }}>{followRequests.length}</span>
-                </div>
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {followRequests.map(req => (
-                    <div key={req.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(239,68,68,0.1)', borderTop: '1px solid rgba(239,68,68,0.2)', borderLeft: '1px solid rgba(239,68,68,0.2)', borderRight: '1px solid rgba(239,68,68,0.2)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>
-                          {req.firstName.charAt(0)}{req.lastName.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{req.firstName} {req.lastName}</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6, marginTop: 2 }}>Requested {req.requestDate}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => handleApproveRequest(req.id)} style={{ padding: '5px 10px', background: 'rgba(16,185,129,0.12)', borderTop: '1px solid rgba(16,185,129,0.35)', borderLeft: '1px solid rgba(16,185,129,0.35)', borderRight: '1px solid rgba(16,185,129,0.35)', borderBottom: '1px solid rgba(16,185,129,0.35)', borderRadius: 2, color: '#10b981', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Approve</button>
-                        <button onClick={() => handleDenyRequest(req.id)} style={{ padding: '5px 10px', background: 'transparent', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Deny</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        {/* ── 5. ACCESS REQUESTS → handleApproveRequest / handleDenyRequest ── */}
+        {followRequests.length > 0 && (
+          <>
+            <div style={sectionRow}>
+              <SectionLabel style={sectionLabelStyle}>
+                Access requests
+                <b style={{ color: 'var(--gold)', fontWeight: 500, marginLeft: 10 }}>{followRequests.length}</b>
+              </SectionLabel>
+            </div>
+            <div style={{ paddingTop: 4 }}>
+              {followRequests.map((req, i) => (
+                <RosterRow
+                  key={req.id}
+                  name={shortName(req.firstName, req.lastName)}
+                  sub={`requested ${req.requestDate}`}
+                  avatarUrl={req.avatar || undefined}
+                  initial={initialOf(req.firstName, req.lastName)}
+                  last={i === followRequests.length - 1}
+                >
+                  <button type="button" onClick={() => handleApproveRequest(req.id)} style={smallBtnAccent('green')}>Approve</button>
+                  <button type="button" onClick={() => handleDenyRequest(req.id)} style={quietBtn}>Deny</button>
+                </RosterRow>
+              ))}
+            </div>
+          </>
+        )}
 
-            {/* Private profiles you have access to */}
-            <div style={{ background: 'var(--ground-2)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Private Profiles You Have Access To
-              </div>
-              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {following.filter(f => f.isPrivate).length === 0 ? (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.5, margin: 0 }}>No private profiles yet.</p>
+        {/* ── 6. CONNECTIONS — search → handleFollowRequest; "···" → Remove / Block sheet ── */}
+        <div style={sectionRow}>
+          <SectionLabel style={sectionLabelStyle}>Connections</SectionLabel>
+        </div>
+        <SearchField
+          placeholder="Search private profiles by name…"
+          value={searchQuery}
+          onChange={e => { setSearchQuery(e.target.value); searchProfiles(e.target.value); }}
+        />
+        {searchQuery.length > 0 && searchResults.length > 0 && (
+          <div>
+            {searchResults.map((p, i) => (
+              <RosterRow
+                key={p.id}
+                name={shortName(p.firstName, p.lastName)}
+                sub="private profile"
+                avatarUrl={p.avatar || undefined}
+                initial={initialOf(p.firstName, p.lastName)}
+                last={i === searchResults.length - 1}
+              >
+                {pendingRequestMap[p.id] ? (
+                  <span style={quietText}>requested</span>
                 ) : (
-                  following.filter(f => f.isPrivate).map(f => (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.08)', borderTop: '1px solid rgba(245,169,63,0.2)', borderLeft: '1px solid rgba(245,169,63,0.2)', borderRight: '1px solid rgba(245,169,63,0.2)', borderBottom: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
-                          {f.firstName.charAt(0)}{f.lastName.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{f.firstName} {f.lastName}</div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="var(--paper-3)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6 }}>Access since {f.followingSince}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <button onClick={() => handleUnfollow(f.id)} style={{ padding: '5px 10px', background: 'transparent', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Remove</button>
-                    </div>
-                  ))
+                  <button type="button" onClick={() => handleFollowRequest(p.id)} style={smallBtnAccent('gold')}>Request</button>
                 )}
-              </div>
-            </div>
-
-            {/* People who have access to your content */}
-            <div style={{ background: 'var(--ground-2)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-              <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
-                People Who Have Access to Your Content
-              </div>
-              <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {followers.length === 0 ? (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--paper-3)', opacity: 0.5, margin: 0 }}>No one has access yet.</p>
-                ) : (
-                  followers.map(f => (
-                    <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(245,169,63,0.08)', borderTop: '1px solid rgba(245,169,63,0.2)', borderLeft: '1px solid rgba(245,169,63,0.2)', borderRight: '1px solid rgba(245,169,63,0.2)', borderBottom: '1px solid rgba(245,169,63,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-amber)' }}>
-                          {f.firstName.charAt(0)}{f.lastName.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{f.firstName} {f.lastName}</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6, marginTop: 2 }}>Has access for {f.duration}</div>
-                        </div>
-                      </div>
-                      <button onClick={() => handleBlockUser(f.id)} style={{ padding: '5px 10px', background: 'rgba(239,68,68,0.1)', borderTop: '1px solid rgba(239,68,68,0.3)', borderLeft: '1px solid rgba(239,68,68,0.3)', borderRight: '1px solid rgba(239,68,68,0.3)', borderBottom: '1px solid rgba(239,68,68,0.3)', borderRadius: 2, color: '#ef4444', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Block</button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Blocked users */}
-            {blockedUsers.length > 0 && (
-              <div style={{ background: 'var(--ground-2)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--rule-mid)', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#ef4444', opacity: 0.8 }}>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>
-                  Blocked Users
-                </div>
-                <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {blockedUsers.map(u => (
-                    <div key={u.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--ground-3)', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 2, background: 'rgba(239,68,68,0.08)', borderTop: '1px solid rgba(239,68,68,0.2)', borderLeft: '1px solid rgba(239,68,68,0.2)', borderRight: '1px solid rgba(239,68,68,0.2)', borderBottom: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444' }}>
-                          {u.firstName.charAt(0)}{u.lastName.charAt(0)}
-                        </div>
-                        <div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--paper)' }}>{u.firstName} {u.lastName}</div>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--paper-3)', opacity: 0.6, marginTop: 2 }}>Blocked {u.blockedDate}</div>
-                        </div>
-                      </div>
-                      <button onClick={() => handleUnblockUser(u.id)} style={{ padding: '5px 10px', background: 'transparent', borderTop: '1px solid var(--rule-mid)', borderLeft: '1px solid var(--rule-mid)', borderRight: '1px solid var(--rule-mid)', borderBottom: '1px solid var(--rule-mid)', borderRadius: 2, color: 'var(--paper-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Unblock</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* About permissions note */}
-            <div style={{ background: 'rgba(245,169,63,0.04)', borderTop: '1px solid rgba(245,169,63,0.15)', borderLeft: '1px solid rgba(245,169,63,0.15)', borderRight: '1px solid rgba(245,169,63,0.15)', borderBottom: '1px solid rgba(245,169,63,0.15)', borderRadius: 2, padding: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--neon-amber)" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--neon-amber)', opacity: 0.8 }}>About Permissions</span>
-              </div>
-              <ul style={{ margin: 0, padding: '0 0 0 16px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {[
-                  'Public profiles are visible to everyone',
-                  'Private profiles require access requests',
-                  'You can only receive communications from users you have approved',
-                  'Blocking a user prevents them from requesting access',
-                ].map(line => (
-                  <li key={line} style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--paper-3)', opacity: 0.7 }}>{line}</li>
-                ))}
-              </ul>
-            </div>
-
+              </RosterRow>
+            ))}
           </div>
         )}
+        {searchQuery.length > 0 && searchResults.length === 0 && (
+          <p style={emptyLine}>No private profiles match that name.</p>
+        )}
+
+        {connections.length === 0 ? (
+          <p style={emptyLine}>No connections yet.</p>
+        ) : (
+          <div style={{ paddingTop: 8 }}>
+            {connections.map((c, i) => (
+              <RosterRow
+                key={c.id}
+                name={shortName(c.firstName, c.lastName)}
+                sub={c.youFollow && c.followsYou ? 'mutual access' : c.followsYou ? 'follows you' : `access since ${c.since}`}
+                avatarUrl={c.avatar || undefined}
+                initial={initialOf(c.firstName, c.lastName)}
+                last={i === connections.length - 1}
+              >
+                <button type="button" aria-label={`Options for ${c.firstName} ${c.lastName}`} onClick={() => setMenuFor(c.id)} style={quietBtn}>···</button>
+              </RosterRow>
+            ))}
+          </div>
+        )}
+
+        {/* ── 7. BLOCKED → handleUnblockUser; hidden when empty ── */}
+        {blockedUsers.length > 0 && (
+          <>
+            <div style={sectionRow}>
+              <SectionLabel style={sectionLabelStyle}>Blocked</SectionLabel>
+            </div>
+            <div style={{ paddingTop: 4 }}>
+              {blockedUsers.map((u, i) => (
+                <RosterRow
+                  key={u.id}
+                  name={shortName(u.firstName, u.lastName)}
+                  sub={`blocked ${u.blockedDate}`}
+                  avatarUrl={u.avatar || undefined}
+                  initial={initialOf(u.firstName, u.lastName)}
+                  last={i === blockedUsers.length - 1}
+                >
+                  <button type="button" onClick={() => handleUnblockUser(u.id)} style={smallBtn}>Unblock</button>
+                </RosterRow>
+              ))}
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Footer — design `.foot`: green primary Save → updateProfile (existing upsert) */}
+      <div style={{ position: 'sticky', bottom: 0, borderWidth: '1px 0 0 0', borderStyle: 'solid', borderColor: 'var(--line)', background: 'var(--bg)', zIndex: 5 }}>
+        <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '16px 24px 26px', display: 'flex', alignItems: 'center', gap: 12, boxSizing: 'border-box' }}>
+          <button
+            type="button"
+            onClick={updateProfile}
+            style={{ flex: 1, font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '15px 18px', borderRadius: 5, border: 0, textAlign: 'center', whiteSpace: 'nowrap', cursor: 'pointer', color: 'var(--bg)', background: 'var(--green)', boxShadow: '0 0 28px color-mix(in oklch, var(--green) 35%, transparent)', WebkitTapHighlightColor: 'transparent' }}
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* "···" sheet — Remove → handleUnfollow · Block → handleBlockUser */}
+      <Sheet open={menuTarget !== null} onClose={() => setMenuFor(null)} title={menuTarget ? `${menuTarget.firstName} ${menuTarget.lastName}`.trim() : ''}>
+        {menuTarget?.youFollow && (
+          <button type="button" onClick={() => { const id = menuTarget.id; setMenuFor(null); handleUnfollow(id); }} style={sheetRow('var(--ink)')}>
+            Remove
+            <span style={{ display: 'block', font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', marginTop: 6 }}>give up your access to this profile</span>
+          </button>
+        )}
+        {menuTarget?.followsYou && (
+          <button type="button" onClick={() => { const id = menuTarget.id; setMenuFor(null); handleBlockUser(id); }} style={{ ...sheetRow('var(--orange)'), borderBottomWidth: 0 }}>
+            Block
+            <span style={{ display: 'block', font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', marginTop: 6 }}>removes their access and stops future requests</span>
+          </button>
+        )}
+      </Sheet>
     </div>
   );
 }
