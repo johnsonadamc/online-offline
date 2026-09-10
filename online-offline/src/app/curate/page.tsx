@@ -891,11 +891,10 @@ export default function CurationInterface() {
       )}
 
       {/* ── Tabs — design `.ctabs`: same ids, same setActiveSection + setSearchTerm('') ── */}
-      {/* Cells share the column equally (flex 1 1 0). At 390px the column is 342px and
-          "CONTRIBUTORS 9" alone is ~119px, wider than a quarter, so each cell's floor is
-          its own content (min-width max-content): the three short tabs split the rest
-          equally and the row never exceeds the column. No gap — the cells meet. */}
-      <div style={{ display: 'flex', paddingTop: 22, borderBottom: '1px solid var(--line)', width: '100%', boxSizing: 'border-box' }}>
+      {/* Left-aligned, each tab sized to its content, one consistent gap. Measured in Chromium
+          with the real fonts at 390px: the four labels + counts are ~278px, so a 22px gap
+          overflows the 342px column by ~2px and 18px fits with ~10px to spare. */}
+      <div style={{ display: 'flex', gap: 18, paddingTop: 22, borderBottom: '1px solid var(--line)', width: '100%', boxSizing: 'border-box' }}>
         {tabs.map(({ id, label, count }) => {
           const on = activeSection === id;
           return (
@@ -903,11 +902,14 @@ export default function CurationInterface() {
               key={id}
               type="button"
               onClick={() => { setActiveSection(id); setSearchTerm(''); }}
-              style={{ position: 'relative', flex: '1 1 0', minWidth: 'max-content', boxSizing: 'border-box', display: 'flex', gap: 4, alignItems: 'baseline', justifyContent: 'center', textAlign: 'center', background: 'transparent', border: 0, padding: '0 4px 12px', marginBottom: -1, cursor: 'pointer', font: `500 11px/1 ${SANS}`, letterSpacing: '0.08em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
+              style={{ flex: '0 0 auto', display: 'flex', gap: 4, alignItems: 'baseline', background: 'transparent', border: 0, padding: '0 0 12px', marginBottom: -1, cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.10em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
             >
-              {label}
+              {/* The 1px ink underline spans the label only (bottom -13 = 12px padding + the row's border line) */}
+              <span style={{ position: 'relative' }}>
+                {label}
+                {on && <span aria-hidden="true" style={{ position: 'absolute', left: 0, right: 0, bottom: -13, height: 1, background: 'var(--ink)' }} />}
+              </span>
               <span style={{ font: `400 10px/1 ${MONO}`, letterSpacing: 0, color: 'var(--ink3)', flex: 'none' }}>{count}</span>
-              {on && <span aria-hidden="true" style={{ position: 'absolute', left: 4, right: 4, bottom: 0, height: 1, background: 'var(--ink)' }} />}
             </button>
           );
         })}

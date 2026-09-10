@@ -695,6 +695,11 @@ Key Gotchas & Hard-Won Lessons
   read at 390px; the meter legend is ONE line (9px mono .06em, gap 10, nowrap, overflow-x auto with the scrollbar hidden
   — it scrolls rather than wraps). Contributor cards select in --orange (glow 12px/.4), ad cards in an --ink2 outline
   (no glow) to match the meter; the chips legend + its oo_curate_legend_seen flag are gone (the chips carry the dots).
+- Curate tab row (post-polish): left-aligned, each tab flex 0 0 auto, ONE gap, 12px/.10em labels, count span 4px after,
+  1px ink underline under the label only. MEASURED in the sandbox Chromium with the real Google fonts (fetch the woff2 via
+  the proxy, Playwright with executablePath /opt/pw-browsers/chromium): the four labels + counts are ~278px at 390px, so
+  gap 22 overflows the 342px column by ~2px and gap 18 fits with ~10px spare — the row uses 18. When measuring, zero the
+  test buttons' border/background or the browser's default 2px button border adds 4px per tab and skews the result.
 
 ### Magazine Templates
 - ImageFrame hides crosshair/dot/label when real image present; its inner <img> hardcodes object-fit cover
