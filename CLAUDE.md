@@ -463,6 +463,9 @@ Key v2 screen facts (full specs in the READMEs):
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.
 - Auth/onboarding primary buttons are ink, not green.
+- /collabs cards show the contributor brief (collab_templates.instructions, already in the select('*')) via the v2 Brief
+  between the description and the pill row — collapsed by default, gold PROMPT label always visible; omitted when the
+  template has no instructions. handleJoinClick is byte-identical.
 
 NON-NEGOTIABLE during the redesign: every existing handler, route, DB write, and the curate save payload
 (curator_*_selections rows incl. source_id format, participation_mode, location) stay IDENTICAL. Also

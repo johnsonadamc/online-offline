@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { CITIES } from '@/lib/constants/cities';
-import { PageShell, Pill, Sheet, Toast, Icon, tint, SERIF, SANS, MONO } from '@/components/v2';
+import { PageShell, Pill, Sheet, Toast, Brief, Icon, tint, SERIF, SANS, MONO } from '@/components/v2';
 
 interface CollabTemplate {
   id: string;
@@ -383,6 +383,11 @@ export default function CollabsLibrary() {
             <div key={collab.id} style={cardStyle}>
               <h3 style={{ margin: 0, font: `400 22px/1.1 ${SERIF}`, color: 'var(--ink)', minWidth: 0 }}>{collab.name}</h3>
               <p style={{ margin: '6px 0 0', font: `italic 400 14.5px/1.45 ${SERIF}`, color: 'var(--ink2)', textWrap: 'pretty' } as React.CSSProperties}>{collab.display_text}</p>
+              {/* Contributor brief — collab_templates.instructions (the field /collabs/[id]/submit shows);
+                  collapsed by default so the gold PROMPT label is always visible before joining */}
+              {collab.instructions?.trim() && (
+                <Brief defaultOpen={false} style={{ marginTop: 14 }}>{collab.instructions}</Brief>
+              )}
               {/* Join actions — the same handleJoinClick(id, title, mode) for all three modes */}
               <div style={pillsRow}>
                 {(['community', 'local', 'private'] as const).map(mode => (
