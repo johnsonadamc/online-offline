@@ -418,7 +418,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -599,6 +599,13 @@ Key Gotchas & Hard-Won Lessons
   recentlyInvited list shown only once the invitee appears in participants (the search effect re-filters them out).
   collab_submissions has NO focal_x/focal_y columns — the 1:1 FocalPointFrame crosshair on /collabs/[id]/submit is
   local display state and is never persisted; the v1 fullscreen toggle and caption char count were dropped (no v2 slot).
+- Communicate v2 (Phase 8): /communicate/[id] has NO image handling of its own — the frozen handleSaveDraft/handleSubmit
+  write `image_url: null`, so the v2 dashed "Add an image (optional)" slot is a LOCAL preview (hidden input + blob
+  preview + remove) that is never persisted. To wire it: uploadMedia() (storage.ts) + pass the URL as image_url —
+  saveCommunication already accepts it. The "Request" pill mirrors profile/page.tsx handleFollowRequest 1:1
+  (sendFollowRequest → 'pending' toast, 'approved' re-runs canCommunicateWith); no request handler existed here.
+  The recipient chevron reuses the old header back-button body (setSearchTerm(name) → searchContributors → stage
+  'recipient'); the footer renders only in the compose stage, as before. /communicate/new re-export untouched.
 
 ### Content / Submit
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.

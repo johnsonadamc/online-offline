@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import Link from 'next/link';
 import { saveCommunication } from '@/lib/supabase/communications';
-import { canCommunicateWith } from '@/lib/supabase/profiles';
+import { canCommunicateWith, sendFollowRequest } from '@/lib/supabase/profiles';
+import { PageShell, SectionLabel, SearchField, RosterRow, Pill, Input, Textarea, WordCount, Toast, Icon, SERIF, SANS, MONO } from '@/components/v2';
 
 interface Profile {
   id: string;
@@ -15,7 +16,9 @@ interface Profile {
   bio?: string;
 }
 
-type PressState = 'rest' | 'pressing' | 'releasing';
+// Design `.rr .n`: "S. Chen" — first initial + last name.
+const shortName = (first: string, last: string): string =>
+  first && last ? `${first[0]}. ${last}` : `${first} ${last}`.trim();
 
 export default function CommunicateEditorPage() {
   const params = useParams();
@@ -39,12 +42,16 @@ export default function CommunicateEditorPage() {
   const [hasPermission, setHasPermission] = useState(true);
   const [permissionCheckComplete, setPermissionCheckComplete] = useState(false);
   const [currentStage, setCurrentStage] = useState<'recipient' | 'compose'>('recipient');
-  const [submitPress, setSubmitPress] = useState<PressState>('rest');
-  const [savePress, setSavePress] = useState<PressState>('rest');
   const [isReadOnly, setIsReadOnly] = useState(false);
-  const [withdrawPress, setWithdrawPress] = useState<PressState>('rest');
   const [withdrawing, setWithdrawing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // v2 additions — UI only. successMessage feeds the green Toast; requested marks the access Pill;
+  // the image slot is a LOCAL preview: handleSaveDraft/handleSubmit are frozen and write image_url: null,
+  // so an attached image is never persisted (wire uploadMedia + image_url in a follow-up).
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [requested, setRequested] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const WORD_LIMIT = 250;
 
@@ -204,52 +211,53 @@ export default function CommunicateEditorPage() {
     }
   };
 
-  // ── press mechanic style helper ──────────────────────────────────────────────
-  const pressStyle = (state: PressState, amber = false): React.CSSProperties => ({
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 7,
-    fontFamily: 'var(--font-mono)',
-    fontSize: 10,
-    fontWeight: 700,
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: amber ? 'var(--neon-amber)' : (state === 'rest' ? 'var(--paper-3)' : 'var(--neon-accent)'),
-    textShadow: amber ? '0 0 8px var(--glow-amber)' : 'none',
-    padding: '9px 20px',
-    background: state === 'pressing'
-      ? (amber ? 'rgba(224,168,48,0.2)' : 'rgba(224,90,40,0.18)')
-      : (amber ? 'rgba(224,168,48,0.08)' : 'var(--ground-3)'),
-    border: `1px solid ${state !== 'rest'
-      ? (amber ? 'rgba(224,168,48,0.45)' : 'rgba(224,90,40,0.5)')
-      : (amber ? 'rgba(224,168,48,0.28)' : 'var(--rule-mid)')}`,
-    borderBottom: `2px solid ${state === 'pressing'
-      ? (amber ? 'rgba(224,168,48,0.55)' : 'rgba(224,90,40,0.6)')
-      : (amber ? 'rgba(224,168,48,0.35)' : 'var(--ground-4)')}`,
-    borderRadius: 2,
-    cursor: 'pointer',
-    WebkitTapHighlightColor: 'transparent',
-    transform: state === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
-    boxShadow: state === 'pressing' ? 'none'
-      : amber
-        ? '0 2px 0 rgba(224,168,48,0.2), 0 0 14px rgba(224,168,48,0.06)'
-        : '0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4)',
-    transition: state === 'releasing'
-      ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, background 0.3s'
-      : 'transform 0.08s cubic-bezier(0.4,0,0.6,1), box-shadow 0.08s, background 0.08s',
-  });
-
-  const releasePress = (set: (s: PressState) => void) => {
-    set('releasing');
-    setTimeout(() => set('rest'), 220);
+  // ── request access (mirrors profile/page.tsx handleFollowRequest → sendFollowRequest) ────
+  const handleRequestAccess = async () => {
+    if (!selectedRecipient) return;
+    try {
+      const result = await sendFollowRequest(supabase, selectedRecipient.id);
+      if (result.success) {
+        setRequested(true);
+        setSuccessMessage(result.status === 'pending' ? 'Access request sent!' : 'Access granted to public profile.');
+        if (result.status === 'approved') {
+          const check = await canCommunicateWith(supabase, selectedRecipient.id);
+          setHasPermission(check.allowed);
+        }
+      } else {
+        setError(`Error: ${result.error || 'Failed to send request'}`);
+      }
+    } catch {
+      setError('An unexpected error occurred');
+    }
   };
+
+  // ── image slot (local preview only — see the state comment above) ─────────────
+  const handleImagePick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImagePreview(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
+    e.currentTarget.value = '';
+  };
+  const handleImageRemove = () => {
+    setImagePreview(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return null; });
+  };
+  useEffect(() => () => { if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
+
+  // ── header (design `.top`: "‹ Dashboard" · status word · "Note" gold) ────────
+  const header = (
+    <>
+      <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none', flex: 'none' }}>‹ Dashboard</Link>
+      <span style={{ font: `italic 400 15px/1 ${SERIF}`, color: isReadOnly ? 'var(--orange)' : 'var(--ink3)' }}>{isReadOnly ? 'sent' : 'draft'}</span>
+      <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--gold)', flex: 'none' }}>Note</span>
+    </>
+  );
 
   // ── loading ──────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
-      </div>
+      <PageShell header={header} align="center">
+        <p style={{ margin: 0, textAlign: 'center', font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)' }}>loading…</p>
+      </PageShell>
     );
   }
 
@@ -257,210 +265,163 @@ export default function CommunicateEditorPage() {
     ? `${selectedRecipient.first_name} ${selectedRecipient.last_name}`.trim()
     : '';
 
+  // v2 footer buttons (design `.btn`)
+  const btnBase: React.CSSProperties = {
+    font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase',
+    padding: '15px 18px', borderRadius: 5, textAlign: 'center', flex: 'none', whiteSpace: 'nowrap',
+    cursor: 'pointer', background: 'transparent', borderWidth: 0, WebkitTapHighlightColor: 'transparent',
+  };
+  const btnSec: React.CSSProperties = { ...btnBase, color: 'var(--ink2)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)' };
+  const btnGhost: React.CSSProperties = { ...btnBase, color: 'var(--ink3)' };
+  const btnPri: React.CSSProperties = {
+    ...btnBase, flex: 1, color: '#0d0c0a', background: 'var(--gold)',
+    boxShadow: '0 0 28px color-mix(in oklch, var(--gold) 35%, transparent)',
+  };
+  const sendDisabled = !selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission;
+  const saveDisabled = !selectedRecipient || !subject || saving || submitting || !hasPermission;
+
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', flexDirection: 'column', color: 'var(--lt-text)' }}>
-
-      {/* ── header ── */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--lt-bg)', borderBottom: '1px solid var(--lt-rule)', padding: '11px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        {currentStage === 'recipient' || !selectedRecipient || isReadOnly ? (
-          <Link href="/dashboard" style={{ color: 'var(--lt-text-3)', lineHeight: 0, display: 'block' }}>
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </Link>
-        ) : (
+    <PageShell
+      header={header}
+      // Footer only in the compose stage (as before): Save draft → handleSaveDraft · Send → handleSubmit
+      // (disabled per the unchanged condition) · sent: ghost Withdraw → handleWithdraw
+      footer={currentStage === 'compose' ? (isReadOnly ? (
+        <button type="button" onClick={handleWithdraw} disabled={withdrawing} style={{ ...btnGhost, opacity: withdrawing ? 0.4 : 1 }}>
+          {withdrawing ? 'Withdrawing…' : 'Withdraw'}
+        </button>
+      ) : (
+        <>
+          <button type="button" onClick={handleSaveDraft} disabled={saveDisabled} style={{ ...btnSec, opacity: (!selectedRecipient || !subject || !hasPermission) ? 0.4 : 1, cursor: saveDisabled ? 'default' : 'pointer' }}>
+            {saving ? 'Saving…' : 'Save draft'}
+          </button>
           <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
+            style={{ ...btnPri, opacity: (!selectedRecipient || !subject || !content.trim() || !hasPermission || wordCount > WORD_LIMIT) ? 0.4 : 1, cursor: sendDisabled ? 'default' : 'pointer' }}
+          >
+            {submitting ? 'Sending…' : 'Send'}
+          </button>
+        </>
+      )) : undefined}
+      columnStyle={{ paddingBottom: 32 }}
+    >
+      <Toast open={!!error} message={error} accent="orange" duration={0} onClose={() => setError(null)} />
+      <Toast open={!!successMessage} message={successMessage} accent="green" onClose={() => setSuccessMessage(null)} />
+
+      {/* ── Recipient hero — design `.field .k` TO + `.in.big` 30px name with chevron ── */}
+      <div style={{ paddingTop: 26 }}>
+        <SectionLabel style={{ display: 'block', marginBottom: 8 }}>To</SectionLabel>
+        {currentStage === 'compose' && selectedRecipient ? (
+          <button
+            type="button"
+            disabled={isReadOnly}
+            aria-label="Change recipient"
             onClick={() => {
               setSearchTerm(recipientName);
               searchContributors(recipientName);
               setShowSearchResults(true);
               setCurrentStage('recipient');
             }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--lt-text-3)', lineHeight: 0, padding: 0 }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '8px 0 10px', background: 'transparent', borderWidth: '0 0 1px 0', borderStyle: 'solid', borderColor: 'var(--line2)', textAlign: 'left', cursor: isReadOnly ? 'default' : 'pointer', WebkitTapHighlightColor: 'transparent' }}
           >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M11 4L6 9l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <span style={{ font: `400 30px/1.15 ${SERIF}`, color: 'var(--ink)', minWidth: 0 }}>{recipientName}</span>
+            {!isReadOnly && <Icon name="chevron" size={12} strokeWidth={1.5} style={{ color: 'var(--ink3)', transform: 'rotate(90deg)' }} />}
           </button>
+        ) : (
+          <>
+            <SearchField
+              placeholder="Search for a curator…"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              onFocus={() => setShowSearchResults(true)}
+              autoFocus
+              aria-label="Search for a curator"
+            />
+            {showSearchResults && searchResults.map((p, i) => (
+              <RosterRow
+                key={p.id}
+                name={shortName(p.first_name, p.last_name)}
+                sub={p.bio ? (p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio) : undefined}
+                avatarUrl={p.avatar_url || undefined}
+                initial={(p.first_name || p.last_name || '?')[0]?.toLowerCase()}
+                last={i === searchResults.length - 1}
+                onClick={() => selectRecipient(p)}
+              />
+            ))}
+            {showSearchResults && searchTerm && searchResults.length === 0 && (
+              <p style={{ margin: 0, paddingTop: 18, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>No results found</p>
+            )}
+          </>
         )}
-        <div>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: 'var(--lt-text-2)' }}>
-            {isReadOnly ? 'Message' : communicationId ? 'Edit message' : 'New message'}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-            <div style={{ width: 5, height: 5, borderRadius: '50%', background: isReadOnly ? 'var(--neon-accent)' : 'var(--neon-amber)', boxShadow: isReadOnly ? '0 0 6px var(--glow-accent)' : '0 0 6px var(--glow-amber)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--lt-text-3)' }}>{isReadOnly ? 'Sent' : 'Draft'}</span>
+      </div>
+
+      {currentStage === 'compose' && (
+        <>
+          {/* Permission gate (unchanged logic) → italic line + gold Request pill */}
+          {permissionCheckComplete && !hasPermission && selectedRecipient && (
+            <div style={{ paddingTop: 14, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <p style={{ margin: 0, flex: 1, minWidth: 0, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+                Request access to {selectedRecipient.first_name}&apos;s profile before sending.
+              </p>
+              {requested ? (
+                <span style={{ font: `400 12px/1 ${MONO}`, color: 'var(--ink3)' }}>requested</span>
+              ) : (
+                <Pill accent="gold" label="Request" tinted onClick={handleRequestAccess} />
+              )}
+            </div>
+          )}
+
+          {/* Subject — italic serif 18 */}
+          <div style={{ paddingTop: 18 }}>
+            <Input
+              placeholder="Subject"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              readOnly={isReadOnly}
+              aria-label="Subject"
+              style={{ font: `italic 400 18px/1.3 ${SERIF}` }}
+            />
           </div>
-        </div>
-      </header>
 
-      {/* ── error banner ── */}
-      {error && (
-        <div style={{ margin: '12px 16px 0', padding: '10px 14px', background: 'rgba(224,90,40,0.07)', border: '1px solid rgba(224,90,40,0.25)', borderRadius: 2 }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--neon-accent)', margin: 0 }}>{error}</p>
-        </div>
-      )}
+          {/* Body — Textarea ≥220 + WordCount (wordCount / WORD_LIMIT unchanged) */}
+          <Textarea
+            ref={textareaRef}
+            placeholder="Write your message…"
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            readOnly={isReadOnly}
+            minHeight={220}
+            aria-label="Message"
+            style={{ marginTop: 14, color: 'var(--ink)' }}
+          />
+          <WordCount count={wordCount} limit={WORD_LIMIT} />
 
-      {/* ── permission warning ── */}
-      {permissionCheckComplete && !hasPermission && selectedRecipient && (
-        <div style={{ margin: '12px 16px 0', padding: '10px 14px', background: 'rgba(224,168,48,0.06)', border: '1px solid rgba(224,168,48,0.2)', borderRadius: 2 }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--neon-amber)', margin: '0 0 4px' }}>Permission required</p>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text-3)', margin: 0 }}>
-            Request access to {selectedRecipient.first_name}&apos;s profile before sending.
-          </p>
-        </div>
-      )}
-
-      {/* ── recipient stage ── */}
-      {currentStage === 'recipient' && (
-        <div style={{ flex: 1, padding: '20px 16px' }}>
-          <div style={{ background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 16px' }}>
-              <div style={{ position: 'relative' }}>
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--lt-text-3)', pointerEvents: 'none' }}>
-                  <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1" />
-                  <path d="M9.5 9.5L12.5 12.5" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search for a curator…"
-                  value={searchTerm}
-                  onChange={handleSearchChange}
-                  onFocus={() => setShowSearchResults(true)}
-                  autoFocus
-                  style={{ width: '100%', background: 'var(--lt-bg)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, padding: '9px 12px 9px 30px', fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--lt-text)', outline: 'none', caretColor: 'var(--neon-amber)' }}
-                />
-              </div>
-
-              {showSearchResults && searchResults.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  {searchResults.map(p => (
-                    <div
-                      key={p.id}
-                      onClick={() => selectRecipient(p)}
-                      style={{ padding: '14px 0', borderTop: '1px solid var(--rule)', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}
-                    >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>to</span>
-                          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(224,168,48,0.25), transparent)' }} />
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
-                          {p.first_name} {p.last_name}
-                        </div>
-                        {p.bio && (
-                          <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>
-                            {p.bio.length > 60 ? p.bio.slice(0, 60) + '…' : p.bio}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+          {/* Image — design `.img` dashed slot; local preview only (never persisted, see state comment) */}
+          {!isReadOnly && (
+            <>
+              <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImagePick} style={{ display: 'none' }} />
+              {imagePreview ? (
+                <div style={{ marginTop: 18, position: 'relative', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)' }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="Attached image preview" style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover' }} />
+                  <button type="button" aria-label="Remove image" onClick={handleImageRemove} style={{ position: 'absolute', right: 12, top: 12, width: 26, height: 26, borderRadius: '50%', borderWidth: 0, background: 'rgba(13,12,10,0.7)', display: 'grid', placeItems: 'center', color: 'var(--ink2)', font: `300 16px/1 ${SANS}`, cursor: 'pointer' }}>×</button>
                 </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  style={{ marginTop: 18, width: '100%', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--line2)', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, font: `400 13.5px/1 ${SANS}`, color: 'var(--ink3)', background: 'transparent', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
+                >
+                  <Icon name="camera" size={16} strokeWidth={1.5} />
+                  Add an image (optional)
+                </button>
               )}
-
-              {showSearchResults && searchTerm && searchResults.length === 0 && (
-                <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', marginTop: 16, textAlign: 'center' }}>
-                  No results found
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── compose stage ── */}
-      {currentStage === 'compose' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 16px 0' }}>
-          {/* recipient hero */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)', margin: '0 0 5px' }}>To</p>
-            <p style={{ fontFamily: 'var(--font-serif)', fontSize: 24, color: 'var(--lt-text)', margin: 0 }}>{recipientName}</p>
-          </div>
-
-          <div style={{ background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2, flex: 1, display: 'flex', flexDirection: 'column', marginBottom: 16 }}>
-            {/* subject */}
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--lt-rule)' }}>
-              <input
-                type="text"
-                placeholder="Subject"
-                value={subject}
-                onChange={e => setSubject(e.target.value)}
-                readOnly={isReadOnly}
-                style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-sans)', fontSize: 16, fontWeight: 500, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
-              />
-            </div>
-
-            {/* body */}
-            <div style={{ flex: 1, position: 'relative', padding: '12px 16px 36px' }}>
-              <textarea
-                ref={textareaRef}
-                placeholder="Write your message…"
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                readOnly={isReadOnly}
-                style={{ width: '100%', minHeight: 200, background: 'transparent', border: 'none', outline: 'none', resize: 'none', fontFamily: 'var(--font-sans)', fontSize: 15, lineHeight: 1.65, color: 'var(--lt-text)', caretColor: 'var(--neon-amber)' }}
-              />
-              <span style={{
-                position: 'absolute', bottom: 12, right: 16,
-                fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.04em',
-                color: wordCount > WORD_LIMIT ? 'var(--neon-accent)' : 'var(--neon-amber)',
-                textShadow: wordCount > WORD_LIMIT ? '0 0 8px var(--glow-accent)' : '0 0 8px var(--glow-amber)',
-                opacity: wordCount === 0 ? 0.35 : 1,
-                transition: 'color 0.2s',
-                pointerEvents: 'none',
-              }}>
-                {wordCount} / {WORD_LIMIT}
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── action bar ── */}
-      {currentStage === 'compose' && (
-        <div style={{ position: 'sticky', bottom: 0, background: 'var(--lt-bg)', borderTop: '1px solid var(--lt-rule)', padding: '12px 16px', display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
-          {isReadOnly ? (
-            <>
-              <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 15, color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent)' }}>sent</span>
-              <button
-                onPointerDown={() => setWithdrawPress('pressing')}
-                onPointerUp={() => releasePress(setWithdrawPress)}
-                onPointerLeave={() => { if (withdrawPress === 'pressing') releasePress(setWithdrawPress); }}
-                onClick={handleWithdraw}
-                disabled={withdrawing}
-                style={pressStyle(withdrawPress)}
-              >
-                {withdrawing ? 'Withdrawing…' : 'Withdraw'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onPointerDown={() => setSavePress('pressing')}
-                onPointerUp={() => releasePress(setSavePress)}
-                onPointerLeave={() => { if (savePress === 'pressing') releasePress(setSavePress); }}
-                onClick={handleSaveDraft}
-                disabled={!selectedRecipient || !subject || saving || submitting || !hasPermission}
-                style={{ ...pressStyle(savePress), opacity: (!selectedRecipient || !subject || !hasPermission) ? 0.4 : 1 }}
-              >
-                {saving ? 'Saving…' : 'Save draft'}
-              </button>
-              <button
-                onPointerDown={() => setSubmitPress('pressing')}
-                onPointerUp={() => releasePress(setSubmitPress)}
-                onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
-                onClick={handleSubmit}
-                disabled={!selectedRecipient || !subject || !content.trim() || saving || submitting || wordCount > WORD_LIMIT || !hasPermission}
-                style={{ ...pressStyle(submitPress, true), opacity: (!selectedRecipient || !subject || !content.trim() || !hasPermission || wordCount > WORD_LIMIT) ? 0.4 : 1 }}
-              >
-                {submitting ? 'Sending…' : 'Send'}
-              </button>
             </>
           )}
-        </div>
+        </>
       )}
-    </div>
+    </PageShell>
   );
 }
