@@ -598,10 +598,10 @@ Key Gotchas & Hard-Won Lessons
   recentlyInvited list shown only once the invitee appears in participants (the search effect re-filters them out).
   collab_submissions has NO focal_x/focal_y columns — the 1:1 FocalPointFrame crosshair on /collabs/[id]/submit is
   local display state and is never persisted; the v1 fullscreen toggle and caption char count were dropped (no v2 slot).
-- Communicate v2 (Phase 8): /communicate/[id] has NO image handling of its own — the frozen handleSaveDraft/handleSubmit
-  write `image_url: null`, so the v2 dashed "Add an image (optional)" slot is a LOCAL preview (hidden input + blob
-  preview + remove) that is never persisted. To wire it: uploadMedia() (storage.ts) + pass the URL as image_url —
-  saveCommunication already accepts it. The "Request" pill mirrors profile/page.tsx handleFollowRequest 1:1
+- Communicate v2 (Phase 8): /communicate/[id] has NO image handling — the frozen handleSaveDraft/handleSubmit write
+  `image_url: null`. The v2 dashed "Add an image (optional)" slot (a local blob preview that was never persisted) was
+  REMOVED in Sept 2026 so nothing drops an attached image silently; see Known Issues #12 before adding one back
+  (saveCommunication already accepts image_url). The "Request" pill mirrors profile/page.tsx handleFollowRequest 1:1
   (sendFollowRequest → 'pending' toast, 'approved' re-runs canCommunicateWith); no request handler existed here.
   The recipient chevron reuses the old header back-button body (setSearchTerm(name) → searchContributors → stage
   'recipient'); the footer renders only in the compose stage, as before. /communicate/new re-export untouched.
@@ -795,8 +795,8 @@ Remaining / Known Issues ⚠️
 10. Personalization pass on the print-test content (real titles/captions/essay/poem for Adam's images).
 11. Collab submit focal point — collab_submissions has no focal_x/focal_y; the crosshair is display-only. Needs schema +
     collab template read to persist.
-12. Communicate image slot — UI exists but handlers write image_url null; wire (uploadMedia + image_url) or hide, after
-    checking whether CommunicationsPage renders image_url.
+12. Communication images — UI slot removed; schema column image_url remains. Adding images requires a CommunicationsPage
+    template redesign (4 cards/page) + generator + handler wiring.
 13. Submit form caps essays at 800 words but TextSpread handles 501–1800 — align the cap or the template.
 
 User Roles

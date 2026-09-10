@@ -45,13 +45,11 @@ export default function CommunicateEditorPage() {
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // v2 additions — UI only. successMessage feeds the green Toast; requested marks the access Pill;
-  // the image slot is a LOCAL preview: handleSaveDraft/handleSubmit are frozen and write image_url: null,
-  // so an attached image is never persisted (wire uploadMedia + image_url in a follow-up).
+  // v2 additions — UI only. successMessage feeds the green Toast; requested marks the access Pill.
+  // There is no image slot: CommunicationsPage has no image frame and the frozen handlers write
+  // image_url: null, so an attach affordance would drop the image silently.
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [requested, setRequested] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const WORD_LIMIT = 250;
 
@@ -231,18 +229,6 @@ export default function CommunicateEditorPage() {
     }
   };
 
-  // ── image slot (local preview only — see the state comment above) ─────────────
-  const handleImagePick = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImagePreview(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return URL.createObjectURL(file); });
-    e.currentTarget.value = '';
-  };
-  const handleImageRemove = () => {
-    setImagePreview(prev => { if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev); return null; });
-  };
-  useEffect(() => () => { if (imagePreview?.startsWith('blob:')) URL.revokeObjectURL(imagePreview); }, [imagePreview]);
-
   // ── header (design `.top`: "‹ Dashboard" · status word · "Note" gold) ────────
   const header = (
     <>
@@ -397,29 +383,6 @@ export default function CommunicateEditorPage() {
             style={{ marginTop: 14, color: 'var(--ink)' }}
           />
           <WordCount count={wordCount} limit={WORD_LIMIT} />
-
-          {/* Image — design `.img` dashed slot; local preview only (never persisted, see state comment) */}
-          {!isReadOnly && (
-            <>
-              <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImagePick} style={{ display: 'none' }} />
-              {imagePreview ? (
-                <div style={{ marginTop: 18, position: 'relative', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)' }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imagePreview} alt="Attached image preview" style={{ display: 'block', width: '100%', maxHeight: 240, objectFit: 'cover' }} />
-                  <button type="button" aria-label="Remove image" onClick={handleImageRemove} style={{ position: 'absolute', right: 12, top: 12, width: 26, height: 26, borderRadius: '50%', borderWidth: 0, background: 'rgba(13,12,10,0.7)', display: 'grid', placeItems: 'center', color: 'var(--ink2)', font: `300 16px/1 ${SANS}`, cursor: 'pointer' }}>×</button>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  style={{ marginTop: 18, width: '100%', borderWidth: 1, borderStyle: 'dashed', borderColor: 'var(--line2)', borderRadius: 8, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, font: `400 13.5px/1 ${SANS}`, color: 'var(--ink3)', background: 'transparent', cursor: 'pointer', textAlign: 'left', WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <Icon name="camera" size={16} strokeWidth={1.5} />
-                  Add an image (optional)
-                </button>
-              )}
-            </>
-          )}
         </>
       )}
     </PageShell>
