@@ -25,13 +25,14 @@ This distinction matters for every product decision. The app should feel like **
 
 ## Design Philosophy
 
-The aesthetic references: a **print shop at dusk**, proof light tables, letterpress type, registration marks, neon-lit darkrooms.
+The app runs on **Design System v2** ("B", September 2026) — warm dark ground, ink text, one accent per meaning. Calm and purposeful, like a well-made editorial tool; the grain and registration marks remain as the print-shop signature.
 
-The single rule: every UI element participates in the neon color system or recedes into the warm dark. Nothing is neutral gray. Nothing is pure white. Nothing is default blue.
-
-The app is warm, considered, and slightly industrial. Not tech. Not startup. Print culture, digitized.
-
-This matters beyond aesthetics — the design communicates to users that this is a serious creative platform, not another content mill. The deliberate darkness, the serif type, the grain texture, the registration marks: these signal that what happens here has weight.
+- **Tokens** (globals.css, the only app tokens): `--bg` / `--bg2` ground, `--line` / `--line2` hairlines, `--ink` / `--ink2` / `--ink3` text, and five oklch accents `--orange` `--gold` `--green` `--blue` `--purple`.
+- **Fonts:** Instrument Serif (titles, names, prices, season) · Hanken Grotesk as `--font-sans` (labels, body, buttons) · JetBrains Mono as `--font-mono` (numbers, counts, status words, 10px section labels).
+- **Meaning map:** orange = content/deadline · gold = communications/invites/"yours"/prompt label · green = local collabs, primary action, selected, submitted ✓ · blue = community · purple = private. Contributor type: photography blue, art purple, writing (poetry + essay) gold.
+- **Color at rest** is a 6px dot, a 28px tinted icon tile (12% tint), or a hairline — never a filled panel, never colored body text (mono numbers excepted). Glow only on the one primary action per screen. Loading = mono "loading…"; empty = one italic serif line; no spinners; inline SVGs only.
+- **`PageShell`** is every page's root and the only place a page background is painted: full-width `--bg`, a centered 560px column with 24px side padding, `header` and sticky `footer` slots. Mobile-first at 390px, single column. Primitives live in `src/components/v2/`.
+- The v1 neon system and shadcn were retired in Phase 13; the magazine templates keep their own constants (below) and are untouched by app design work.
 
 ### Magazine Color System
 The magazine uses a two-color accent system distinct from but related to the app:
@@ -72,7 +73,7 @@ The countdown timer on the dashboard creates gentle urgency. Days remaining, not
 
 ## Contributor and Curator Roles
 
-**Contributors** are the creative engine. They submit photos, art, poetry, essays, music. They join collaborations. They send private communications to curators they want to work with.
+**Contributors** are the creative engine. They submit photos, art, poetry, essays. They join collaborations. They send private communications to curators they want to work with.
 
 **Curators** are the editorial voice. They select which contributors, collaborations, communications, and campaigns appear in their personalized edition. Each curator's magazine is different.
 
@@ -115,8 +116,6 @@ Template design system is complete. Generation pipeline is the next major build.
 - TextSpread — two pages, essay 501–1800 words
 - PoetryPage — single page, narrow centered column, auto-detected from line break density
 
-**Music:** MusicPage — single page with QR code placeholder (URL collection TBD)
-
 **Collaborations — always two pages, mode-differentiated:**
 - CollabSpreadCommunity — expansive, global feel, light background
 - CollabSpreadLocal — city watermark, dark left / light right, city as design element
@@ -138,7 +137,6 @@ Full decision tree in `src/magazine/SELECTION_LOGIC.md`. Summary:
 | Essay | ≤500 words | TextSubmission |
 | Essay | 501–1800 words | TextSpread |
 | Poetry (auto-detected) | any length | PoetryPage |
-| Music | any | MusicPage |
 | Collab, community mode | — | CollabSpreadCommunity |
 | Collab, local mode | — | CollabSpreadLocal |
 | Collab, private mode | — | CollabSpreadPrivate |
@@ -154,10 +152,18 @@ A text submission is classified as poetry if ALL of the following are true:
 Free verse without consistent line breaks falls through to essay treatment.
 
 ### Page Ordering
-Cover → FrontMatter → Photography → Art → Essay/Poetry → Music → Collabs →
-Communications → Campaigns → Colophon
+1 CoverA · 2 BlankPage · 3 FrontMatter · 4+ content · last ColophonPage.
 
-FrontMatter TOC is built last (after page numbers are assigned to all other pages).
+Content is **interspersed, not grouped by type** — submissions, collab spreads, the CommunicationsPage and
+CampaignPages are one interleaved run ordered by `orderContentForFlow()` in `generator.ts`:
+- Every two-page spread starts on an **even page** so it reads across the fold (hard rule). Content starts on
+  page 4; spreads are parity-neutral, so single pages are placed in even-sized pairs ("mortar") before spreads
+  and a lone leftover single goes to the tail.
+- No two spreads back-to-back where singles exist to separate them.
+- Content types are dispersed evenly (deterministic largest-bucket-first round-robin, not random).
+- A BlankPage filler is a last resort only (it logs "alignment fallback" and should never fire).
+
+FrontMatter TOC is built last, from the final numbered order (two-pass).
 
 ### The Decision: Web-to-Print, Not InDesign
 React components ARE the page templates. The browser IS the preview system.
@@ -181,11 +187,21 @@ Each issue exports a complete template set via `index.js` that the pipeline impo
 The `periods` table will carry a `template_set_name` field mapping to the right set.
 
 ### Print Fulfillment
-**First season:** Magcloud (manual PDF upload, no API integration needed)
-**Future:** Mixam API (automated order submission, variable data per curator)
+Printers are **output profiles** (`src/magazine/core/printProfiles.ts`), never design constraints — the
+790×1054 design canvas is the master and only the PDF output mapping changes per printer:
+- **`screen`** (default) — 790×1054pt, PNG at deviceScaleFactor 4, printer marks on. Used by `generate-test`
+  and the admin preview.
+- **`magcloud`** — 8.5×11in (612×792pt) for MagCloud's Standard magazine (8.25×10.75in trim): asymmetric bleed
+  (spine side 0), a 0.1in safety inset with a bleed underlay, no printer marks, JPEG q92 at deviceScaleFactor 3
+  (~22MB, under MagCloud's 300MB cap). **MagCloud accepted the PDF** — the system is print-validated.
+- **Next:** Mixam as a second profile (better unit price at ≥~10 copies, real paper choices), API later.
 
-Both handle RGB→CMYK. Test terracotta (#e05a28) and gold (#e8a020) in a test print
-before the first full run — warm colors can shift noticeably in CMYK.
+**First run:** MagCloud, manual upload of the `magcloud` PDF. Both printers handle RGB→CMYK; test terracotta
+(#e05a28) and gold (#e8a020) on the first physical copy — warm colors can shift noticeably in CMYK.
+
+The magazine templates' fonts (Instrument Serif / Instrument Sans / Courier Prime, loaded by the generated HTML)
+and colors (`C.` constants above) are **unchanged by the app's Design System v2 redesign** — they are a separate
+system and app design work never touches `src/magazine/`.
 
 ### Focal Points (Not Yet Implemented)
 Templates support `focal_x` and `focal_y` (0–100 float) on each image entry.
@@ -194,11 +210,6 @@ Must be added to:
 1. `content_entries` table (focal_x float, focal_y float, aspect_ratio float)
 2. `/submit` form (clickable image preview, contributor sets crop center)
 This is the highest-impact missing piece for print output quality.
-
-### Music Submission Flow (Planned)
-Contributors submit a Spotify or Bandcamp URL with their music submission.
-The URL is converted to a QR code at generation time and printed on MusicPage.
-UI addition needed on `/submit` when content_type === 'Music'.
 
 ---
 

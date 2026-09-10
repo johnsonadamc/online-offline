@@ -9,13 +9,26 @@ This document defines the full decision tree for selecting which magazine templa
 | Position | Template | Pages |
 |---|---|---|
 | 1 | CoverA | 1 |
-| 2 | FrontMatter | 1 |
-| 3–N | Content pages (see below) | variable |
-| N+1 | CommunicationsPage | 1 |
-| N+2… | CampaignPage × number of campaigns | 1 each |
+| 2 | BlankPage (inside front cover) | 1 |
+| 3 | FrontMatter (TOC) | 1 |
+| 4 … N | Content — every selected submission, collab spread, CommunicationsPage and CampaignPage, **interspersed** by `orderContentForFlow()` in `generator.ts` (see below) | variable |
 | Last | ColophonPage | 1 |
 
-FrontMatter (table of contents) must be built **last**, after all content page numbers are known.
+Content is **not grouped by type** and communications/campaigns are **not** appended at the end — everything
+between FrontMatter and the Colophon is one interleaved run governed by four rules:
+
+1. **Even-page spreads (hard rule).** Every two-page spread starts on an EVEN page so it reads across the fold.
+   Content starts on page 4 (even); spreads are parity-neutral; only single pages flip parity, so single pages
+   are placed in even-sized PAIRS ("mortar") before spreads. A lone leftover single goes to the tail.
+2. **No two spreads back-to-back** where singles exist to separate them (yields to rule 1).
+3. **Types dispersed evenly** via a deterministic largest-bucket-first round-robin (not random).
+4. **BlankPage filler only as a last resort** — logs "alignment fallback: blank filler inserted"; the ordering
+   should make this never fire.
+
+More single-page content (poems, comms, campaigns, short essays) = better dispersion.
+
+FrontMatter (table of contents) is built **last**, from the final numbered order (two-pass). Left page =
+`data.page` (even), right = `data.page + 1`.
 
 ---
 
@@ -65,14 +78,6 @@ If poetry detection is ambiguous, fall back to essay thresholds.
 
 ---
 
-## Music
-
-Always → **MusicPage** (single page).
-
-> **Known limitation**: QR code generation (Spotify/Bandcamp URL → QR) is not yet implemented. MusicPage renders a placeholder QR frame.
-
----
-
 ## Collaborations
 
 | Participation mode | Template |
@@ -116,9 +121,10 @@ The `discount` field on the `campaigns` table stores the integer value (e.g. `2`
 ## Page Number Sequencing
 
 1. Count pages for all content items (spreads = 2 pages, single-page templates = 1 page)
-2. Assign page numbers sequentially starting from 1
-3. Pass each page's number as `data.page` to its template component
-4. After all pages are numbered, build the **FrontMatter** TOC with the final page map
+2. Order the content run with `orderContentForFlow()` (see Page Structure) so every spread lands on an even page
+3. Assign page numbers sequentially: CoverA = 1, BlankPage = 2, FrontMatter = 3, content from 4, ColophonPage last
+4. Pass each page's number as `data.page` to its template component
+5. After all pages are numbered, build the **FrontMatter** TOC from the final page map (two-pass)
 
 ---
 
@@ -127,7 +133,8 @@ The `discount` field on the `campaigns` table stores the integer value (e.g. `2`
 | Item | Status |
 |---|---|
 | Poetry auto-detection | Edge cases exist for prose with heavy line breaks |
-| Music QR codes | Placeholder only — no URL→QR generation |
 | TextSpread truncation | Logic defined, truncation rendering not yet implemented |
-| `window._magazineSeason` global | Needs replacement with proper prop/context passing |
-| FrontMatter TOC | Requires two-pass page numbering (not yet wired) |
+| Spread4 with 3 images | Leaves an empty grid cell — a dedicated Spread3 template is planned; submit 4 images until then |
+
+Done and removed from this list: FrontMatter TOC (two-pass, wired), `window._magazineSeason` (Folio takes `season`
+as a prop), Music QR codes (Music is not a content type; MusicPage is deprecated).
