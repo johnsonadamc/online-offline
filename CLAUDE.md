@@ -280,7 +280,8 @@ Invite flow (unified, full-page /collabs/[id]/invite):
   → exclude self + existing). NO PostgREST embed.
 - Invite inserts collab_participants: role='member', status='active', invite_status='pending',
   invited_by=lead. Cap 8–10 total. After invite, re-fetch participants (loadData) so invitee leaves search.
-- Roster status badges: accepted (green), pending (muted), declined (orange/terracotta).
+- Roster status: v2 StatusDot per RosterRow — 7px dot, green accepted / --line2 pending / orange declined — with a
+  one-time legend (localStorage flag oo_invite_legend_seen). "lead" is the row's mono sub-line, not a chip.
 - Deadline gate: if active period end_date passed, invite controls hidden; roster stays.
 
 Accept/decline (invitee side, on dashboard):
@@ -417,7 +418,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -592,6 +593,12 @@ Key Gotchas & Hard-Won Lessons
   /collabs/[id]/invite). Do NOT add a joined map inside handleJoinClick/confirmLocalJoin to fake it — those handlers
   are byte-frozen. The per-template community/local counts loadData computes are no longer displayed (spec: no legend,
   no counts) but the queries were left untouched. Local join = Sheet of city Pills → the same confirmLocalJoin.
+- Invite + collab submit v2 (Phase 7): removing the invite page's debug console.log lines orphans the `partsError` /
+  `profileError` / `typeError` destructures they read — keep `void partsError;` in the frozen two-step fetch, drop the
+  other two, or eslint no-unused-vars fails the build. The quiet "Invited" row after handleInvite is a UI-side
+  recentlyInvited list shown only once the invitee appears in participants (the search effect re-filters them out).
+  collab_submissions has NO focal_x/focal_y columns — the 1:1 FocalPointFrame crosshair on /collabs/[id]/submit is
+  local display state and is never persisted; the v1 fullscreen toggle and caption char count were dropped (no v2 slot).
 
 ### Content / Submit
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.
