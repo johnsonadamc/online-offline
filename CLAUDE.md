@@ -475,8 +475,9 @@ Key v2 screen facts (full specs in the READMEs):
   ● Comms ○ Ads); contributor filter chips carry the 12px type icon (camera / brush / quill in the type color), not a
   dot; price ONLY in the sticky footer; the pill IS the
   toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast. The curator's own
-  participation is marked by the 5px gold dot + 10px mono gold "yours" (after a collab title and beside a city in the
-  local sheet, Phase 12). Comms tab = one row (serif title + italic desc) whose gold envelope pill (count = notes
+  participation is a BARE 5px gold dot (after a collab title and beside a city in the local sheet) with a hover title
+  "You contribute to this collaboration" — not a "yours" label; a one-time 10px mono explainer "● marks collabs you
+  contribute to" sits at the top of the Collabs tab until any tap or the next visit (localStorage oo_collabs_legend_seen). Comms tab = one row (serif title + italic desc) whose gold envelope pill (count = notes
   received) is the toggle — same toggleItem('communications-page', 'communication') call; read-only note rows below.
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.

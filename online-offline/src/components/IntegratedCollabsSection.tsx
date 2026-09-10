@@ -62,6 +62,9 @@ const cityLabel = (city: City) => city.city;
 const cityVirtualId = (templateId: string, city: City) =>
   `local_${templateId}_${cityLabel(city).replace(/\s+/g, '_')}`;
 
+// One-time first-visit explainer for the gold dot (same localStorage pattern as the invite legend).
+const LEGEND_KEY = 'oo_collabs_legend_seen';
+
 const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   periodId,
   selectedCollabs,
@@ -86,6 +89,13 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   const [descOpen, setDescOpen] = useState<Set<string>>(new Set());
   // Local pill → city Sheet; holds the template id whose cities are showing.
   const [citySheetFor, setCitySheetFor] = useState<string | null>(null);
+  // First-visit "● marks collabs you contribute to" line; dismissed by any tap or on the next visit.
+  const [showLegend, setShowLegend] = useState(false);
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem(LEGEND_KEY)) { setShowLegend(true); localStorage.setItem(LEGEND_KEY, '1'); }
+    } catch { /* storage unavailable — no legend */ }
+  }, []);
 
   // ── joined-collab helpers ────────────────────────────────────────────────────
   const userHasJoinedPrivate = (templateId: string): boolean => {
@@ -396,11 +406,11 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   // Gold "yours" marker: 5px dot + 10px mono label so the dot is self-explaining (Phase 12).
   const GoldDot = () => (
     <span
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, verticalAlign: 'middle', marginLeft: 8, font: `500 10px/1 ${MONO}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--gold)', whiteSpace: 'nowrap' }}
-    >
-      <span aria-hidden="true" style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)' }} />
-      yours
-    </span>
+      role="img"
+      aria-label="You contribute to this collaboration"
+      title="You contribute to this collaboration"
+      style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', verticalAlign: 'middle', marginLeft: 8 }}
+    />
   );
 
   const titleButton = (label: string, joined: boolean, open: boolean, onClick?: () => void) => (
@@ -421,7 +431,12 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div>
+    <div onClickCapture={showLegend ? () => setShowLegend(false) : undefined}>
+      {showLegend && (
+        <div style={{ padding: '12px 0 0', font: `400 10px/1 ${MONO}`, letterSpacing: '0.06em', color: 'var(--ink3)' }}>
+          <span style={{ color: 'var(--gold)' }}>●</span> marks collabs you contribute to
+        </div>
+      )}
       {visibleTemplates.length === 0 && (
         <p style={{ margin: 0, padding: '16px 0', font: `italic 400 14px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
           {q ? `No collaborations match “${searchTerm}”.` : 'No collaborations this period.'}
