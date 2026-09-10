@@ -194,12 +194,8 @@ export default function OnboardingPage() {
         }
       }
 
-      // Redirect
-      if (isCurator && !isContributor) {
-        window.location.href = '/curate';
-      } else {
-        window.location.href = '/submit';
-      }
+      // Redirect — every role lands on /dashboard (its Up-next strip gives the next step)
+      window.location.href = '/dashboard';
     } catch (err) {
       setSaving(false);
       console.error('[onboarding] handleEnter failed:', err);

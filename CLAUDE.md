@@ -220,7 +220,7 @@ Route: /onboarding. Guard: middleware redirects authenticated users with zero pr
 Exempt routes: /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico, /admin/*
 Flow: Step 1 name; Step 2 role + content type; Step 3 confirm + press button.
 DB writes happen on step 3 press (not incrementally): profiles upsert, profile_types insert (.maybeSingle() guard).
-Redirect after: contributor→/submit, curator→/curate, both→/submit.
+Redirect after: all roles → /dashboard (the Up-next strip surfaces "Submit your first piece" for new contributors).
 IMPORTANT: use window.location.href NOT router.push for the post-onboarding redirect (avoids
 middleware race condition before session cookie is set).
 
@@ -587,7 +587,7 @@ Key Gotchas & Hard-Won Lessons
 - volume/issue read dynamically. NO period roll-forward UI — known gap.
 
 ### Onboarding
-- window.location.href (NOT router.push) for redirect. .maybeSingle() guard on profile_types insert.
+- window.location.href (NOT router.push) for redirect; target is /dashboard for every role. .maybeSingle() guard on profile_types insert.
 - DB writes on step 3 only. Middleware exempts /onboarding, /auth/*, /api/*, /_next/*, /favicon.ico, /admin/*.
 - v2 step 2 shows Photo / Art / Writing pills; Writing opens Poetry / Essay sub-pills because profiles.content_type
   only accepts poetry|essay (never write "writing"). Roles are radio rows → handleSelectRole → handleToggleContributor.
@@ -685,6 +685,7 @@ User Roles
 
 Product Decisions
 - Music is not a content type. Musicians participate via Photography/Art/Essay/Poetry. No QR codes.
+- Onboarding lands on /dashboard for every role — orientation first, the dashboard's Up-next strip provides the next step.
 - Roles are add-only (no removal UI; handle edge cases via Supabase).
 - Subscription cancellation handled manually via email until Stripe exists.
 - Mailing address required to receive print, NOT to save curate selections (gate warns, never blocks).
