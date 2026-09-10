@@ -5,8 +5,8 @@ import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import NextImage from 'next/image';
-import { PageShell, IconTile, Icon, SERIF, SANS, MONO } from '@/components/v2';
-import type { Accent, IconName } from '@/components/v2';
+import { PageShell, IconTile, TypeTile, SectionLabel, SwipeRow, Icon, accentVar, tint, SERIF, SANS, MONO } from '@/components/v2';
+import type { Accent, IconName, CollabMode } from '@/components/v2';
 
 import {
   fetchCurrentPeriodDraft,
@@ -37,6 +37,8 @@ interface ContentSubmission {
   imageCount: number;
   format?: string;
   textExcerpt?: string;
+  /** Feature entry (else first by order_index) media_url — from the same draft fetch, no new query. */
+  thumbnail?: string;
 }
 
 interface ActiveCollab {
@@ -73,14 +75,6 @@ interface Communication {
   status: string;
   recipient: string;
   date: string;
-}
-
-interface Activity {
-  id: string;
-  type: string;
-  user: string;
-  action: string;
-  time: string;
 }
 
 interface Period {
@@ -127,13 +121,11 @@ export default function Dashboard() {
   const [contentSubmission, setContentSubmission] = useState<ContentSubmission | null>(null);
   const [activeCollabs, setActiveCollabs] = useState<ActiveCollab[]>([]);
   const [communications, setCommunications] = useState<Communication[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   // ── Visual-only UI state ────────────────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<string | null>('content');
-  const [submitPress, setSubmitPress] = useState<'rest' | 'pressing' | 'releasing'>('rest');
 
   // ── Notification helpers (unchanged) ───────────────────────────────────────────────
   const showSuccess = (message: string) => {
@@ -299,6 +291,10 @@ export default function Dashboard() {
           const fmt: string = draft.format || 'image';
           const rawBody: string = draft.content_entries?.[0]?.body || '';
           const excerpt = rawBody.length > 80 ? rawBody.slice(0, 80).trimEnd() + '…' : rawBody;
+          const entries = [...(draft.content_entries || [])].sort(
+            (a: { order_index?: number }, b: { order_index?: number }) => (a.order_index ?? 0) - (b.order_index ?? 0)
+          );
+          const thumbEntry = entries.find((e: { is_feature?: boolean }) => e.is_feature) || entries[0];
           setContentSubmission({
             id: draft.id,
             title,
@@ -309,6 +305,7 @@ export default function Dashboard() {
             imageCount: (draft.content_entries || []).length,
             format: fmt,
             textExcerpt: fmt === 'text' ? excerpt : undefined,
+            thumbnail: fmt === 'text' ? undefined : (thumbEntry?.media_url || undefined),
           });
         } else {
           setContentSubmission(null);
@@ -375,11 +372,6 @@ export default function Dashboard() {
         }
         setCommunications(allComms);
 
-        setRecentActivity([
-          { id: '1', type: 'content', user: 'Recent Curator', action: 'viewed your content', time: '2 hours ago' },
-          { id: '2', type: 'collab', user: 'Collaboration Member', action: 'joined your collaboration', time: 'Yesterday' },
-        ]);
-
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profileData } = await supabase
@@ -402,17 +394,6 @@ export default function Dashboard() {
   // ── Visual-only handlers ────────────────────────────────────────────────────────────
   const toggleSection = (id: string) => {
     setActiveSection(prev => (prev === id ? null : id));
-  };
-
-  const pressSubmit = () => {
-    if (submitPress !== 'rest') return;
-    setSubmitPress('pressing');
-    const href = contentSubmission ? `/submit?draft=${contentSubmission.id}` : '/submit';
-    setTimeout(() => {
-      setSubmitPress('releasing');
-      router.push(href);
-      setTimeout(() => setSubmitPress('rest'), 220);
-    }, 160);
   };
 
   // ── Inline dialog components (restyled) ───────────────────────────────────────────
@@ -511,33 +492,6 @@ export default function Dashboard() {
     );
   }
 
-  // ── Shared style helpers ───────────────────────────────────────────────────────────────────
-  const modeStyle: Record<string, { border: string; shadow: string; label: string }> = {
-    community: {
-      border: 'var(--neon-blue)',
-      shadow: '-3px 0 10px -2px var(--glow-blue)',
-      label: 'var(--neon-blue)',
-    },
-    local: {
-      border: 'var(--neon-green)',
-      shadow: '-3px 0 10px -2px var(--glow-green)',
-      label: 'var(--neon-green)',
-    },
-    private: {
-      border: 'var(--neon-purple)',
-      shadow: '-3px 0 10px -2px var(--glow-purple)',
-      label: 'var(--neon-purple)',
-    },
-  };
-
-  // ── SVG helpers ──
-  const XIcon = () => (
-    <svg width="11" height="11" viewBox="0 0 24 24">
-      <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" strokeWidth="2" />
-      <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" strokeWidth="2" />
-    </svg>
-  );
-
   // v2 section row (design `.brow`): 48px IconTile, serif 24 title, serif 20 count, 14px chevron.
   // Active row's tile takes the section color. Tap → toggleSection (unchanged).
   const SectionRow = ({ id, label, count, icon }: { id: string; label: string; count: number; icon: IconName }) => {
@@ -568,6 +522,39 @@ export default function Dashboard() {
     </div>
   );
 
+  // ── v2 expanded-row chrome (design `.bsub` / `.bitem` / `.piece` / `.msg` / `.badd` / `.mark`) ──
+  const modeOf = (m: string): CollabMode => (m === 'private' ? 'private' : m === 'local' ? 'local' : 'community');
+  const itemRow: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0 12px 8px' };
+  const itemTitle: React.CSSProperties = { margin: 0, font: `400 19px/1.1 ${SERIF}`, color: 'var(--ink)', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+  const subLabel: React.CSSProperties = { display: 'block', padding: '12px 0 2px 8px' };
+  const emptyLine: React.CSSProperties = { margin: 0, padding: '14px 0 4px 8px', font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' };
+  const quietAction = (warn?: boolean): React.CSSProperties => ({
+    font: `500 11px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase',
+    color: warn ? 'var(--orange)' : 'var(--ink3)', background: 'none', border: 0, padding: 0, cursor: 'pointer',
+  });
+  const outlinedBtn = (accent?: Accent): React.CSSProperties => ({
+    font: `500 11px/1 ${SANS}`, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '8px 10px', borderRadius: 5,
+    borderWidth: 1, borderStyle: 'solid', borderColor: accent ? accentVar(accent) : 'var(--line2)',
+    color: accent ? accentVar(accent) : 'var(--ink2)', background: 'transparent', cursor: 'pointer', flex: 'none',
+  });
+  // 22px right slot: green ✓ when submitted, otherwise empty (design `.mark` / `.mark.done`).
+  const Mark = ({ done }: { done: boolean }) => (
+    <span aria-label={done ? 'submitted' : undefined} style={{ width: 22, height: 22, borderRadius: '50%', display: 'grid', placeItems: 'center', flex: 'none', color: 'var(--green)' }}>
+      {done && (
+        <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ display: 'block', stroke: 'currentColor', fill: 'none', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      )}
+    </span>
+  );
+  // Footer line + 36px "+" square (design `.badd`). The whole line is one tap.
+  const AddRow = ({ label, onClick }: { label: string; onClick: () => void }) => (
+    <div role="button" onClick={onClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0 14px 8px', font: `400 13.5px/1 ${SANS}`, color: 'var(--ink3)', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+      <span>{label}</span>
+      <span aria-hidden="true" style={{ width: 36, height: 36, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', borderRadius: 8, display: 'grid', placeItems: 'center', color: 'var(--ink2)', font: `300 20px/1 ${SANS}`, flex: 'none' }}>+</span>
+    </div>
+  );
+
   // ── Season bar data (from the already-loaded period; CountdownTimer unchanged) ──
   const periodStart = currentPeriod ? new Date(currentPeriod.start_date).getTime() : 0;
   const periodEnd = currentPeriod ? new Date(currentPeriod.end_date).getTime() : 0;
@@ -577,6 +564,23 @@ export default function Dashboard() {
     : 0;
   const daysLeft = periodEnd ? Math.ceil((periodEnd - nowMs) / 86400000) : Infinity;
   const urgent = daysLeft <= 7; // the only urgency signal: stronger orange + glow
+
+  // ── Up next (new): at most one item, by priority, from data already on the page ──
+  const upNext = ((): { message: string; go: () => void } | null => {
+    const invite = activeCollabs.find(c => c.isPendingInvite);
+    if (invite) return { message: `${invite.title} invited you`, go: () => setActiveSection('collabs') };
+    if (daysLeft <= 14) {
+      const due = activeCollabs.find(c => !c.isPendingInvite && c.status !== 'submitted');
+      if (due) {
+        const n = Math.max(0, daysLeft);
+        return { message: `${due.title} due in ${n} day${n === 1 ? '' : 's'}`, go: () => router.push(`/collabs/${due.id}/submit`) };
+      }
+    }
+    const draftNote = communications.find(c => c.status === 'draft');
+    if (draftNote) return { message: `Finish your note to ${draftNote.recipient}`, go: () => router.push(`/communicate/${draftNote.id}`) };
+    if (!contentSubmission) return { message: 'Submit your first piece', go: () => router.push('/submit') };
+    return null;
+  })();
 
   const tabStyle = (on: boolean): React.CSSProperties => ({
     font: `500 13px/1 ${SANS}`,
@@ -652,91 +656,63 @@ export default function Dashboard() {
         {(
           <div style={{ padding: '6px 0 80px' }}>
 
+            {/* ── Up next strip — design `.next`: bg2 card, line2 border, faint gold radial, one item max ── */}
+            {upNext && (
+              <div style={{ margin: '12px 0 6px', padding: '16px 18px', borderRadius: 12, background: 'var(--bg2)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', display: 'flex', alignItems: 'center', gap: 14, position: 'relative', overflow: 'hidden' }}>
+                <span aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'radial-gradient(120px 60px at 0% 50%, color-mix(in oklch, var(--gold) 14%, transparent), transparent)', pointerEvents: 'none' }} />
+                <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
+                  <SectionLabel accent="gold" style={{ display: 'block', marginBottom: 6 }}>Up next</SectionLabel>
+                  <h4 style={{ margin: 0, font: `400 19px/1.15 ${SERIF}`, color: 'var(--ink)' }}>{upNext.message}</h4>
+                </div>
+                <button type="button" onClick={upNext.go} style={{ position: 'relative', font: `500 11.5px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--ink)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', padding: '10px 12px', borderRadius: 6, background: 'transparent', cursor: 'pointer', flex: 'none' }}>View</button>
+              </div>
+            )}
+
             {/* ── Content section ── */}
             <div style={{ borderBottom: '1px solid var(--line)', overflow: 'hidden' }}>
               <SectionRow id="content" label="Content" count={contentSubmission ? 1 : 0} icon="camera" />
               <Expandable id="content">
-                {/* Content item or empty state */}
+                {/* Piece — design `.piece`: 56px thumb, serif 21 title, 12.5 meta, italic orange status. Tap → /submit?draft */}
                 {contentSubmission ? (
-                  <div onClick={() => router.push(`/submit?draft=${contentSubmission.id}`)} style={{ padding: '18px 0', borderTop: '1px solid var(--rule)', cursor: 'pointer', position: 'relative' }}>
-                    <button
-                      onClick={e => { e.stopPropagation(); setDeleteContentId(contentSubmission.id); setShowDeleteContentConfirm(true); }}
-                      style={{ position: 'absolute', top: '14px', right: 0, width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
-                      <XIcon />
-                    </button>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 500, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: '8px' }}>
-                      {contentSubmission.period}
-                    </div>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', color: 'var(--paper)', lineHeight: 1.05, marginBottom: '12px', letterSpacing: '-0.01em', opacity: 0.88 }}>
-                      {contentSubmission.title}
-                    </div>
-                    {contentSubmission.format === 'text' && contentSubmission.textExcerpt && (
-                      <div style={{
-                        background: 'var(--ground-3)',
-                        border: '1px solid var(--rule-mid)',
-                        borderRadius: 2,
-                        padding: '10px 12px',
-                        marginBottom: '12px',
-                        position: 'relative',
-                      }}>
-                        <span style={{
-                          position: 'absolute', top: 6, left: 8,
-                          fontFamily: 'var(--font-mono)', fontSize: '8px',
-                          letterSpacing: '0.14em', textTransform: 'uppercase',
-                          color: 'var(--paper-5)',
-                        }}>text</span>
-                        <p style={{
-                          marginTop: 14, marginBottom: 0,
-                          fontFamily: 'var(--font-serif)', fontStyle: 'italic',
-                          fontSize: '13px', color: 'var(--paper-4)',
-                          lineHeight: 1.5, whiteSpace: 'pre-wrap',
-                        }}>
-                          {contentSubmission.textExcerpt}
+                  <>
+                    <div onClick={() => router.push(`/submit?draft=${contentSubmission.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0 14px 8px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                      <span style={{ width: 56, height: 56, borderRadius: 8, borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line2)', background: 'repeating-linear-gradient(135deg,#1e1c18 0 6px,#171613 6px 12px)', overflow: 'hidden', flex: 'none', display: 'grid', placeItems: 'center', color: 'var(--ink3)' }}>
+                        {contentSubmission.thumbnail ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={contentSubmission.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : contentSubmission.format === 'text' ? (
+                          <Icon name="quill" size={18} strokeWidth={1.5} />
+                        ) : null}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h4 style={{ margin: 0, font: `400 21px/1.1 ${SERIF}`, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{contentSubmission.title}</h4>
+                        <p style={{ margin: '5px 0 0', font: `400 12.5px/1 ${SANS}`, color: 'var(--ink3)' }}>
+                          {contentSubmission.format === 'text'
+                            ? 'Text'
+                            : `${contentSubmission.imageCount} image${contentSubmission.imageCount !== 1 ? 's' : ''}`}
+                          {' · '}
+                          <span style={{ textTransform: 'capitalize' }}>{contentSubmission.type}</span>
                         </p>
                       </div>
-                    )}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '7px' }}>
-                        {contentSubmission.format !== 'text' && (
-                          <>
-                            <span>{contentSubmission.imageCount} image{contentSubmission.imageCount !== 1 ? 's' : ''}</span>
-                            <span style={{ color: 'var(--paper-5)' }}>·</span>
-                            <span style={{ textTransform: 'capitalize' }}>{contentSubmission.type}</span>
-                          </>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {contentSubmission.status === 'submitted' && (
-                          <>
-                            <button
-                              onClick={e => { e.stopPropagation(); handleWithdrawContent(); }}
-                              style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                            >
-                              withdraw
-                            </button>
-                            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent), 0 0 20px rgba(224,90,40,0.12)' }}>submitted</span>
-                          </>
-                        )}
-                        {contentSubmission.status === 'published' && (
-                          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--neon-green)', textShadow: '0 0 8px var(--glow-green)' }}>published</span>
-                        )}
-                        {contentSubmission.status === 'draft' && (
-                          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)' }}>tap to edit</span>
-                        )}
-                      </div>
+                      {contentSubmission.status === 'submitted' && (
+                        <span style={{ font: `italic 400 13px/1 ${SERIF}`, color: 'var(--orange)', flex: 'none' }}>submitted</span>
+                      )}
+                      {contentSubmission.status === 'published' && (
+                        <span style={{ font: `italic 400 13px/1 ${SERIF}`, color: 'var(--green)', flex: 'none' }}>published</span>
+                      )}
                     </div>
-                  </div>
+                    {/* Quiet action line — design `.rowacts`: Withdraw → handleWithdrawContent · Delete → DeleteContentDialog → handleDeleteContent */}
+                    <div style={{ display: 'flex', gap: 18, padding: '0 0 12px 78px' }}>
+                      {contentSubmission.status === 'submitted' && (
+                        <button type="button" onClick={e => { e.stopPropagation(); handleWithdrawContent(); }} style={quietAction()}>Withdraw</button>
+                      )}
+                      <button type="button" onClick={e => { e.stopPropagation(); setDeleteContentId(contentSubmission.id); setShowDeleteContentConfirm(true); }} style={quietAction(true)}>Delete</button>
+                    </div>
+                  </>
                 ) : (
-                  <div onClick={() => router.push('/submit')} style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                    <div style={{ width: '48px', height: '48px', background: 'var(--ground-3)', border: '1px solid var(--rule-mid)', borderRadius: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="1.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/><circle cx="12" cy="14" r="4.5" stroke="var(--paper-4)" strokeWidth="1.5" fill="none"/></svg>
-                    </div>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>No submission this season</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-5)' }}>tap to submit work</span>
-                  </div>
+                  /* Empty: the row itself is the one tap → /submit */
+                  <AddRow label="Submit work" onClick={() => router.push('/submit')} />
                 )}
-
               </Expandable>
             </div>
 
@@ -748,158 +724,51 @@ export default function Dashboard() {
             <div style={{ borderBottom: '1px solid var(--line)', overflow: 'hidden' }}>
               <SectionRow id="collabs" label="Collaborations" count={activeCollabs.length} icon="people" />
               <Expandable id="collabs">
-                {/* Pending invitations first */}
+                {/* INVITED — Accept / Decline only; invited rows do not route */}
+                {pendingInvites.length > 0 && <SectionLabel style={subLabel}>Invited</SectionLabel>}
                 {pendingInvites.map(collab => (
-                  <div
-                    key={collab.id}
-                    style={{
-                      padding: '14px 0 14px 14px',
-                      borderTop: '1px solid var(--rule)',
-                      borderLeft: '2px solid var(--neon-purple)',
-                      boxShadow: '-3px 0 10px -2px var(--glow-purple)',
-                      background: 'rgba(168,136,232,0.04)',
-                      marginLeft: '-1px',
-                      display: 'flex',
-                      alignItems: 'flex-start',
-                      justifyContent: 'space-between',
-                      gap: '10px',
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--neon-purple)' }}>
-                          Private
-                        </span>
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-amber)', background: 'rgba(224,168,48,0.1)', border: '1px solid rgba(224,168,48,0.3)', borderRadius: '2px', padding: '1px 5px' }}>
-                          invited
-                        </span>
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '4px' }}>
-                        {collab.title}
-                      </div>
-                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ textTransform: 'capitalize' }}>{collab.type}</span>
-                        <span style={{ color: 'var(--paper-5)' }}>·</span>
-                        <span>{collab.participants} participant{collab.participants !== 1 ? 's' : ''}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-                        <button
-                          onClick={() => handleAcceptInvite(collab.id)}
-                          style={{
-                            padding: '5px 12px',
-                            background: 'rgba(168,136,232,0.12)',
-                            border: '1px solid rgba(168,136,232,0.4)',
-                            borderBottom: '2px solid rgba(168,136,232,0.6)',
-                            borderRadius: '2px',
-                            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em',
-                            textTransform: 'uppercase', color: 'var(--neon-purple)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => handleDeclineInvite(collab.id)}
-                          style={{
-                            padding: '5px 12px',
-                            background: 'transparent',
-                            border: '1px solid var(--rule-mid)',
-                            borderBottom: '2px solid var(--ground-4)',
-                            borderRadius: '2px',
-                            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.14em',
-                            textTransform: 'uppercase', color: 'var(--paper-4)',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          Decline
-                        </button>
-                      </div>
-                    </div>
+                  <div key={collab.id} style={itemRow}>
+                    <TypeTile type={modeOf(collab.mode)} />
+                    <h4 style={itemTitle}>{collab.title}</h4>
+                    <span style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                      <button type="button" onClick={() => handleAcceptInvite(collab.id)} style={outlinedBtn('gold')}>Accept</button>
+                      <button type="button" onClick={() => handleDeclineInvite(collab.id)} style={outlinedBtn()}>Decline</button>
+                    </span>
                   </div>
                 ))}
 
-                {/* Active collabs */}
-                {activeOnes.length > 0 ? (
-                  activeOnes.map(collab => {
-                    const ms = modeStyle[collab.mode] || modeStyle.community;
-                    const modeLabel = collab.mode === 'local' && collab.location
-                      ? `Local · ${collab.location}`
-                      : collab.mode.charAt(0).toUpperCase() + collab.mode.slice(1);
-                    return (
-                      <div
-                        key={collab.id}
-                        onClick={() => router.push(`/collabs/${collab.id}/submit`)}
-                        style={{
-                          padding: '14px 0 14px 14px',
-                          borderTop: '1px solid var(--rule)',
-                          borderLeft: `2px solid ${ms.border}`,
-                          boxShadow: ms.shadow,
-                          marginLeft: '-1px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          justifyContent: 'space-between',
-                          gap: '10px',
-                        }}
-                      >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: ms.label, marginBottom: '5px' }}>
-                            {modeLabel}
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '4px' }}>
-                            {collab.title}
-                          </div>
-                          <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--paper-4)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ textTransform: 'capitalize' }}>{collab.type}</span>
-                            <span style={{ color: 'var(--paper-5)' }}>·</span>
-                            <span>{collab.participants} participant{collab.participants !== 1 ? 's' : ''}</span>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                          {collab.status === 'submitted' && (
-                            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '11px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent)' }}>submitted</span>
-                          )}
-                          {collab.mode === 'private' && (
-                            <button
-                              onClick={e => { e.stopPropagation(); router.push(`/collabs/${collab.id}/invite`); }}
-                              style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.12em', textTransform: 'uppercase', color: collab.userRole === 'lead' ? 'var(--neon-purple)' : 'rgba(168,136,232,0.5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, textShadow: collab.userRole === 'lead' ? '0 0 6px var(--glow-purple)' : 'none' }}
-                            >
-                              {collab.userRole === 'lead' ? 'invite' : 'participants'}
-                            </button>
-                          )}
-                          <button
-                            onClick={e => { e.stopPropagation(); showConfirmDialog('leave', collab.id); }}
-                            style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer' }}
-                          >
-                            <XIcon />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })
-                ) : pendingInvites.length === 0 ? (
-                  <div style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>No active collaborations</span>
-                  </div>
-                ) : null}
+                {/* ACTIVE — body tap → /collabs/[id]/submit (one tap); swipe left → Leave (existing confirm) */}
+                {activeOnes.length > 0 && <SectionLabel style={subLabel}>Active</SectionLabel>}
+                {activeOnes.map(collab => (
+                  <SwipeRow key={collab.id} action="Leave" accent="orange" onAction={() => showConfirmDialog('leave', collab.id)}>
+                    <div onClick={() => router.push(`/collabs/${collab.id}/submit`)} style={{ ...itemRow, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                      <TypeTile type={modeOf(collab.mode)} />
+                      <h4 style={itemTitle}>{collab.title}</h4>
+                      {collab.mode === 'private' && (
+                        /* add-person → /collabs/[id]/invite: lead manages invites, member sees the roster (same page) */
+                        <button
+                          type="button"
+                          aria-label={collab.userRole === 'lead' ? 'Invite' : 'Participants'}
+                          title={collab.userRole === 'lead' ? 'Invite' : 'Participants'}
+                          onClick={e => { e.stopPropagation(); router.push(`/collabs/${collab.id}/invite`); }}
+                          style={{ width: 28, height: 28, borderRadius: 7, display: 'grid', placeItems: 'center', color: 'var(--ink3)', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--line)', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0 }}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style={{ display: 'block', stroke: 'currentColor', fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }}>
+                            <circle cx="10" cy="8" r="3.5" />
+                            <path d="M3 20c0-3.9 3.1-7 7-7 1.4 0 2.7.4 3.8 1.1M18 14v6M15 17h6" />
+                          </svg>
+                        </button>
+                      )}
+                      <Mark done={collab.status === 'submitted'} />
+                    </div>
+                  </SwipeRow>
+                ))}
 
-                {/* Browse CTA */}
-                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--paper-4)' }}>Join a new collaboration</span>
-                  <button
-                    onClick={() => router.push('/collabs')}
-                    style={{
-                      padding: '7px 14px', background: 'transparent',
-                      border: '1px solid var(--rule-mid)', borderRadius: '2px',
-                      fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
-                      textTransform: 'uppercase', color: 'var(--paper-3)', cursor: 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                    Browse
-                  </button>
-                </div>
+                {activeOnes.length === 0 && pendingInvites.length === 0 && (
+                  <p style={emptyLine}>No active collaborations</p>
+                )}
+
+                <AddRow label="Join a new collaboration" onClick={() => router.push('/collabs')} />
               </Expandable>
             </div>
               );
@@ -909,88 +778,35 @@ export default function Dashboard() {
             <div style={{ overflow: 'hidden' }}>
               <SectionRow id="comms" label="Communications" count={communications.length} icon="envelope" />
               <Expandable id="comms">
+                {/* design `.msg`: gold initial tile, serif 19 name, italic one-line preview, ✓ if sent. Tap → /communicate/[id]; swipe → Withdraw / Delete */}
                 {communications.length > 0 ? (
                   communications.map(comm => (
-                    <div
+                    <SwipeRow
                       key={comm.id}
-                      onClick={() => router.push(`/communicate/${comm.id}`)}
-                      style={{
-                        padding: '14px 0',
-                        borderTop: '1px solid var(--rule)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        justifyContent: 'space-between',
-                        gap: '10px',
+                      action={comm.status === 'submitted' ? 'Withdraw' : 'Delete'}
+                      accent="orange"
+                      onAction={() => {
+                        if (comm.status === 'submitted') showConfirmDialog('withdraw', comm.id);
+                        else { setDeleteCommId(comm.id); setShowDeleteConfirm(true); }
                       }}
                     >
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
-                          <span style={{
-                            fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700,
-                            letterSpacing: '0.18em', textTransform: 'uppercase',
-                            color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)',
-                          }}>to</span>
-                          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(224,168,48,0.25), transparent)' }} />
+                      <div onClick={() => router.push(`/communicate/${comm.id}`)} style={{ ...itemRow, cursor: 'pointer', WebkitTapHighlightColor: 'transparent' }}>
+                        <span aria-hidden="true" style={{ width: 28, height: 28, borderRadius: 7, display: 'grid', placeItems: 'center', color: 'var(--gold)', background: tint('gold'), flex: 'none', font: `400 13px/1 ${SERIF}` }}>
+                          {(comm.recipient || '?').charAt(0).toLowerCase()}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h4 style={{ ...itemTitle, flex: 'none' }}>{comm.recipient}</h4>
+                          <p style={{ margin: '4px 0 0', font: `italic 400 13px/1 ${SERIF}`, color: 'var(--ink3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{comm.subject}</p>
                         </div>
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: 'var(--paper)', lineHeight: 1.1, opacity: 0.88, marginBottom: '3px' }}>
-                          {comm.recipient}
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-sans)', fontStyle: 'italic', fontSize: '12px', color: 'var(--paper-4)', marginBottom: '3px' }}>
-                          {comm.subject}
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--paper-5)', letterSpacing: '0.06em' }}>
-                          {comm.date}
-                        </div>
+                        <Mark done={comm.status === 'submitted'} />
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', flexShrink: 0 }}>
-                        {comm.status === 'submitted' && (
-                          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '11px', color: 'var(--neon-accent)', textShadow: '0 0 8px var(--glow-accent)' }}>sent</span>
-                        )}
-                        {comm.status === 'draft' && (
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)' }}>draft</span>
-                        )}
-                        {comm.status === 'submitted' ? (
-                          <button
-                            onClick={e => { e.stopPropagation(); showConfirmDialog('withdraw', comm.id); }}
-                            style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-                          >
-                            withdraw
-                          </button>
-                        ) : (
-                          <button
-                            onClick={e => { e.stopPropagation(); setDeleteCommId(comm.id); setShowDeleteConfirm(true); }}
-                            style={{ width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--paper-5)', background: 'none', border: 'none', cursor: 'pointer' }}
-                          >
-                            <XIcon />
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                    </SwipeRow>
                   ))
                 ) : (
-                  <div style={{ padding: '24px 0', borderTop: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--paper-4)' }}>No messages yet this season</span>
-                  </div>
+                  <p style={emptyLine}>No messages yet this season</p>
                 )}
 
-                {/* New comm CTA */}
-                <div style={{ paddingTop: '12px', borderTop: '1px solid var(--rule)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--paper-4)' }}>Write to a curator</span>
-                  <button
-                    onClick={() => router.push('/communicate/new')}
-                    style={{
-                      padding: '7px 14px', background: 'transparent',
-                      border: '1px solid var(--rule-mid)', borderRadius: '2px',
-                      fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.14em',
-                      textTransform: 'uppercase', color: 'var(--paper-3)', cursor: 'pointer',
-                      display: 'inline-flex', alignItems: 'center', gap: '6px',
-                    }}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" strokeWidth="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" strokeWidth="2"/></svg>
-                    New
-                  </button>
-                </div>
+                <AddRow label="Write to a curator" onClick={() => router.push('/communicate/new')} />
               </Expandable>
             </div>
 

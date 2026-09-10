@@ -230,9 +230,17 @@ Curate Page — Address Gate
 - Banner dismissible per session; hasAddress = !!profile.address_line1
 - Address gate WARNS but never BLOCKS saves
 
-Dashboard — Content card
-- Populated: card tap → /submit?draft=<id>; "tap to edit" hint in the draft state; no separate submit row.
-- Empty: the card ITSELF routes to /submit on tap; the old "Submit work this season" row + button were removed.
+Dashboard — Content row (v2, Phase 4)
+- Populated: one `.piece` row — 56px thumbnail (feature entry, else first by order_index, from the same
+  fetchCurrentPeriodDraft entries; quill icon for text), serif 21 title, "N images · Type" meta, italic orange
+  "submitted" (draft shows no word). Row tap → /submit?draft=<id>. Quiet action line below: "Withdraw"
+  (submitted only → handleWithdrawContent, direct — it never had a confirm) / orange "Delete" (→ DeleteContentDialog
+  → handleDeleteContent). The × button and the "tap to edit" hint are gone.
+- Empty: a single AddRow "Submit work" + 36px "+" square; the whole row is the one tap → /submit.
+- Up next strip (above the rows, at most one, hidden if none): pending invite → "X invited you" (View opens the
+  Collaborations row) · unsubmitted collab with ≤14d left → "X due in N days" (→ that collab's submit) · draft
+  communication → "Finish your note to X" (→ /communicate/[id]) · no content → "Submit your first piece" (→ /submit).
+  Uses only data already on the page; "due" = the active period's end_date (collabs are period-scoped).
 
 Email Confirmation ✅ COMPLETE
 - Enabled in Supabase Auth; custom SMTP via Resend (smtp.resend.com:465, user resend,
@@ -282,10 +290,15 @@ Accept/decline (invitee side, on dashboard):
 - Accept → invite_status='accepted'; transitions in place to a normal active collab, no navigation.
 - Decline → invite_status='declined'; disappears from invitee's list; lead sees "declined" badge.
 
-Dashboard invite affordance:
+Dashboard invite affordance (v2, Phase 4):
 - Collab item body still routes ONE-TAP to /collabs/[id]/submit — do NOT change.
-- Private items get a SEPARATE small affordance (stopPropagation): "invite" (lead) → /collabs/[id]/invite;
-  "participants" (member) → same page read-only. Community/local: none. Leave keeps its own confirm.
+- Private rows get a SEPARATE 28px outlined add-person icon (stopPropagation) → /collabs/[id]/invite; aria-label
+  "Invite" (lead) / "Participants" (member) — same page, lead sees controls, member sees the roster. Community/local: none.
+- Leave: the × button is GONE. SwipeRow (swipe left → 84px orange "Leave"; long-press + hover "···" fallbacks)
+  → showConfirmDialog('leave', id) → the same ConfirmationDialog → leaveCollab. Communications rows use the same
+  SwipeRow: Withdraw (submitted → showConfirmDialog('withdraw')) / Delete (draft → DeleteCommDialog).
+- Invited rows: gold outlined Accept / quiet Decline (handleAcceptInvite / handleDeclineInvite); no row tap.
+  Active rows: green ✓ (22px slot) when a collab_submission is submitted, else an empty slot.
 
 Counts: dashboard + curate reflect ACCEPTED-only (invite_status='accepted' AND status='active');
 pending + declined never counted. Lead auto-accepted so fresh collab shows 1. Community/local have
@@ -404,8 +417,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile,
-/dashboard (shell — Phase 3: header, season bar, tabs, section rows; expanded section contents are still v1 until Phase 4)
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -588,8 +600,11 @@ Key Gotchas & Hard-Won Lessons
   PageShell owns the header/column/footer geometry now, and Input/Select/Textarea set border-box explicitly.
 - Dashboard v2 shell (Phase 3): the v1 section chrome was a web of helpers keyed on activeSection (sectionColors,
   iconStroke/iconFilter/iconBox*, OpenRule, ChevronIcon). Removing SectionHeader/OpenRule makes ALL of them dead —
-  delete them together or eslint no-unused-vars fails. The page has two PRE-EXISTING unused-var lint errors
-  (recentActivity, pressSubmit) that predate v2; `next build` does not run eslint, so they do not block Vercel.
+  delete them together or eslint no-unused-vars fails. (Phase 4 removed the last dead v1 bits: recentActivity,
+  pressSubmit/submitPress, modeStyle, XIcon — the page now lints clean.)
+- Dashboard v2 rows (Phase 4): a row inside SwipeRow must keep its own onClick on the INNER element — SwipeRow's
+  onClickCapture swallows the synthesized click after a swipe/long-press and closes an open row on tap, so a row
+  tap only fires when the row is at rest. Put stopPropagation on any button inside the row (add-person, Accept/Decline).
 - Profile v2 (Phase 2): the design's 28px role tile is not a primitive (IconTile is 48px, TypeTile only takes content/collab
   types) — render it inline with tint(accent) + <Icon>. Keep the old tab state out; the page is one scroll.
 - Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.
