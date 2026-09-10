@@ -417,7 +417,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -586,6 +586,12 @@ Key Gotchas & Hard-Won Lessons
 - Bulk-delete order (FK): curator_collab_selections → collab_submissions → collab_participants → collabs.
 - Curate collab rows are template-driven: a new community/local collab needs its own collab_templates row
   + period_templates link or it never appears in the curate tab.
+- Collabs v2 (Phase 6): /collabs loadData FILTERS joined templates out of the list (activeTemplateIds), so the
+  design's filled "Joined" pill can never show on a template card — it only appears on the user-created "Your
+  collabs" cards (purple "Joined" + mono "lead" sub-line; title → /collabs/[id]/submit, lead's "Invite" pill →
+  /collabs/[id]/invite). Do NOT add a joined map inside handleJoinClick/confirmLocalJoin to fake it — those handlers
+  are byte-frozen. The per-template community/local counts loadData computes are no longer displayed (spec: no legend,
+  no counts) but the queries were left untouched. Local join = Sheet of city Pills → the same confirmLocalJoin.
 
 ### Content / Submit
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.

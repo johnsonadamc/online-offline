@@ -3,8 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useSupabase } from '@/lib/supabase/useSupabase';
+import { PageShell, Input, Textarea, Toast, SERIF, SANS, MONO } from '@/components/v2';
 
-type PressState = 'rest' | 'pressing' | 'releasing';
+// v2 wordmark (design `.wordmark`): 19px serif, "//" in --ink3.
+const Wordmark = () => (
+  <div style={{ font: `400 19px/1 ${SERIF}`, color: 'var(--ink)' }}>
+    online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+  </div>
+);
 
 export default function CreateCollabPage() {
   const router = useRouter();
@@ -16,7 +22,6 @@ export default function CreateCollabPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [prompt, setPrompt] = useState('');
-  const [submitPress, setSubmitPress] = useState<PressState>('rest');
 
   useEffect(() => {
     async function checkAccess() {
@@ -35,11 +40,6 @@ export default function CreateCollabPage() {
     }
     checkAccess();
   }, []);
-
-  const releasePress = (set: (s: PressState) => void) => {
-    set('releasing');
-    setTimeout(() => set('rest'), 220);
-  };
 
   const handleCreate = async () => {
     if (!name.trim()) { setError('Name is required'); return; }
@@ -114,121 +114,72 @@ export default function CreateCollabPage() {
     }
   };
 
+  const canCreate = !submitting && !!name.trim() && !!description.trim() && !!prompt.trim();
+
+  // Header — design `.top`: "‹ Collabs", wordmark, "Private" in purple
+  const header = (
+    <>
+      <Link href="/collabs" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none', flex: 'none' }}>‹ Collabs</Link>
+      <Wordmark />
+      <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--purple)', flex: 'none' }}>Private</span>
+    </>
+  );
+
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--lt-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--paper-4)', letterSpacing: '0.08em' }}>loading…</span>
-      </div>
+      <PageShell header={header} align="center">
+        <p style={{ margin: 0, textAlign: 'center', font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)' }}>loading…</p>
+      </PageShell>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--lt-bg)' }}>
-      <div style={{ maxWidth: 390, margin: '0 auto', minHeight: '100vh', background: 'var(--lt-bg)', position: 'relative' }}>
+    <PageShell
+      header={header}
+      // Footer — design `.foot`: purple primary "Create and invite" → handleCreate (unchanged)
+      footer={(
+        <button
+          type="button"
+          onClick={() => { if (canCreate) handleCreate(); }}
+          disabled={!canCreate}
+          style={{ flex: 1, font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '15px 18px', borderRadius: 5, borderWidth: 0, textAlign: 'center', whiteSpace: 'nowrap', color: '#0d0c0a', background: 'var(--purple)', boxShadow: '0 0 28px color-mix(in oklch, var(--purple) 35%, transparent)', opacity: canCreate ? 1 : 0.4, cursor: canCreate ? 'pointer' : 'default', WebkitTapHighlightColor: 'transparent' }}
+        >
+          {submitting ? 'Creating…' : 'Create and invite'}
+        </button>
+      )}
+      columnStyle={{ paddingBottom: 32 }}
+    >
+      <Toast open={!!error} message={error} accent="orange" duration={0} onClose={() => setError('')} />
 
-        {/* Header */}
-        <div style={{ padding: '22px 26px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Link href="/collabs" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-4)', textDecoration: 'none' }}>← Collabs</Link>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, letterSpacing: '0.04em', color: 'var(--paper)', opacity: 0.88, textShadow: '0 0 20px var(--glow-paper)' }}>
-            online<span style={{ color: 'var(--paper-5)', margin: '0 1px' }}>//</span>offline
-          </span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)' }}>Create</span>
-        </div>
-
-        {/* Thick rule */}
-        <div style={{ height: 1, background: 'var(--paper)', margin: '13px 26px 0', opacity: 0.8, boxShadow: '0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08)' }} />
-
-        {/* Strip */}
-        <div style={{ padding: '9px 26px 0', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, color: 'var(--paper-3)', whiteSpace: 'nowrap' }}>Private Collab</span>
-          <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, var(--rule-mid), transparent)' }} />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--paper-5)', whiteSpace: 'nowrap' }}>Invite-only</span>
-        </div>
-
-        {/* Form */}
-        <div style={{ padding: '24px 26px 80px' }}>
-
-          {error && (
-            <div style={{ marginBottom: 16, padding: '10px 14px', background: 'rgba(224,90,40,0.08)', borderTop: '1px solid rgba(224,90,40,0.25)', borderRight: '1px solid rgba(224,90,40,0.25)', borderBottom: '1px solid rgba(224,90,40,0.25)', borderLeft: '3px solid var(--neon-accent)', borderRadius: 2 }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', color: 'var(--neon-accent)' }}>{error}</span>
-            </div>
-          )}
-
-          {/* Name */}
-          <div style={{ marginBottom: 28 }}>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="Your collab's name"
-              maxLength={80}
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', borderRadius: 0, padding: '8px 0', fontFamily: 'var(--font-serif)', fontSize: 20, color: 'var(--paper)', outline: 'none', caretColor: 'var(--neon-purple)', boxSizing: 'border-box' }}
-              onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--paper-3)'; }}
-              onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
-            />
-          </div>
-
-          {/* Description */}
-          <div style={{ marginBottom: 28 }}>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="What is this collab about?"
-              rows={3}
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', borderRadius: 0, padding: '8px 0', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 300, color: 'var(--paper-2)', outline: 'none', resize: 'none', lineHeight: 1.55, caretColor: 'var(--neon-purple)', boxSizing: 'border-box' }}
-              onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--paper-3)'; }}
-              onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
-            />
-          </div>
-
-          {/* Prompt */}
-          <div style={{ marginBottom: 36 }}>
-            <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>Prompt</label>
-            <textarea
-              value={prompt}
-              onChange={e => setPrompt(e.target.value)}
-              placeholder="What should contributors make? Give them a clear brief."
-              rows={4}
-              style={{ width: '100%', background: 'transparent', border: 'none', borderBottom: '1px solid var(--rule-mid)', borderRadius: 0, padding: '8px 0', fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 300, color: 'var(--paper-2)', outline: 'none', resize: 'none', lineHeight: 1.55, caretColor: 'var(--neon-purple)', boxSizing: 'border-box' }}
-              onFocus={e => { e.currentTarget.style.borderBottomColor = 'var(--paper-3)'; }}
-              onBlur={e => { e.currentTarget.style.borderBottomColor = 'var(--rule-mid)'; }}
-            />
-          </div>
-
-          {/* Submit */}
-          <button
-            onPointerDown={() => setSubmitPress('pressing')}
-            onPointerUp={() => { releasePress(setSubmitPress); if (!submitting && name.trim() && description.trim() && prompt.trim()) handleCreate(); }}
-            onPointerLeave={() => { if (submitPress === 'pressing') releasePress(setSubmitPress); }}
-            disabled={submitting || !name.trim() || !description.trim() || !prompt.trim()}
-            style={{
-              width: '100%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.14em', textTransform: 'uppercase',
-              color: 'var(--neon-purple)',
-              padding: '12px 20px',
-              background: submitPress === 'pressing' ? 'rgba(168,136,232,0.2)' : 'rgba(168,136,232,0.1)',
-              borderTop: `1px solid ${submitPress !== 'rest' ? 'rgba(168,136,232,0.5)' : 'rgba(168,136,232,0.35)'}`,
-              borderRight: `1px solid ${submitPress !== 'rest' ? 'rgba(168,136,232,0.5)' : 'rgba(168,136,232,0.35)'}`,
-              borderLeft: `1px solid ${submitPress !== 'rest' ? 'rgba(168,136,232,0.5)' : 'rgba(168,136,232,0.35)'}`,
-              borderBottom: `2px solid ${submitPress === 'pressing' ? 'rgba(168,136,232,0.6)' : 'rgba(168,136,232,0.45)'}`,
-              borderRadius: 2,
-              cursor: (submitting || !name.trim() || !description.trim() || !prompt.trim()) ? 'not-allowed' : 'pointer',
-              opacity: (submitting || !name.trim() || !description.trim() || !prompt.trim()) ? 0.4 : 1,
-              transform: submitPress === 'pressing' ? 'translateY(2px)' : 'translateY(0)',
-              boxShadow: submitPress === 'pressing' ? 'none' : '0 2px 0 rgba(168,136,232,0.2), 0 0 14px rgba(168,136,232,0.06)',
-              transition: submitPress === 'releasing'
-                ? 'transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, background 0.3s'
-                : 'transform 0.08s cubic-bezier(0.4,0,0.6,1), box-shadow 0.08s, background 0.08s',
-            }}
-          >
-            {submitting ? 'Creating…' : 'Create & Invite →'}
-          </button>
-
-        </div>
+      {/* Hero — design `.hero`: serif 30 + one sans line */}
+      <div style={{ paddingTop: 22 }}>
+        <h2 style={{ margin: 0, font: `400 30px/1.1 ${SERIF}`, color: 'var(--ink)' }}>Start a private collab</h2>
+        <p style={{ margin: '8px 0 0', font: `400 13px/1.4 ${SANS}`, color: 'var(--ink2)' }}>You&apos;ll lead it and invite up to 9 others.</p>
       </div>
-    </div>
+
+      {/* Exactly three fields: Name → title · Description → description · Prompt → prompt_text */}
+      <div style={{ paddingTop: 8 }}>
+        <Input
+          label="Name"
+          serif
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Your collab's name"
+          maxLength={80}
+        />
+      </div>
+      <Textarea
+        label="Description"
+        value={description}
+        onChange={e => setDescription(e.target.value)}
+        placeholder="What is this collab about? Shown publicly."
+      />
+      <Textarea
+        label="Prompt"
+        value={prompt}
+        onChange={e => setPrompt(e.target.value)}
+        placeholder="What should contributors make? Give them a clear brief."
+      />
+    </PageShell>
   );
 }
