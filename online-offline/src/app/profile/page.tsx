@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { sendFollowRequest, approveFollowRequest, rejectFollowRequest } from '@/lib/supabase/profiles';
 import { CITIES } from '@/lib/constants/cities';
 import {
-  Input, Select, Textarea, Pill, SectionLabel, Sheet, Toast, SearchField, RosterRow, Toggle,
+  PageShell, Input, Select, Textarea, Pill, SectionLabel, Sheet, Toast, SearchField, RosterRow, Toggle,
   Icon, accentVar, tint, SERIF, SANS, MONO,
 } from '@/components/v2';
 import type { Accent, IconName } from '@/components/v2';
@@ -640,19 +640,29 @@ export default function ProfilePage() {
   }
 
   return (
-    <div style={{ minHeight: '100dvh', background: 'var(--bg)', color: 'var(--ink)', display: 'flex', flexDirection: 'column', fontFamily: SANS }}>
+    <PageShell
+      // Header — design `.top`: "‹ Dashboard", wordmark, "Profile" in gold
+      header={(
+        <>
+          <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none', flex: 'none' }}>‹ Dashboard</Link>
+          <Wordmark />
+          <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--gold)', flex: 'none' }}>Profile</span>
+        </>
+      )}
+      // Footer — design `.foot`: green primary Save → updateProfile (existing upsert)
+      footer={(
+        <button
+          type="button"
+          onClick={updateProfile}
+          style={{ flex: 1, font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '15px 18px', borderRadius: 5, border: 0, textAlign: 'center', whiteSpace: 'nowrap', cursor: 'pointer', color: 'var(--bg)', background: 'var(--green)', boxShadow: '0 0 28px color-mix(in oklch, var(--green) 35%, transparent)', WebkitTapHighlightColor: 'transparent' }}
+        >
+          Save
+        </button>
+      )}
+      columnStyle={{ paddingBottom: 32 }}
+    >
       <Toast open={!!successMessage} message={successMessage} accent="green" duration={0} onClose={() => setSuccessMessage('')} />
       <Toast open={!!errorMessage} message={errorMessage} accent="orange" duration={0} onClose={() => setErrorMessage('')} />
-
-      {/* Header — design `.top`: "‹ Dashboard", wordmark, "Profile" in gold */}
-      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '22px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 38, boxSizing: 'content-box' }}>
-        <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none' }}>‹ Dashboard</Link>
-        <Wordmark />
-        <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--gold)' }}>Profile</span>
-      </div>
-
-      {/* Scroll region — design `.scroll` */}
-      <div style={{ flex: 1, width: '100%', maxWidth: 560, margin: '0 auto', padding: '0 24px 32px', boxSizing: 'border-box' }}>
 
         {/* ── 1. IDENTITY ── */}
         <div style={{ ...sectionRow, paddingTop: 22 }}>
@@ -945,21 +955,6 @@ export default function ProfilePage() {
             </div>
           </>
         )}
-      </div>
-
-      {/* Footer — design `.foot`: green primary Save → updateProfile (existing upsert) */}
-      <div style={{ position: 'sticky', bottom: 0, borderWidth: '1px 0 0 0', borderStyle: 'solid', borderColor: 'var(--line)', background: 'var(--bg)', zIndex: 5 }}>
-        <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '16px 24px 26px', display: 'flex', alignItems: 'center', gap: 12, boxSizing: 'border-box' }}>
-          <button
-            type="button"
-            onClick={updateProfile}
-            style={{ flex: 1, font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase', padding: '15px 18px', borderRadius: 5, border: 0, textAlign: 'center', whiteSpace: 'nowrap', cursor: 'pointer', color: 'var(--bg)', background: 'var(--green)', boxShadow: '0 0 28px color-mix(in oklch, var(--green) 35%, transparent)', WebkitTapHighlightColor: 'transparent' }}
-          >
-            Save
-          </button>
-        </div>
-      </div>
-
       {/* "···" sheet — Remove → handleUnfollow · Block → handleBlockUser */}
       <Sheet open={menuTarget !== null} onClose={() => setMenuFor(null)} title={menuTarget ? `${menuTarget.firstName} ${menuTarget.lastName}`.trim() : ''}>
         {menuTarget?.youFollow && (
@@ -975,6 +970,6 @@ export default function ProfilePage() {
           </button>
         )}
       </Sheet>
-    </div>
+    </PageShell>
   );
 }

@@ -36,6 +36,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         display: 'block',
         width: '100%',
         background: 'transparent',
+        boxSizing: 'border-box',
+        minWidth: 0,
         borderWidth: '0 0 1px 0',
         borderStyle: 'solid',
         borderColor: focused ? 'var(--ink)' : 'var(--line2)',

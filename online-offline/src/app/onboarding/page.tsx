@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
-import { Input, Pill, ProgressSteps, SectionLabel, SANS, SERIF, MONO } from '@/components/v2';
+import { PageShell, Input, Pill, ProgressSteps, SectionLabel, SANS, SERIF, MONO } from '@/components/v2';
 
 // Design System v2 — README-pages.md §8 "/onboarding". Ink only: green is
 // reserved for "adds to the issue" and first appears on the dashboard.
@@ -236,22 +236,33 @@ export default function OnboardingPage() {
   const heroSub: React.CSSProperties = { margin: '8px 0 0', font: `400 13px/1.4 ${SANS}`, color: 'var(--ink2)' };
 
   return (
-    <div style={{
-      minHeight: '100dvh',
-      background: 'var(--bg)',
-      color: 'var(--ink)',
-      display: 'flex',
-      flexDirection: 'column',
-      fontFamily: SANS,
-    }}>
-      {/* Header — design `.top`: wordmark + mono "N / 3" */}
-      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '22px 24px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 38, boxSizing: 'content-box' }}>
-        <Wordmark />
-        <SectionLabel>{step} / 3</SectionLabel>
-      </div>
-
-      {/* Scroll region — design `.scroll` */}
-      <div style={{ flex: 1, width: '100%', maxWidth: 560, margin: '0 auto', padding: '0 24px 32px' }}>
+    <PageShell
+      // Header — design `.top`: wordmark + mono "N / 3"
+      header={(
+        <>
+          <Wordmark />
+          <SectionLabel>{step} / 3</SectionLabel>
+        </>
+      )}
+      // Footer — design `.foot`: ghost Back + ink primary
+      footer={(
+        <>
+          {step > 1 ? (
+            <button type="button" onClick={goBack} disabled={saving} style={{ ...ghostBtn, opacity: saving ? 0.4 : 1 }}>Back</button>
+          ) : (
+            <span aria-hidden="true" style={{ ...ghostBtn, visibility: 'hidden' }}>Back</span>
+          )}
+          {step < 3 ? (
+            <button type="button" onClick={goNext} disabled={!canContinue} style={inkBtn(!canContinue)}>Continue</button>
+          ) : saving ? (
+            <div style={{ flex: 1, textAlign: 'center', font: `400 12px/1 ${MONO}`, color: 'var(--ink3)', padding: '15px 18px' }}>loading…</div>
+          ) : (
+            <button type="button" onClick={handleEnter} style={inkBtn(false)}>Enter online//offline →</button>
+          )}
+        </>
+      )}
+      columnStyle={{ paddingBottom: 32 }}
+    >
         <ProgressSteps total={3} current={step} style={{ paddingTop: 26 }} />
 
         {step === 1 && (
@@ -343,25 +354,6 @@ export default function OnboardingPage() {
             )}
           </>
         )}
-      </div>
-
-      {/* Footer — design `.foot`: ghost Back + ink primary */}
-      <div style={{ borderTop: '1px solid var(--line)', background: 'var(--bg)' }}>
-        <div style={{ width: '100%', maxWidth: 560, margin: '0 auto', padding: '16px 24px 26px', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {step > 1 ? (
-            <button type="button" onClick={goBack} disabled={saving} style={{ ...ghostBtn, opacity: saving ? 0.4 : 1 }}>Back</button>
-          ) : (
-            <span aria-hidden="true" style={{ ...ghostBtn, visibility: 'hidden' }}>Back</span>
-          )}
-          {step < 3 ? (
-            <button type="button" onClick={goNext} disabled={!canContinue} style={inkBtn(!canContinue)}>Continue</button>
-          ) : saving ? (
-            <div style={{ flex: 1, textAlign: 'center', font: `400 12px/1 ${MONO}`, color: 'var(--ink3)', padding: '15px 18px' }}>loading…</div>
-          ) : (
-            <button type="button" onClick={handleEnter} style={inkBtn(false)}>Enter online//offline →</button>
-          )}
-        </div>
-      </div>
-    </div>
+    </PageShell>
   );
 }

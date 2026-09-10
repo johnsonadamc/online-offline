@@ -43,6 +43,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       style={{
         display: 'block',
         width: '100%',
+        boxSizing: 'border-box',
+        minWidth: 0,
         background: 'transparent',
         borderWidth: '0 0 1px 0',
         borderStyle: 'solid',

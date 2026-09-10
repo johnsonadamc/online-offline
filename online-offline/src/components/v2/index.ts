@@ -24,3 +24,4 @@ export * from './StatusDot';
 export * from './Brief';
 export * from './ProgressSteps';
 export * from './Toggle';
+export * from './PageShell';

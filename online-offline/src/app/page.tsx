@@ -2,7 +2,7 @@
 import React from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
-import { Input, SANS, SERIF } from '@/components/v2';
+import { PageShell, Input, SANS, SERIF } from '@/components/v2';
 
 // Design System v2 — README-pages.md §9 "/ sign in". Ink only (green is
 // reserved for "adds to the issue"; its first appearance is the dashboard).
@@ -45,17 +45,8 @@ export default function Home() {
   };
 
   return (
-    <div style={{
-      minHeight: '100dvh',
-      background: 'var(--bg)',
-      color: 'var(--ink)',
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      padding: '40px 32px',
-      fontFamily: SANS,
-    }}>
-      <div style={{ width: '100%', maxWidth: 560, margin: '0 auto' }}>
+    <PageShell align="center" columnStyle={{ padding: '40px 32px' }}>
+      <div style={{ width: '100%', minWidth: 0 }}>
         {/* Wordmark — design `.center .wm`: 34px serif, "//" in --ink3 */}
         <h1 style={{
           margin: 0,
@@ -137,6 +128,6 @@ export default function Home() {
           </button>
         </div>
       </div>
-    </div>
+    </PageShell>
   );
 }

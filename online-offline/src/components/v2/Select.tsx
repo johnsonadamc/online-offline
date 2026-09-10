@@ -34,6 +34,8 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         style={{
           display: 'block',
           width: '100%',
+          boxSizing: 'border-box',
+          minWidth: 0,
           appearance: 'none',
           WebkitAppearance: 'none',
           background: 'transparent',

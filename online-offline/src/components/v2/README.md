@@ -15,6 +15,11 @@ community blue, local green, private purple). `icons.tsx` holds the inline SVG s
 
 ## Props
 
+- **PageShell** — `children` (the column), `header?` (column-width `.top` row:
+  back link / wordmark / label), `footer?` (sticky `.foot` slot), `align?: 'top'|'center'`,
+  `style?`, `columnStyle?`. Root: min-height 100dvh, width 100%, `--bg`, `--ink`,
+  overflow-x hidden, border-box. Column: max 560 centered, `padding: 0 24px`, border-box,
+  min-width 0. **Every v2 page root; never set page background elsewhere.**
 - **IconTile** — `icon?: IconName` (or custom SVG children), `accent?` (active:
   accent border + icon + 10% tint), `style?`. 48px, r10, `--bg2`.
 - **TypeTile** — `type: TileType`, `size?` (default 28, r7 scales), `children?`

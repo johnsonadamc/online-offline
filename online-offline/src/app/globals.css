@@ -104,7 +104,7 @@
   html,
   body {
     @apply text-foreground;
-    background: var(--ground);
+    background: var(--bg); /* v2 page ground; visually identical to v1's --lt-bg, removes the halo beyond any page root */
     font-family: var(--font-sans, 'Instrument Sans', sans-serif);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

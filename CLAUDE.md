@@ -443,7 +443,10 @@ Mobile-first 390px, single column, max ~560px centered. Sheets: 240ms slide, 45%
 v2 primitives live in src/components/v2/ (built in Phase 0; presentational only, no data fetching):
 IconTile, TypeTile, Pill (icon+count and label variants), SectionLabel, Sheet, Toast, SwipeRow, Input,
 Select, Textarea, WordCount, SegmentedToggle, ChoiceCard, FocalPointFrame, ThumbStrip, SearchField,
-RosterRow, StatusDot, Brief, ProgressSteps, Toggle. Use these; do not restyle shadcn in place.
+RosterRow, StatusDot, Brief, ProgressSteps, Toggle, PageShell. Use these; do not restyle shadcn in place.
+Every v2 page root is <PageShell>; page background is never set on an inner container. (PageShell = root
+min-height 100dvh / width 100% / --bg / overflow-x hidden + centered 560px column, padding 0 24px, border-box,
+min-width 0; `header` and sticky `footer` slots. body background in globals.css is --bg as well.)
 
 Key v2 screen facts (full specs in the READMEs):
 - Dashboard: section subtitles removed (count + "Up next" strip replace them); Up next shows at most one
@@ -578,8 +581,10 @@ Key Gotchas & Hard-Won Lessons
 ### Design
 - Never mix border shorthand with borderBottom on same element. No lucide-react (inline SVGs).
 - v2 wordmark in JSX: write the slashes as {'//'} — a bare // text node fails eslint react/jsx-no-comment-textnodes.
-- _design/redesign-b/PLAYBOOK.md does NOT exist in the repo (only README.md, README-pages.md + the HTML frames). Phase
-  specs come from README-pages.md + the frames' CSS; the per-phase gates (A/B/C) are enforced manually per session.
+- Mobile overflow culprit (fixed Sept 2026): a `width: 100%` row with 24px side padding and an explicit
+  `boxSizing: 'content-box'` (the Phase 1–2 header rows) is 48px wider than a 390px viewport — the page scrolled
+  sideways and the body's v1 --ground showed as a grey halo. Never set content-box on a padded 100%-wide element;
+  PageShell owns the header/column/footer geometry now, and Input/Select/Textarea set border-box explicitly.
 - Profile v2 (Phase 2): the design's 28px role tile is not a primitive (IconTile is 48px, TypeTile only takes content/collab
   types) — render it inline with tint(accent) + <Icon>. Keep the old tab state out; the page is one scroll.
 - Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.
