@@ -12,8 +12,6 @@ import { getCurrentPeriod } from '@/lib/supabase/content';
 import { saveCuratorSelections } from '@/lib/supabase/curation';
 import { sendFollowRequest } from '@/lib/supabase/profiles';
 
-const CURATE_LEGEND_KEY = 'oo_curate_legend_seen';
-
 type BarKind = 'contributor' | 'community' | 'local' | 'private' | 'comms' | 'ad';
 const barColor: Record<BarKind, string> = {
   contributor: 'var(--orange)',
@@ -173,10 +171,9 @@ export default function CurationInterface() {
   // ── Visual-only UI state ───────────────────────────────────────────────────
   const [activeSection, setActiveSection] = useState<'contributors' | 'collabs' | 'comms' | 'ads'>('contributors');
   const [searchOpen, setSearchOpen] = useState(false);
-  // Contributors tab: filter chips (client-side on contentType; Writing = poetry + essay)
-  // and the one-time dot legend (localStorage flag). Neither touches the save payload.
+  // Contributors tab: filter chips (client-side on contentType; Writing = poetry + essay).
+  // Never touches the save payload.
   const [typeFilter, setTypeFilter] = useState<'all' | 'photography' | 'art' | 'writing'>('all');
-  const [showLegend, setShowLegend] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; accent: 'green' | 'orange' } | null>(null);
   // Page meter: the selection keys that were already saved when the page loaded
@@ -591,15 +588,6 @@ export default function CurationInterface() {
 
   const closeToast = useCallback(() => setToast(null), []);
 
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem(CURATE_LEGEND_KEY)) {
-        setShowLegend(true);
-        localStorage.setItem(CURATE_LEGEND_KEY, '1');
-      }
-    } catch { /* storage unavailable — no legend */ }
-  }, []);
-
   // ── Loading state — v2: mono "loading…" inside the PageShell ──────────────
   if (loading) {
     return (
@@ -655,16 +643,24 @@ export default function CurationInterface() {
       c.bio.toLowerCase().includes(searchTerm.toLowerCase()))
     .filter(c => matchesFilter(c.contentType));
 
-  // Design `.ccard.on .chk` / `.acard.on .chk`: 22px green disc, glow, ink check.
-  const checkDisc: React.CSSProperties = {
+  // Selected state takes the item's composition color so cards match the meter legend
+  // (an intentional override of the README's "selected = green"): content = orange disc
+  // with glow; ads = quiet --ink2 outline, no glow, like the outlined ad bars.
+  const checkDiscBase: React.CSSProperties = {
     position: 'absolute', top: 10, right: 10, zIndex: 2, width: 22, height: 22, borderRadius: '50%',
-    background: 'var(--green)', display: 'grid', placeItems: 'center',
-    boxShadow: '0 0 14px color-mix(in oklch, var(--green) 45%, transparent)',
+    boxSizing: 'border-box', display: 'grid', placeItems: 'center',
   };
-  const checkMark: React.CSSProperties = {
-    width: 8, height: 4, borderLeft: '1.5px solid var(--bg)', borderBottom: '1.5px solid var(--bg)',
+  const contentCheck: React.CSSProperties = {
+    ...checkDiscBase, background: 'var(--orange)',
+    boxShadow: '0 0 12px color-mix(in oklch, var(--orange) 40%, transparent)',
+  };
+  const adCheck: React.CSSProperties = {
+    ...checkDiscBase, background: 'transparent', borderWidth: 1, borderStyle: 'solid', borderColor: 'var(--ink2)',
+  };
+  const checkMark = (color: string): React.CSSProperties => ({
+    width: 8, height: 4, borderLeft: `1.5px solid ${color}`, borderBottom: `1.5px solid ${color}`,
     transform: 'rotate(-45deg) translate(1px, -1px)',
-  };
+  });
   // Design `.acard .ban.a/.b/.c/.d`: dark brand-tinted gradients, rotated by index.
   const adGradients = [
     'linear-gradient(160deg, #2a2218, #15120e)',
@@ -844,13 +840,14 @@ export default function CurationInterface() {
         </button>
       </div>
 
-      {/* Meter legend — always visible, 10px mono --ink3; ads are outlined (a paid page) */}
-      <div aria-hidden="true" style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', paddingTop: 10, font: `400 10px/1 ${MONO}`, color: 'var(--ink3)' }}>
+      {/* Meter legend — always visible, one line: 9px mono --ink3; ads are outlined (a paid page).
+          nowrap + horizontal scroll (scrollbar hidden) as a last resort instead of wrapping. */}
+      <div aria-hidden="true" style={{ display: 'flex', flexWrap: 'nowrap', gap: 10, paddingTop: 10, overflowX: 'auto', scrollbarWidth: 'none', font: `400 9px/1 ${MONO}`, letterSpacing: '0.06em', color: 'var(--ink3)' }}>
         {([
-          ['Contributors', 'contributor'], ['Community', 'community'], ['Local', 'local'],
+          ['Content', 'contributor'], ['Community', 'community'], ['Local', 'local'],
           ['Private', 'private'], ['Comms', 'comms'], ['Ads', 'ad'],
         ] as [string, BarKind][]).map(([label, kind]) => (
-          <span key={kind} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+          <span key={kind} style={{ display: 'flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flex: 'none' }}>
             <i style={{ display: 'block', width: 6, height: 6, borderRadius: '50%', boxSizing: 'border-box', background: kind === 'ad' ? 'transparent' : barColor[kind], borderWidth: kind === 'ad' ? 1 : 0, borderStyle: 'solid', borderColor: barColor[kind] }} />
             {label}
           </span>
@@ -906,10 +903,10 @@ export default function CurationInterface() {
               key={id}
               type="button"
               onClick={() => { setActiveSection(id); setSearchTerm(''); }}
-              style={{ position: 'relative', flex: '1 1 0', minWidth: 'max-content', boxSizing: 'border-box', display: 'flex', gap: 6, alignItems: 'baseline', justifyContent: 'center', textAlign: 'center', background: 'transparent', border: 0, padding: '0 4px 12px', marginBottom: -1, cursor: 'pointer', font: `500 12px/1 ${SANS}`, letterSpacing: '0.12em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
+              style={{ position: 'relative', flex: '1 1 0', minWidth: 'max-content', boxSizing: 'border-box', display: 'flex', gap: 4, alignItems: 'baseline', justifyContent: 'center', textAlign: 'center', background: 'transparent', border: 0, padding: '0 4px 12px', marginBottom: -1, cursor: 'pointer', font: `500 11px/1 ${SANS}`, letterSpacing: '0.08em', textTransform: 'uppercase', color: on ? 'var(--ink)' : 'var(--ink3)', whiteSpace: 'nowrap', transition: 'color 0.2s', WebkitTapHighlightColor: 'transparent' }}
             >
               {label}
-              <em style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', fontStyle: 'normal' }}>{count}</em>
+              <span style={{ font: `400 10px/1 ${MONO}`, letterSpacing: 0, color: 'var(--ink3)', flex: 'none' }}>{count}</span>
               {on && <span aria-hidden="true" style={{ position: 'absolute', left: 4, right: 4, bottom: 0, height: 1, background: 'var(--ink)' }} />}
             </button>
           );
@@ -949,18 +946,6 @@ export default function CurationInterface() {
                     })}
                   </div>
 
-                  {/* One-time dot legend (localStorage oo_curate_legend_seen) */}
-                  {showLegend && (
-                    <div style={{ display: 'flex', gap: 18, paddingTop: 18, font: `400 11.5px/1 ${SANS}`, color: 'var(--ink3)' }}>
-                      {([['Photo', 'blue'], ['Art', 'purple'], ['Writing', 'gold']] as [string, Accent][]).map(([label, a]) => (
-                        <span key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <i aria-hidden="true" style={{ width: 7, height: 7, borderRadius: '50%', background: accentVar(a), display: 'block' }} />
-                          {label}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
                   {visibleCreators.length === 0 && visibleLocked.length === 0 ? (
                     <p style={{ margin: 0, paddingTop: 24, font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
                       {searchTerm ? `No contributors match “${searchTerm}”.` : 'No contributors yet.'}
@@ -989,14 +974,14 @@ export default function CurationInterface() {
                             style={{
                               position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden',
                               borderRadius: 12, background: 'var(--bg2)',
-                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--green)' : 'var(--line)',
+                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--orange)' : 'var(--line)',
                               opacity: dimmed ? 0.4 : 1,
                               cursor: dimmed ? 'default' : 'pointer',
                               transition: 'border-color 150ms, opacity 150ms',
                               WebkitTapHighlightColor: 'transparent',
                             } as React.CSSProperties}
                           >
-                            {isSelected && <span aria-hidden="true" style={checkDisc}><span style={checkMark} /></span>}
+                            {isSelected && <span aria-hidden="true" style={contentCheck}><span style={checkMark('var(--bg)')} /></span>}
 
                             {/* Cover — identity banner → avatar → type-tinted gradient + type icon */}
                             <div style={{ height: 78, flex: 'none', display: 'grid', placeItems: 'center', overflow: 'hidden', color: accentVar(accent), opacity: 0.9, background: `linear-gradient(135deg, color-mix(in oklch, ${accentVar(accent)} 14%, var(--bg2)), var(--bg2))` }}>
@@ -1192,14 +1177,14 @@ export default function CurationInterface() {
                             style={{
                               position: 'relative', display: 'flex', flexDirection: 'column', overflow: 'hidden',
                               borderRadius: 12, background: 'var(--bg2)',
-                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--green)' : 'var(--line)',
+                              borderWidth: 1, borderStyle: 'solid', borderColor: isSelected ? 'var(--ink2)' : 'var(--line)',
                               opacity: dimmed ? 0.4 : 1,
                               cursor: dimmed ? 'default' : 'pointer',
                               transition: 'border-color 150ms, opacity 150ms',
                               WebkitTapHighlightColor: 'transparent',
                             } as React.CSSProperties}
                           >
-                            {isSelected && <span aria-hidden="true" style={checkDisc}><span style={checkMark} /></span>}
+                            {isSelected && <span aria-hidden="true" style={adCheck}><span style={checkMark('var(--ink2)')} /></span>}
 
                             {/* Cover — brand image, else the name as a wordmark on a dark brand-tinted gradient */}
                             <div style={{ height: 96, flex: 'none', position: 'relative', display: 'grid', placeItems: 'center', overflow: 'hidden', background: adGradients[i % adGradients.length] }}>

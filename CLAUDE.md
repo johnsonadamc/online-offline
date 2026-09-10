@@ -448,7 +448,9 @@ reserved for "adds to the issue"; its first appearance is on the dashboard.
 
 Rules: color at rest is a 6px dot, a 28px tinted icon tile (12% tint), or a hairline — never a filled
 panel, never colored body text (mono numbers excepted). Active section: icon tile takes the section color
-(border + icon + 10% tint), no glowing underline. Glow ONLY on the one primary action per screen
+(border + icon + 10% tint), no glowing underline. Selected state uses the item's composition color (content
+orange, collab mode color, comms gold, ads outlined ink2) — an intentional override of the README's
+"selected = green"; green means only local collabs and the primary Save. Glow ONLY on the one primary action per screen
 (Save/Submit/Send) and newly-filled page-meter bars. Radii: rows 0 · icon tile 10 · type tile 7 · pill
 full · cards 12 · buttons 5 · sheet 20 top. Inputs: borderless, bottom hairline, ink on focus. Loading =
 mono "loading…". Empty = one italic serif line. No spinners. No lucide-react — inline SVGs.
@@ -468,8 +470,9 @@ Key v2 screen facts (full specs in the READMEs):
   item by priority (pending invite → collab due ≤14d → draft communication → no content yet); Leave/
   Withdraw/Delete are swipe-left actions with long-press + hover "···" fallbacks; collab row body is still
   one tap to /collabs/[id]/submit.
-- Curate: page meter (20 bars) colored by composition — contributors orange, collabs by mode, comms gold, ads
-  outlined ink2; glow = added this session; dot legend beneath; price ONLY in the sticky footer; the pill IS the
+- Curate: page meter (20 bars) colored by composition — content orange, collabs by mode, comms gold, ads
+  outlined ink2; glow = added this session; one-line dot legend beneath (● Content ● Community ● Local ● Private
+  ● Comms ○ Ads); price ONLY in the sticky footer; the pill IS the
   toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast.
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.
@@ -687,6 +690,10 @@ Key Gotchas & Hard-Won Lessons
   (community → local → private, parsed from the id shape), comms, ads. TABS: at 390px the column is 342px and
   "CONTRIBUTORS 9" at 12px/.12em is ~119px, wider than a quarter — cells are flex 1 1 0 with min-width max-content
   (no gap), so the three short tabs share the remainder equally and the row never exceeds the column.
+- Curate polish (post-meter): tab labels are 11px/.08em with the count as a separate 10px mono span (gap 4) so all four
+  read at 390px; the meter legend is ONE line (9px mono .06em, gap 10, nowrap, overflow-x auto with the scrollbar hidden
+  — it scrolls rather than wraps). Contributor cards select in --orange (glow 12px/.4), ad cards in an --ink2 outline
+  (no glow) to match the meter; the chips legend + its oo_curate_legend_seen flag are gone (the chips carry the dots).
 
 ### Magazine Templates
 - ImageFrame hides crosshair/dot/label when real image present; its inner <img> hardcodes object-fit cover
