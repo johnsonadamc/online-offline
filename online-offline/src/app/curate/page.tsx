@@ -159,6 +159,10 @@ export default function CurationInterface() {
   const [selectedCommunications, setSelectedCommunications] = useState<string[]>([]);
   const [selectedCollabs, setSelectedCollabs] = useState<string[]>([]);
   const [privateCollabTemplateMap, setPrivateCollabTemplateMap] = useState<Record<string, string>>({});
+  // Read-only display names for collab selection ids, reported by IntegratedCollabsSection
+  // (Phase 11) so the meter sheet can label picks by name. Never written anywhere.
+  const [collabLabels, setCollabLabels] = useState<Record<string, string>>({});
+  void privateCollabTemplateMap;
   const [searchTerm, setSearchTerm] = useState('');
   const [savingSelections, setSavingSelections] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -670,17 +674,19 @@ export default function CurationInterface() {
   ];
 
   // ── v2 shell helpers (presentational; every action below is an existing handler) ──
-  // Label for a collab selection id in the meter sheet. Template names live in
-  // IntegratedCollabsSection (Phase 11) — until then the id's shape is the label.
+  // Label for a collab selection id in the meter sheet: the name reported by
+  // IntegratedCollabsSection (template name, "· City" for local) when it has
+  // loaded, else the id's shape. Read-only — the id itself is what gets saved.
   const collabLabel = (id: string): { name: string; sub: string; accent: Accent } => {
-    if (id.startsWith('community_')) return { name: 'Community collaboration', sub: 'community', accent: 'blue' };
+    const known = collabLabels[id];
+    if (id.startsWith('community_')) return { name: known ?? 'Community collaboration', sub: 'community', accent: 'blue' };
     if (id.startsWith('local_')) {
       const rest = id.slice('local_'.length);
       const sep = rest.indexOf('_');
       const city = sep === -1 ? '' : rest.slice(sep + 1).replace(/_/g, ' ');
-      return { name: city ? `Local collaboration · ${city}` : 'Local collaboration', sub: 'local', accent: 'green' };
+      return { name: known ?? (city ? `Local collaboration · ${city}` : 'Local collaboration'), sub: 'local', accent: 'green' };
     }
-    return { name: 'Private collaboration', sub: 'private', accent: 'purple' };
+    return { name: known ?? 'Private collaboration', sub: 'private', accent: 'purple' };
   };
 
   // Everything currently selected (the old "Added to magazine" list), one row
@@ -1047,9 +1053,6 @@ export default function CurationInterface() {
               {/* ══ COLLABORATIONS ══ */}
               {activeSection === 'collabs' && (
                 <div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: '10px' }}>
-                    Collaborations{currentPeriod ? ` · ${currentPeriod.season} ${currentPeriod.year}` : ''}
-                  </div>
                   <IntegratedCollabsSection
                     periodId={currentPeriod?.id || ''}
                     selectedCollabs={selectedCollabs}
@@ -1057,6 +1060,7 @@ export default function CurationInterface() {
                     remainingContent={remainingContent}
                     onPrivateCollabMap={setPrivateCollabTemplateMap}
                     searchTerm={searchTerm}
+                    onCollabLabels={setCollabLabels}
                   />
                 </div>
               )}

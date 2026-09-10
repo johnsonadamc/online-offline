@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { getCitiesWithParticipantCounts } from '@/lib/supabase/collabLibrary';
+import { Pill, Sheet, SectionLabel, Brief, SERIF, SANS, MONO } from '@/components/v2';
 
 interface CollabData {
   id: string;
@@ -32,6 +33,9 @@ interface CollabsSectionProps {
   remainingContent: number;
   onPrivateCollabMap?: (map: Record<string, string>) => void;
   searchTerm?: string;
+  /** Read-only: display names keyed by selection id (community_<tid>, local_<tid>_<City>,
+   *  or a collab id) so the parent's meter sheet can label picks by name. Nothing written. */
+  onCollabLabels?: (labels: Record<string, string>) => void;
 }
 
 interface City {
@@ -53,6 +57,11 @@ interface ImportedCollab {
   [key: string]: unknown;
 }
 
+// Pure helpers (no state) — the local selection id shape the save path parses.
+const cityLabel = (city: City) => city.city;
+const cityVirtualId = (templateId: string, city: City) =>
+  `local_${templateId}_${cityLabel(city).replace(/\s+/g, '_')}`;
+
 const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   periodId,
   selectedCollabs,
@@ -60,6 +69,7 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
   remainingContent,
   onPrivateCollabMap,
   searchTerm = '',
+  onCollabLabels,
 }) => {
   const supabase = useSupabase();
 
@@ -74,7 +84,8 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [descOpen, setDescOpen] = useState<Set<string>>(new Set());
-  const [localOpen, setLocalOpen] = useState<Set<string>>(new Set());
+  // Local pill → city Sheet; holds the template id whose cities are showing.
+  const [citySheetFor, setCitySheetFor] = useState<string | null>(null);
 
   // ── joined-collab helpers ────────────────────────────────────────────────────
   const userHasJoinedPrivate = (templateId: string): boolean => {
@@ -284,17 +295,10 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
 
   // ── UI helpers ───────────────────────────────────────────────────────────────
   const toggleDesc = (id: string) => setDescOpen(prev => {
-    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
   });
-
-  const toggleLocalExpand = (id: string) => setLocalOpen(prev => {
-    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
-  });
-
-  const cityLabel = (city: City) => city.city;
-
-  const cityVirtualId = (templateId: string, city: City) =>
-    `local_${templateId}_${cityLabel(city).replace(/\s+/g, '_')}`;
 
   const isCityMine = (templateId: string, city: City): boolean =>
     joinedCollabs.some(c => {
@@ -331,45 +335,38 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
       return false;
     });
 
-  const getSelectionLabel = (id: string): string => {
-    if (id.startsWith('community_')) {
-      const t = templates.find(t => t.id === id.slice('community_'.length));
-      return `${t?.name ?? 'Unknown'} — Community`;
-    }
-    if (id.startsWith('local_')) {
-      const rest = id.slice('local_'.length);
-      const sep = rest.indexOf('_');
-      if (sep === -1) return id;
-      const t = templates.find(t => t.id === rest.slice(0, sep));
-      const city = rest.slice(sep + 1).replace(/_/g, ' ');
-      return `${t?.name ?? 'Unknown'} — Local (${city})`;
-    }
-    const joined = joinedCollabs.find(c => c.id === id);
-    if (joined) {
-      const t = templates.find(t => t.id === joined.template_id);
-      const name = t?.name ?? joined.title;
-      if (joined.participation_mode === 'community') return `${name} — Community`;
-      if (joined.participation_mode === 'local') return `${name} — Local (${joined.location ?? ''})`;
-      return `${name} — Private`;
-    }
-    return id;
-  };
+  // ── Report display names to the parent (read-only; the meter sheet labels
+  //    collab picks by name instead of by id shape). Keys are the exact selection
+  //    ids this component emits — nothing about what is written changes. ──────
+  useEffect(() => {
+    if (!onCollabLabels) return;
+    const labels: Record<string, string> = {};
+    templates.forEach(t => {
+      labels[`community_${t.id}`] = t.name;
+      (citiesByTemplate[t.id] ?? []).forEach(city => {
+        labels[cityVirtualId(t.id, city)] = `${t.name} · ${city.city}`;
+      });
+    });
+    joinedCollabs.forEach(c => {
+      const t = templates.find(x => x.id === c.template_id);
+      const name = t?.name ?? c.title;
+      labels[c.id] = c.participation_mode === 'local' && c.location ? `${name} · ${c.location}` : name;
+    });
+    onCollabLabels(labels);
+  }, [templates, citiesByTemplate, joinedCollabs, onCollabLabels]);
 
   // ── early returns ────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ padding: '32px 0', textAlign: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.08em', color: 'var(--paper-4)' }}>loading…</span>
-      </div>
+      <p style={{ margin: 0, padding: '24px 0', font: `400 12px/1 ${MONO}`, color: 'var(--ink3)' }}>loading…</p>
     );
   }
 
   if (error) {
     return (
-      <div style={{ margin: '16px 14px', padding: '14px', background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 2, textAlign: 'center' }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: '#ef4444', marginBottom: 4 }}>{error}</p>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)' }}>Please try again later.</p>
-      </div>
+      <p style={{ margin: 0, padding: '24px 0', font: `italic 400 14px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+        {error}. Please try again later.
+      </p>
     );
   }
 
@@ -388,328 +385,220 @@ const IntegratedCollabsSection: React.FC<CollabsSectionProps> = ({
       )
     : sortedTemplates;
 
-  // ── checkmark SVG (reused across all checkboxes) ────────────────────────────
-  const Checkmark = () => (
-    <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-      <polyline points="1,3.5 3.5,6 8,1" stroke="#0f0e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+  // User-created private collabs (template_id = null) — never inside the template loop.
+  const userCreated = joinedCollabs.filter(c => c.participation_mode === 'private' && !c.template_id);
+
+  // City sheet target (local pill → Sheet). Each city row is exactly the old per-city toggle.
+  const sheetTemplate = citySheetFor ? templates.find(t => t.id === citySheetFor) ?? null : null;
+  const sheetCities = sheetTemplate ? (citiesByTemplate[sheetTemplate.id] ?? []) : [];
+
+  // ── v2 pieces (design `.bcol` / `.pills` / `.city`) ──────────────────────────
+  const GoldDot = () => (
+    <span
+      aria-label="you contribute"
+      style={{ display: 'inline-block', width: 5, height: 5, borderRadius: '50%', background: 'var(--gold)', verticalAlign: 'middle', marginLeft: 8 }}
+    />
+  );
+
+  const titleButton = (label: string, joined: boolean, open: boolean, onClick?: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={onClick ? open : undefined}
+      style={{
+        flex: 1, minWidth: 0, textAlign: 'left', background: 'transparent', borderWidth: 0, padding: 0,
+        cursor: onClick ? 'pointer' : 'default', font: `400 20px/1.15 ${SERIF}`, color: 'var(--ink)',
+        WebkitTapHighlightColor: 'transparent',
+      }}
+    >
+      {label}
+      {joined && <GoldDot />}
+    </button>
   );
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* template list */}
-      <div style={{ padding: '4px 14px 6px' }}>
-        {visibleTemplates.length === 0 && (
-          <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)', padding: '16px 4px' }}>
-            {q ? `No collaborations match "${searchTerm}".` : 'No collaborations this period.'}
-          </p>
-        )}
+      {visibleTemplates.length === 0 && (
+        <p style={{ margin: 0, padding: '16px 0', font: `italic 400 14px/1.4 ${SERIF}`, color: 'var(--ink3)' }}>
+          {q ? `No collaborations match “${searchTerm}”.` : 'No collaborations this period.'}
+        </p>
+      )}
 
-        {visibleTemplates.map((template, idx) => {
-          const isDescOpen     = descOpen.has(template.id);
-          const isLocalExpanded = localOpen.has(template.id);
-          const hasJoined      = userHasJoinedPrivate(template.id) || userHasJoinedCommunity(template.id) || userHasJoinedLocal(template.id);
+      {visibleTemplates.map((template) => {
+        const isDescOpen     = descOpen.has(template.id);
+        const hasJoined      = userHasJoinedPrivate(template.id) || userHasJoinedCommunity(template.id) || userHasJoinedLocal(template.id);
 
-          const communityVId    = `community_${template.id}`;
-          const joinedCommId    = getJoinedCollabId(template.id, 'community');
-          const joinedPrivId    = getJoinedCollabId(template.id, 'private');
-          const hasJoinedComm   = userHasJoinedCommunity(template.id);
-          const hasJoinedPriv   = userHasJoinedPrivate(template.id);
+        const communityVId    = `community_${template.id}`;
+        const joinedCommId    = getJoinedCollabId(template.id, 'community');
+        const joinedPrivId    = getJoinedCollabId(template.id, 'private');
+        const hasJoinedComm   = userHasJoinedCommunity(template.id);
+        const hasJoinedPriv   = userHasJoinedPrivate(template.id);
 
-          const isCommunitySelected = joinedCommId
-            ? selectedCollabs.includes(joinedCommId)
-            : selectedCollabs.includes(communityVId);
-          const isPrivateSelected = joinedPrivId
-            ? selectedCollabs.includes(joinedPrivId)
-            : false;
+        const isCommunitySelected = joinedCommId
+          ? selectedCollabs.includes(joinedCommId)
+          : selectedCollabs.includes(communityVId);
 
-          const templateCities = citiesByTemplate[template.id] ?? [];
-          const localSelectedIds = templateCities
-            .map(c => cityVirtualId(template.id, c))
-            .filter(id => selectedCollabs.includes(id));
-          const hasSelectedLocal = localSelectedIds.length > 0;
+        const templateCities = citiesByTemplate[template.id] ?? [];
+        const localSelectedIds = templateCities
+          .map(c => cityVirtualId(template.id, c))
+          .filter(id => selectedCollabs.includes(id));
+        const hasSelectedLocal = localSelectedIds.length > 0;
 
-          return (
-            <div key={template.id}>
-              {idx > 0 && <div style={{ height: 1, background: 'var(--lt-rule)', margin: '4px 0 0' }} />}
+        const isPrivSel = joinedPrivId ? selectedCollabs.includes(joinedPrivId) : false;
+        const privCount = joinedPrivId ? (joinedCollabs.find(c => c.id === joinedPrivId)?.participant_count ?? 0) : 0;
+        const hasDetail = !!(template.display_text || template.instructions);
 
-              {/* ── name row — full row is clickable ── */}
-              <div
-                onClick={() => toggleDesc(template.id)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '15px 4px 0', cursor: 'pointer', userSelect: 'none' }}
-              >
-                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 15, color: 'var(--lt-text-2)', flex: 1 }}>
-                  {template.name}
-                </span>
-                {hasJoined && (
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em', color: 'var(--neon-amber)', textShadow: '0 0 8px var(--glow-amber)', flexShrink: 0 }}>
-                    ★ you contribute
-                  </span>
+        return (
+          <div key={template.id} style={{ padding: '16px 0', borderBottom: '1px solid var(--line)' }}>
+            {/* ── name row: serif title (tap → description + Prompt), gold dot if yours, pills ── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {titleButton(template.name, hasJoined, isDescOpen, hasDetail ? () => toggleDesc(template.id) : undefined)}
+
+              <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                {/* Community — THE PILL IS THE TOGGLE (same call as the old row) */}
+                <Pill
+                  accent="blue"
+                  icon="people"
+                  count={communityParticipantCounts[template.id] || 0}
+                  selected={isCommunitySelected}
+                  dimmed={!isCommunitySelected && remainingContent === 0}
+                  aria-label={`Community · ${template.name}`}
+                  onClick={() => {
+                    if (hasJoinedComm && joinedCommId) toggleItem(joinedCommId);
+                    else if (remainingContent > 0 || isCommunitySelected) toggleItem(communityVId);
+                  }}
+                />
+
+                {/* Local — opens the city sheet; count = cities selected */}
+                {templateCities.length > 0 && (
+                  <Pill
+                    accent="green"
+                    icon="pin"
+                    count={localSelectedIds.length}
+                    selected={hasSelectedLocal}
+                    dimmed={!hasSelectedLocal && remainingContent === 0}
+                    chevron
+                    aria-label={`Local · ${template.name} — choose cities`}
+                    aria-haspopup="dialog"
+                    onClick={() => setCitySheetFor(template.id)}
+                  />
+                )}
+
+                {/* Private — only if joined; the pill is the toggle */}
+                {hasJoinedPriv && joinedPrivId && (
+                  <Pill
+                    accent="purple"
+                    icon="lock"
+                    count={privCount}
+                    selected={isPrivSel}
+                    dimmed={!isPrivSel && remainingContent === 0}
+                    aria-label={`Private · ${template.name}`}
+                    onClick={() => toggleItem(joinedPrivId)}
+                  />
                 )}
               </div>
-
-              {/* ── description panel ── */}
-              <div style={{ overflow: 'hidden', maxHeight: isDescOpen ? 160 : 0, opacity: isDescOpen ? 1 : 0, transition: 'max-height 0.22s ease, opacity 0.22s ease' }}>
-                <div style={{ padding: '8px 4px 10px', display: 'flex', flexDirection: 'column', gap: 4, borderBottom: '1px solid var(--lt-rule)' }}>
-                  {template.display_text && (
-                    <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-2)', lineHeight: 1.55, margin: 0 }}>
-                      {template.display_text}
-                    </p>
-                  )}
-                  {template.instructions && (
-                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', letterSpacing: '0.02em', lineHeight: 1.5, margin: 0 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginRight: 6 }}>Prompt</span>
-                      {template.instructions}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* name-spacer */}
-              <div style={{ height: 7 }} />
-
-              {/* ── Community row ── */}
-              <div
-                onClick={() => {
-                  if (hasJoinedComm && joinedCommId) toggleItem(joinedCommId);
-                  else if (remainingContent > 0 || isCommunitySelected) toggleItem(communityVId);
-                }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                  borderLeft: `2px solid ${isCommunitySelected ? 'var(--neon-blue)' : 'transparent'}`,
-                  borderRadius: 1, cursor: 'pointer', marginBottom: 2, userSelect: 'none',
-                  background: isCommunitySelected ? 'rgba(90,159,212,0.05)' : 'transparent',
-                  boxShadow: isCommunitySelected ? '-3px 0 10px -2px var(--glow-blue)' : 'none',
-                  transition: 'background 0.1s',
-                }}
-              >
-                <svg style={{ width: 14, height: 14, flexShrink: 0 }} viewBox="0 0 14 14" fill="none">
-                  <circle cx="7" cy="5" r="2.5" stroke="var(--neon-blue)" strokeWidth="1" />
-                  <circle cx="3" cy="9" r="1.8" stroke="var(--neon-blue)" strokeWidth="1" />
-                  <circle cx="11" cy="9" r="1.8" stroke="var(--neon-blue)" strokeWidth="1" />
-                </svg>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-blue)', textShadow: '0 0 6px var(--glow-blue)', width: 76, flexShrink: 0 }}>Community</span>
-                <span style={{ flex: 1 }}>
-                  {hasJoinedComm && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★</span>}
-                </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
-                  {communityParticipantCounts[template.id] || 0}
-                </span>
-                <div style={{
-                  width: 16, height: 16, borderRadius: 2, flexShrink: 0,
-                  border: `1px solid ${isCommunitySelected ? 'var(--neon-blue)' : 'var(--lt-card-bdr)'}`,
-                  background: isCommunitySelected ? 'var(--neon-blue)' : 'transparent',
-                  boxShadow: isCommunitySelected ? '0 0 6px var(--glow-blue)' : 'none',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  transition: 'background 0.12s, border-color 0.12s',
-                }}>
-                  {isCommunitySelected && <Checkmark />}
-                </div>
-              </div>
-
-              {/* ── Local section (only if cities exist for this template) ── */}
-              {templateCities.length > 0 && <div style={{
-                  borderLeft: `2px solid ${hasSelectedLocal ? 'var(--neon-green)' : 'var(--lt-rule)'}`,
-                  borderRadius: 1, overflow: 'hidden', marginBottom: 2,
-                  boxShadow: hasSelectedLocal ? '-3px 0 10px -2px var(--glow-green)' : 'none',
-                  transition: 'border-left-color 0.2s, box-shadow 0.2s',
-                }}>
-                  {/* local header */}
-                  <div
-                    onClick={() => toggleLocalExpand(template.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', cursor: 'pointer', userSelect: 'none', transition: 'background 0.1s' }}
-                  >
-                    <svg style={{ width: 14, height: 14, flexShrink: 0 }} viewBox="0 0 14 14" fill="none">
-                      <path d="M7 1.5C4.8 1.5 3 3.3 3 5.5c0 3 4 7 4 7s4-4 4-7c0-2.2-1.8-4-4-4z" stroke="var(--neon-green)" strokeWidth="1" />
-                      <circle cx="7" cy="5.5" r="1.5" stroke="var(--neon-green)" strokeWidth="1" />
-                    </svg>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-green)', textShadow: '0 0 6px var(--glow-green)', width: 76, flexShrink: 0 }}>Local</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--lt-text-3)', letterSpacing: '0.04em' }}>
-                        {hasSelectedLocal ? `— ${localSelectedIds.length} selected` : `— ${templateCities.length} cities`}
-                      </span>
-                      <svg
-                        style={{
-                          width: 7, height: 7, flexShrink: 0, marginLeft: 4,
-                          transition: 'transform 0.18s ease, color 0.18s',
-                          transform: isLocalExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
-                          color: isLocalExpanded ? 'var(--neon-green)' : 'var(--lt-text-3)',
-                        }}
-                        viewBox="0 0 6 10" fill="none"
-                      >
-                        <polyline points="1,1 5,5 1,9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* city rows */}
-                  {isLocalExpanded && (
-                    <div style={{ borderTop: '1px solid var(--lt-rule)', background: 'rgba(0,0,0,0.15)' }}>
-                      {templateCities.map((city, ci) => {
-                        const vId  = cityVirtualId(template.id, city);
-                        const isSel = selectedCollabs.includes(vId);
-                        const isMine = isCityMine(template.id, city);
-                        return (
-                          <div
-                            key={ci}
-                            onClick={() => { if (remainingContent > 0 || isSel) toggleItem(vId); }}
-                            style={{
-                              display: 'flex', alignItems: 'center', gap: 10,
-                              padding: '7px 10px 7px 26px', cursor: 'pointer', userSelect: 'none',
-                              borderLeft: `2px solid ${isSel ? 'var(--neon-green)' : 'transparent'}`,
-                              borderBottom: ci < templateCities.length - 1 ? '1px solid var(--lt-rule)' : 'none',
-                              background: isSel ? 'rgba(78,196,122,0.04)' : 'transparent',
-                              boxShadow: isSel ? '-2px 0 8px -2px var(--glow-green)' : 'none',
-                              transition: 'background 0.1s',
-                            }}
-                          >
-                            <span style={{ flex: 1, fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text-2)', fontWeight: 300 }}>
-                              {cityLabel(city)}
-                              {isMine && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', marginLeft: 4 }}>★</span>}
-                            </span>
-                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
-                              {city.count || ''}
-                            </span>
-                            <div style={{
-                              width: 16, height: 16, borderRadius: 2, flexShrink: 0,
-                              border: `1px solid ${isSel ? 'var(--neon-green)' : 'var(--lt-card-bdr)'}`,
-                              background: isSel ? 'var(--neon-green)' : 'transparent',
-                              boxShadow: isSel ? '0 0 6px var(--glow-green)' : 'none',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              transition: 'background 0.12s, border-color 0.12s',
-                            }}>
-                              {isSel && <Checkmark />}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>}
-
-              {/* ── Private row (only if joined) ── */}
-              {hasJoinedPriv && joinedPrivId && (() => {
-                const isPrivSel = selectedCollabs.includes(joinedPrivId);
-                const privCount = joinedCollabs.find(c => c.id === joinedPrivId)?.participant_count ?? 0;
-                return (
-                  <div
-                    onClick={() => toggleItem(joinedPrivId)}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                      borderLeft: `2px solid ${isPrivSel ? 'var(--neon-purple)' : 'transparent'}`,
-                      borderRadius: 1, cursor: 'pointer', marginBottom: 2, userSelect: 'none',
-                      background: isPrivSel ? 'rgba(168,136,232,0.05)' : 'transparent',
-                      boxShadow: isPrivSel ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
-                      transition: 'background 0.1s',
-                    }}
-                  >
-                    <svg style={{ width: 14, height: 14, flexShrink: 0 }} viewBox="0 0 14 14" fill="none">
-                      <rect x="3" y="6" width="8" height="6" rx="1" stroke="var(--neon-purple)" strokeWidth="1" />
-                      <path d="M5 6V4.5a2 2 0 0 1 4 0V6" stroke="var(--neon-purple)" strokeWidth="1" />
-                    </svg>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--neon-purple)', textShadow: '0 0 6px var(--glow-purple)', width: 76, flexShrink: 0 }}>Private</span>
-                    <span style={{ flex: 1 }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)' }}>★</span>
-                    </span>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right' }}>
-                      {privCount || ''}
-                    </span>
-                    <div style={{
-                      width: 16, height: 16, borderRadius: 2, flexShrink: 0,
-                      border: `1px solid ${isPrivSel ? 'var(--neon-purple)' : 'var(--lt-card-bdr)'}`,
-                      background: isPrivSel ? 'var(--neon-purple)' : 'transparent',
-                      boxShadow: isPrivSel ? '0 0 6px var(--glow-purple)' : 'none',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      transition: 'background 0.12s, border-color 0.12s',
-                    }}>
-                      {isPrivSel && <Checkmark />}
-                    </div>
-                  </div>
-                );
-              })()}
             </div>
-          );
-        })}
-      </div>
 
-      {/* ── user-created private collabs (template_id = null, not in any template loop) ── */}
-      {(() => {
-        const userCreated = joinedCollabs.filter(c => c.participation_mode === 'private' && !c.template_id);
-        if (!userCreated.length) return null;
-        return (
-          <div style={{ padding: '0 14px 4px' }}>
-            <div style={{ height: 1, background: 'var(--lt-rule)', margin: '4px 0 10px' }} />
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--paper-5)', marginBottom: 8 }}>
-              Your Private Collabs
-            </div>
-            {userCreated.map(collab => {
-              const isPrivSel = selectedCollabs.includes(collab.id);
-              return (
-                <div
-                  key={collab.id}
-                  onClick={() => toggleItem(collab.id)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10, padding: '9px 10px',
-                    borderLeft: `2px solid ${isPrivSel ? 'var(--neon-purple)' : 'transparent'}`,
-                    borderRadius: 1, cursor: 'pointer', marginBottom: 2, userSelect: 'none',
-                    background: isPrivSel ? 'rgba(168,136,232,0.05)' : 'transparent',
-                    boxShadow: isPrivSel ? '-3px 0 10px -2px var(--glow-purple)' : 'none',
-                    transition: 'background 0.1s',
-                  }}
-                >
-                  <svg style={{ width: 14, height: 14, flexShrink: 0 }} viewBox="0 0 14 14" fill="none">
-                    <rect x="3" y="6" width="8" height="6" rx="1" stroke="var(--neon-purple)" strokeWidth="1" />
-                    <path d="M5 6V4.5a2 2 0 0 1 4 0V6" stroke="var(--neon-purple)" strokeWidth="1" />
-                  </svg>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--lt-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {collab.title}
-                    </div>
-                    {collab.description && (
-                      <div style={{ fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 300, color: 'var(--lt-text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 1 }}>
-                        {collab.description}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--neon-amber)', textShadow: '0 0 6px var(--glow-amber)', flexShrink: 0 }}>★</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--lt-text-3)', minWidth: 26, textAlign: 'right', flexShrink: 0 }}>
-                    {collab.participant_count || ''}
-                  </span>
-                  <div style={{
-                    width: 16, height: 16, borderRadius: 2, flexShrink: 0,
-                    border: `1px solid ${isPrivSel ? 'var(--neon-purple)' : 'var(--lt-card-bdr)'}`,
-                    background: isPrivSel ? 'var(--neon-purple)' : 'transparent',
-                    boxShadow: isPrivSel ? '0 0 6px var(--glow-purple)' : 'none',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    transition: 'background 0.12s, border-color 0.12s',
-                  }}>
-                    {isPrivSel && <Checkmark />}
-                  </div>
-                </div>
-              );
-            })}
+            {/* ── description + Prompt, inline under the row ── */}
+            {isDescOpen && hasDetail && (
+              <div>
+                {template.display_text && (
+                  <p style={{ margin: '10px 0 2px', font: `italic 400 14px/1.45 ${SERIF}`, color: 'var(--ink2)' }}>
+                    {template.display_text}
+                  </p>
+                )}
+                {template.instructions && (
+                  <Brief style={{ marginTop: 10 }}>{template.instructions}</Brief>
+                )}
+              </div>
+            )}
           </div>
         );
-      })()}
+      })}
 
-      {/* ── footer ── */}
-      <div style={{ margin: '8px 14px 16px', padding: '12px 14px', background: 'var(--lt-card)', border: '1px solid var(--lt-card-bdr)', borderRadius: 2 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--lt-text-3)', marginBottom: 7 }}>
-          Added to magazine
+      {/* ── YOUR PRIVATE COLLABS — user-created (template_id = null), same filter, same toggle ── */}
+      {userCreated.length > 0 && (
+        <div style={{ paddingTop: 16 }}>
+          <SectionLabel>Your private collabs</SectionLabel>
+          {userCreated.map((collab, i) => {
+            const isSel = selectedCollabs.includes(collab.id);
+            const isOpen = descOpen.has(collab.id);
+            return (
+              <div key={collab.id} style={{ padding: '16px 0', borderBottom: i === userCreated.length - 1 ? 'none' : '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {titleButton(collab.title, true, isOpen, collab.description ? () => toggleDesc(collab.id) : undefined)}
+                  <div style={{ display: 'flex', gap: 6, flex: 'none' }}>
+                    <Pill
+                      accent="purple"
+                      icon="lock"
+                      count={collab.participant_count || 0}
+                      selected={isSel}
+                      dimmed={!isSel && remainingContent === 0}
+                      aria-label={`Private · ${collab.title}`}
+                      onClick={() => toggleItem(collab.id)}
+                    />
+                  </div>
+                </div>
+                {isOpen && collab.description && (
+                  <p style={{ margin: '10px 0 2px', font: `italic 400 14px/1.45 ${SERIF}`, color: 'var(--ink2)' }}>
+                    {collab.description}
+                  </p>
+                )}
+              </div>
+            );
+          })}
         </div>
-        {selectedCollabs.length > 0 ? (
-          <div style={{ fontFamily: 'var(--font-sans)', fontSize: 12, color: 'var(--lt-text)', lineHeight: 2, fontWeight: 300 }}>
-            {selectedCollabs.map(id => (
-              <div key={id}>{getSelectionLabel(id)}</div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--lt-text-3)' }}>
-            Nothing selected yet
-          </div>
-        )}
-      </div>
+      )}
+
+      {/* ── City sheet (design "Curate city sheet"): name · count · checkbox · gold dot if yours.
+          Each row is EXACTLY the old per-city toggle: same cityVirtualId, same gate. ── */}
+      <Sheet
+        open={sheetTemplate !== null}
+        onClose={() => setCitySheetFor(null)}
+        title={sheetTemplate ? `${sheetTemplate.name} · Local` : ''}
+        subtitle={`Each city is one page. ${remainingContent} open.`}
+      >
+        {sheetTemplate && sheetCities.map((city, ci) => {
+          const vId  = cityVirtualId(sheetTemplate.id, city);
+          const isSel = selectedCollabs.includes(vId);
+          const isMine = isCityMine(sheetTemplate.id, city);
+          const dimmed = !isSel && remainingContent === 0;
+          return (
+            <button
+              key={ci}
+              type="button"
+              role="checkbox"
+              aria-checked={isSel}
+              onClick={() => { if (remainingContent > 0 || isSel) toggleItem(vId); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '13px 0',
+                background: 'transparent', borderWidth: '1px 0 0', borderStyle: 'solid', borderColor: 'var(--line)',
+                font: `400 15px/1 ${SANS}`, color: isSel ? 'var(--ink)' : 'var(--ink2)', textAlign: 'left',
+                cursor: 'pointer', opacity: dimmed ? 0.4 : 1, WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span style={{ flex: 1, minWidth: 0 }}>
+                {cityLabel(city)}
+                {isMine && <GoldDot />}
+              </span>
+              <span style={{ font: `400 12px/1 ${MONO}`, color: 'var(--ink3)' }}>{city.count || ''}</span>
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 20, height: 20, borderRadius: 4, flex: 'none', display: 'grid', placeItems: 'center',
+                  borderWidth: 1, borderStyle: 'solid', borderColor: isSel ? 'var(--green)' : 'var(--line2)',
+                  background: isSel ? 'color-mix(in oklch, var(--green) 12%, transparent)' : 'transparent',
+                }}
+              >
+                {isSel && (
+                  <span style={{ width: 9, height: 5, borderLeft: '1.5px solid var(--green)', borderBottom: '1.5px solid var(--green)', transform: 'rotate(-45deg) translate(1px, -1px)' }} />
+                )}
+              </span>
+            </button>
+          );
+        })}
+      </Sheet>
     </div>
   );
 };

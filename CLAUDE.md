@@ -418,7 +418,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (shell, contributors, ads)
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (shell, contributors, ads, collabs)
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -512,10 +512,16 @@ Collaboration System — Three Participation Modes
 - Private — invite-only, 8–10 max, lead/member roles (see "Private Collaboration System")
 - Community — open globally
 - Local — city-specific, uses city field from collab_participants
-IntegratedCollabsSection (curate collabs tab): template-driven; shows all active templates; ★/gold dot where
-curator contributes; independent toggles; Community=one row/template; Local=one row/active city, hidden when
-none; Private(seeded)=one row if joined; "Your Private Collabs"=separate section for user-created
-(template_id=null) where curator is active participant.
+IntegratedCollabsSection (curate collabs tab, v2 Phase 11): template-driven; shows all active templates, joined
+first; ONE row per template — serif title (tap → italic description + Brief PROMPT), gold 5px dot where the curator
+contributes (★ is gone), then v2 Pills on the right: blue people = community (count = accepted participants),
+green pin + chevron = local (count = cities SELECTED; opens a city Sheet whose rows are the per-city toggles, gold
+dot on your city), purple lock = private (only if joined). THE PILL IS THE TOGGLE — same toggleItem(id) calls and
+id shapes as before (community_<tid> or the joined community collab id / local_<tid>_<City_> / collab id). Pills
+dim (not disabled) when remainingContent === 0 and the pill is unselected. "Your Private Collabs" = SectionLabel
+section for user-created (template_id=null, private, curator active participant). The v1 "Added to magazine"
+footer is gone (the page meter sheet is the list); the component reports display names via the read-only
+onCollabLabels prop so curate/page.tsx labels collab picks by template name (+ " · City").
 
 Seed Data
 Test Auth Users:
@@ -611,6 +617,10 @@ Key Gotchas & Hard-Won Lessons
   (sendFollowRequest → 'pending' toast, 'approved' re-runs canCommunicateWith); no request handler existed here.
   The recipient chevron reuses the old header back-button body (setSearchTerm(name) → searchContributors → stage
   'recipient'); the footer renders only in the compose stage, as before. /communicate/new re-export untouched.
+- Curate collabs v2 (Phase 11): cityVirtualId/cityLabel are MODULE-level pure helpers now — the onCollabLabels
+  useEffect reads cityVirtualId, and a component-scoped arrow there trips react-hooks/exhaustive-deps. The old
+  `next.has(id) ? next.delete(id) : next.add(id)` ternary in toggleDesc was an eslint no-unused-expressions ERROR
+  (pre-existing); it is an if/else now. There were no console.log lines left in this file to remove.
 
 ### Content / Submit
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.
@@ -674,8 +684,8 @@ Key Gotchas & Hard-Won Lessons
   useEffect when `loading` flips false; the temp_selected_collabs restore effect fires in the same commit but lands in the
   NEXT render, so restored-but-unsaved collabs correctly show green. Save and Reset re-snapshot. Navigating right after
   setToast unmounts the toast (it's a portal in this page), so save waits 1200ms before router.push('/dashboard'). The meter
-  Sheet labels collab ids by shape (community_ / local_<tid>_<City> / private) — template names stay inside
-  IntegratedCollabsSection until Phase 11. Three pre-existing no-unused-vars errors remain in tab-body code
+  Sheet labels collab ids by name via the onCollabLabels map from IntegratedCollabsSection (Phase 11), falling back
+  to the id shape (community_ / local_<tid>_<City> / private) before that map loads. Three pre-existing no-unused-vars errors remain in tab-body code
   (privateCollabTemplateMap, expandedCards, toggleCardExpansion); Next 16 `next build` does not lint, so Vercel is unaffected —
   clear them in Phases 10–12.
 - Curate v2 contributors + ads (Phase 10): the frozen stableSortedCreators FILTERS OUT private profiles the curator
@@ -684,7 +694,8 @@ Key Gotchas & Hard-Won Lessons
   `/api/placeholder/...` URL when avatar_url is null and that route does NOT exist — cards treat it as "no image"
   (isRealMedia) and fall back to the type gradient / brand wordmark. Filter chips + the one-time legend
   (localStorage oo_curate_legend_seen) are local state only. `expandedCards`/`toggleCardExpansion`, the `tc` map and the
-  lucide `Camera` import are gone; only `privateCollabTemplateMap` (collabs tab, Phase 11) still trips no-unused-vars.
+  lucide `Camera` import are gone; `privateCollabTemplateMap` is kept (the onPrivateCollabMap callback is frozen) and
+  silenced with `void privateCollabTemplateMap;` (Phase 11) — the page lints clean apart from one unused-directive warning.
 - Curate meter refinement (post-Phase 10): the "added this session" glow is keyed on a Set of selection KEYS
   (c:<id> / k:<collabId> / comm / a:<id>) snapshotted once when `loading` flips false and re-snapshotted after Save/Reset —
   a count snapshot mis-glowed when a saved pick was swapped for a new one. Bar order = contributors, collabs by mode
