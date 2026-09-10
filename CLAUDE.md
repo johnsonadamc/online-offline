@@ -417,7 +417,7 @@ Design System v2 — "B" redesign (September 2026) — ALL app screens
 STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
 session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
 until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard
+Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -591,6 +591,14 @@ Key Gotchas & Hard-Won Lessons
 - Insert content_entries sequentially; sort by order_index on read. Never Promise.all the inserts.
 - Exactly one is_feature per submission. focal_x/focal_y default 50.
 - media_url https:// only. 4 images for a 2×2 grid — 3 leaves an empty cell (until Spread3 exists).
+- Submit v2 (Phase 5): there is NO poetry/essay auto-detect outside src/magazine — the "Reads as poetry / essay" line
+  mirrors isPoetry() from selectionLogic.ts as a display-only helper in SubmissionForm (never written to the DB; the
+  generator still decides from profiles.content_type + its own isPoetry). FocalPointFrame captures the pointer for the
+  focal drag, so a horizontal swipe on the frame also drags the crosshair — the form snapshots focal_x/focal_y on
+  touchstart and restores them when the gesture qualifies as a swipe (≥60px x, ≤40px y) before moving prev/next.
+  `periodLabel` state was never rendered; it is bound as `[, setPeriodLabel]` or eslint no-unused-vars fails the build.
+  Footer Withdraw = withdrawContent() (the dashboard's DB write) then setStatus('draft'); Edit = local setStatus('draft')
+  only (the old "Revert to Draft"). handleCopyTags was deleted; selectedTags still round-trip through load/save unseen.
 
 ### Design
 - Never mix border shorthand with borderBottom on same element. No lucide-react (inline SVGs).
