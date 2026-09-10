@@ -9,7 +9,7 @@ Tech Stack
 
 Framework: Next.js 16 (App Router)
 Database + Auth + Storage: Supabase
-UI: Tailwind CSS + shadcn/ui (shadcn retired in Design System v2 Phase 13 — see below)
+UI: Tailwind (layout only) + Design System v2 primitives in src/components/v2/
 Dev environment: GitHub Codespaces
 Deployment: Vercel
 Language: TypeScript throughout
@@ -89,7 +89,7 @@ src/
 │   ├── IntegratedCollabsSection.tsx   # Curate collabs tab ✅
 │   ├── SubmissionForm.tsx             # Focal point selector included ✅
 │   ├── v2/                            # Design System v2 primitives (built in redesign Phase 0)
-│   ├── auth/  layout/  ui/            # ui/ = shadcn, retired in redesign Phase 13
+│   └── layout/RegistrationMarks.tsx   # only remaining layout component (ui/ shadcn, auth/, Header, Footer deleted in Phase 13)
 ├── lib/
 │   ├── constants/cities.ts           # Single source of truth for city list ✅
 │   └── supabase/
@@ -103,10 +103,13 @@ src/
 ├── middleware.ts                      # Route guard — onboarding redirect + admin protection ✅
 ├── scripts/ (seed.ts, seed.sql, seed.README.md, seed-print-test.sql, seed-print-test-content.md,
 │             seed-image-manifest.md, test-generator.ts)
+├── lib/textDetect.ts                  # countWords + isPoetry, shared by selectionLogic.ts and SubmissionForm ✅
 └── _design/
     ├── DESIGN_BRIEF.md + HTML mockups  † v1 reference only
     └── redesign-b/                     # Design System v2 package: README.md, README-pages.md,
                                         #   PLAYBOOK.md, B-final.html, B-pages.html, BC.html, B2.html
+(The stale root-level src/ and _design/ duplicates outside online-offline/ were deleted in Phase 13 —
+ the repo root now holds only CLAUDE.md, PROJECT_CONTEXT.md, README.md and the live online-offline/ app.)
 
 Database Schema (Key Tables)
 Users
@@ -389,36 +392,14 @@ Print Fulfillment
 - Later: Mixam (better unit price ≥~10 copies, real paper choices) as a second print profile.
 - Test terracotta #e05a28 and gold #e8a020 on the first physical copy — warm colors shift in CMYK.
 
-Design System v1 (current app UI — being replaced by v2, see next section)
-Philosophy: every UI element participates in the neon color system or recedes into the warm dark.
-Page background: every page uses --lt-bg (#0f0e0b) as root AND content-column AND sticky header/footer
-background. Card/section/icon backgrounds keep --ground-3 etc. for contrast.
-CSS Variables (globals.css)
---ground:#252119 --ground-2:#2e2a20 --ground-3:#373229 --ground-4:#413c31 --ground-5:#4c4639
---paper:#f0ebe2 --paper-2:#d8d2c8 --paper-3:#b0a898 --paper-4:#857d72 --paper-5:#554d44
---neon-accent:#e05a28 --neon-blue:#5a9fd4 --neon-green:#4ec47a --neon-amber:#e0a830 --neon-purple:#a888e8
---glow-accent:rgba(224,90,40,0.4) --glow-blue:rgba(90,159,212,0.4) --glow-green:rgba(78,196,122,0.4)
---glow-amber:rgba(224,168,48,0.4) --glow-purple:rgba(168,136,232,0.35) --glow-paper:rgba(240,235,226,0.15)
---rule:rgba(240,235,226,0.08) --rule-mid:rgba(240,235,226,0.14) --rule-strong:rgba(240,235,226,0.24)
---lt-bg:#0f0e0b --lt-text:rgba(235,225,205,0.85) --lt-text-2:rgba(235,225,205,0.65)
---lt-text-3:rgba(235,225,205,0.42) --lt-rule:rgba(235,225,205,0.09) --lt-card:rgba(235,220,185,0.06)
---lt-card-bdr:rgba(235,220,185,0.1) --lt-card-bdr-sel:rgba(235,220,185,0.24)
-Invalid — never use: --lt-surface→--ground-2 | --ground-raised→--ground-3 | --ground-base→--ground |
---rule-color→--rule-mid | --paper-primary→--paper | --paper-secondary→--paper-3
-Typography: Instrument Serif (display, titles, status words italic) · Instrument Sans (body) · Courier Prime (labels, buttons, counts)
-Neon assignments: Content → --neon-accent | Community → --neon-blue | Local → --neon-green | Private → --neon-purple |
-Communications → --neon-amber | Curate/save → --neon-green | Submitted → --neon-accent italic | Draft → --paper-4 italic
-Press mechanic button: var(--font-mono) 9px .14em uppercase; radius 2px; border 1px var(--rule-mid);
-border-bottom 2px var(--ground-4); box-shadow 0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,.4);
-press translateY(2px) shadow none; release transition .18s cubic-bezier(.34,1.56,.64,1). NEVER mix border shorthand with borderBottom.
-Loading: Courier Prime "loading…" --paper-4, never spinners. Empty: Instrument Serif italic 14px --paper-4.
-⚠️ Lucide React — never. Inline SVGs only.
+Design System v1 — RETIRED (Phase 13, Sept 2026). The magazine templates keep their own C./F. constants.
+What it was: the "print shop at dusk" neon UI — --ground/--paper/--neon-*/--glow-*/--rule/--lt-* tokens, Instrument Sans +
+Courier Prime, press-mechanic buttons, shadcn/ui. It is gone: those tokens, fonts, classes and src/components/ui/ no longer exist; use v2.
 
 Design System v2 — "B" redesign (September 2026) — ALL app screens
-STATUS: rolling out in 14 phases per _design/redesign-b/PLAYBOOK.md (one phase per fresh Claude Code
-session, run back to back). v1 tokens/fonts and the shadcn components in src/components/ui/ remain ONLY
-until Phase 13 retires them. Do not remove them earlier; do not use them on a page already migrated.
-Migrated pages so far: Phase 0 foundation (tokens, fonts, v2 primitives), / (auth), /onboarding, /profile, /dashboard, /submit, /collabs, /collabs/create, /collabs/[id]/invite, /collabs/[id]/submit, /communicate/*, /curate (every screen except /admin is now v2)
+STATUS: COMPLETE — all app screens incl. /admin (light restyle); v1 tokens, fonts, and shadcn retired in Phase 13
+(rolled out in 14 phases per _design/redesign-b/PLAYBOOK.md, one phase per fresh Claude Code session).
+Migrated pages so far: all
 
 Reference: _design/redesign-b/ — README.md (Dashboard + Curate spec) and README-pages.md (all other
 screens). Visual refs: online-offline-app-redesign-B-final.html (Dashboard/Curate frames) and
@@ -426,14 +407,14 @@ online-offline-app-redesign-B-pages.html (11 frames: Submit image/text, Collabs 
 create/invite/submit, Communicate new, Profile ×2, Onboarding, Sign in + primitives card). Design HTML is
 reference only — never ship it. Read the CSS in the HTML for exact values.
 
-Tokens (globals.css, coexist with v1 until Phase 13):
+Tokens (globals.css — the only app tokens since Phase 13):
 --bg:#0d0c0a --bg2:#131210 --line:#24211d --line2:#312d27
 --ink:#ece7de --ink2:#a49c90 --ink3:#6a635a
 --orange:oklch(0.74 0.13 45) --gold:oklch(0.8 0.11 85) --green:oklch(0.78 0.12 150)
 --blue:oklch(0.76 0.09 240) --purple:oklch(0.74 0.1 300)
 Fonts: Instrument Serif 400+italic (titles, names, prices, season); Hanken Grotesk 400/500 (labels, body,
-buttons) as --font-sans-v2; JetBrains Mono 400/500 (numbers, counts, status words, 10px section labels)
-as --font-mono-v2. Type sizes: row title 24 · sub-item 19 · card title 17 · price 26 · tab labels 12–13
+buttons) as --font-sans; JetBrains Mono 400/500 (numbers, counts, status words, 10px section labels)
+as --font-mono (the -v2 suffixes were dropped in Phase 13 once v1 was gone; SERIF/SANS/MONO in v2/shared.ts read them). Type sizes: row title 24 · sub-item 19 · card title 17 · price 26 · tab labels 12–13
 500 .12–.14em uppercase · body 13.5 · section labels 10 mono .18em uppercase.
 
 Meaning map: orange=content/deadline · gold=communications/invites/"yours"/prompt label ·
@@ -646,6 +627,11 @@ Key Gotchas & Hard-Won Lessons
 
 ### Design
 - Never mix border shorthand with borderBottom on same element. No lucide-react (inline SVGs).
+- Phase 13 retirement: tailwind.config.ts is layout-only (no shadcn colour/radius wiring, no tailwindcss-animate) and
+  globals.css has ONLY the v2 tokens + grain/reg-mark/v2-field rules — do not add `@apply border-border`/`text-foreground`
+  back. The API route's iframe placeholder HTML (route.ts, "Template not yet implemented") still says 'Courier Prime' on
+  purpose: it is magazine-side markup, not app UI. isPoetry/countWords live in src/lib/textDetect.ts and selectionLogic.ts
+  imports them RELATIVELY (../../lib/textDetect) because tsx runs the generator without the @/ alias.
 - v2 wordmark in JSX: write the slashes as {'//'} — a bare // text node fails eslint react/jsx-no-comment-textnodes.
 - Mobile overflow culprit (fixed Sept 2026): a `width: 100%` row with 24px side padding and an explicit
   `boxSizing: 'content-box'` (the Phase 1–2 header rows) is 48px wider than a 390px viewport — the page scrolled
@@ -660,7 +646,7 @@ Key Gotchas & Hard-Won Lessons
   tap only fires when the row is at rest. Put stopPropagation on any button inside the row (add-person, Accept/Decline).
 - Profile v2 (Phase 2): the design's 28px role tile is not a primitive (IconTile is 48px, TypeTile only takes content/collab
   types) — render it inline with tint(accent) + <Icon>. Keep the old tab state out; the page is one scroll.
-- Music is NOT a content type. v1: all page backgrounds = --lt-bg. v2: see Design System v2.
+- Music is NOT a content type. Page background is --bg via PageShell only (v1's --lt-bg is gone). See Design System v2.
 
 ### Database
 - collab_templates uses name not title; collab_submissions uses caption not content.
@@ -784,10 +770,11 @@ Completed ✅
   lead/member → accepted-only counts → curate visibility → dashboard invite affordance)
 - profiles + profile_types RLS policies for invite contributor search
 - Print-test seed dataset (41 real images, every template fired, two curators)
+- Design System v2 "B" redesign — all 14 phases per _design/redesign-b/PLAYBOOK.md; Phase 13 (Sept 2026)
+  retired v1 tokens/fonts, shadcn, the orphan /curate/communications route, and the root-level duplicates
 
 In Progress 🔧
-- Design System v2 "B" redesign — 14 phases per _design/redesign-b/PLAYBOOK.md. Update "Migrated pages so
-  far" in the v2 section as each phase lands.
+- (nothing — next: Stripe, first physical print)
 
 Remaining / Known Issues ⚠️
 1. Spread3 — a dedicated 3-image template so Spread4 never shows an empty cell (+ selectionLogic branch,
@@ -803,6 +790,11 @@ Remaining / Known Issues ⚠️
 8. Playwright suite — needs onboarding, new profile, collab invite/accept, and v2 coverage.
 9. Test-data noise in collabs/selections (see Seed Data) — clean before launch.
 10. Personalization pass on the print-test content (real titles/captions/essay/poem for Adam's images).
+11. Collab submit focal point — collab_submissions has no focal_x/focal_y; the crosshair is display-only. Needs schema +
+    collab template read to persist.
+12. Communicate image slot — UI exists but handlers write image_url null; wire (uploadMedia + image_url) or hide, after
+    checking whether CommunicationsPage renders image_url.
+13. Submit form caps essays at 800 words but TextSpread handles 501–1800 — align the cap or the template.
 
 User Roles
 - Contributors: submit content, join/create collabs, invite, send communications

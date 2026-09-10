@@ -15,8 +15,6 @@ interface CollabTemplate {
   phases?: number;
   duration?: string;
   instructions?: string;
-  communityParticipantCount?: number;
-  localParticipantCount?: number;
 }
 
 interface CurrentPeriod {
@@ -124,35 +122,7 @@ export default function CollabsLibrary() {
         .filter(t => !activeTemplateIds.includes(t.id))
         .map(t => ({ ...t, type: t.type || 'theme' }));
 
-      const templatesWithCounts = await Promise.all(filteredTemplates.map(async (template) => {
-        try {
-          const { data: collabsData } = await supabase
-            .from('collabs').select('id, participation_mode, location, metadata').eq('period_id', activePeriod.id);
-          if (!collabsData || collabsData.length === 0) {
-            return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
-          }
-          const matchingCollabs = collabsData.filter(c =>
-            c.metadata && typeof c.metadata === 'object' && 'template_id' in c.metadata && c.metadata.template_id === template.id
-          );
-          if (matchingCollabs.length === 0) return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
-
-          const communityIds = matchingCollabs.filter(c => c.participation_mode === 'community' || c.participation_mode === 'local').map(c => c.id);
-          const localIds = matchingCollabs.filter(c => c.participation_mode === 'local').map(c => c.id);
-
-          const { count: communityCount } = communityIds.length > 0
-            ? await supabase.from('collab_participants').select('*', { count: 'exact', head: true }).in('collab_id', communityIds).eq('status', 'active')
-            : { count: 0 };
-          const { count: localCount } = localIds.length > 0
-            ? await supabase.from('collab_participants').select('*', { count: 'exact', head: true }).in('collab_id', localIds).eq('status', 'active')
-            : { count: 0 };
-
-          return { ...template, communityParticipantCount: communityCount || 0, localParticipantCount: localCount || 0 };
-        } catch {
-          return { ...template, communityParticipantCount: 0, localParticipantCount: 0 };
-        }
-      }));
-
-      setAvailablePrompts(templatesWithCounts);
+      setAvailablePrompts(filteredTemplates);
 
       // Load user-created collabs the user participates in
       if (activeCollabIds.length > 0) {

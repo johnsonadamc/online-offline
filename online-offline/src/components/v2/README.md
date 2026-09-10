@@ -4,7 +4,7 @@ Built in redesign Phase 0 from `_design/redesign-b/` (README.md "Design tokens" 
 "Color rules" + the CSS in `-B-final.html` and `-B-pages.html`). Every primitive is
 presentational: props in, callbacks out — **no data fetching, no Supabase imports**.
 All use the v2 tokens in `globals.css` (`--bg`, `--ink`, `--orange`, …) and the v2
-fonts (`--font-sans-v2` Hanken Grotesk, `--font-mono-v2` JetBrains Mono, `--font-serif`
+fonts (`--font-sans` Hanken Grotesk, `--font-mono` JetBrains Mono, `--font-serif`
 Instrument Serif). Import from `@/components/v2`.
 
 Shared: `Accent = 'orange'|'gold'|'green'|'blue'|'purple'` · `TileType =

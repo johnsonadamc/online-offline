@@ -24,8 +24,8 @@ export const typeAccent: Record<TileType, Accent> = {
 };
 
 export const SERIF = "var(--font-serif, 'Instrument Serif', Georgia, serif)";
-export const SANS = "var(--font-sans-v2, 'Hanken Grotesk', system-ui, sans-serif)";
-export const MONO = "var(--font-mono-v2, 'JetBrains Mono', ui-monospace, monospace)";
+export const SANS = "var(--font-sans, 'Hanken Grotesk', system-ui, sans-serif)";
+export const MONO = "var(--font-mono, 'JetBrains Mono', ui-monospace, monospace)";
 
 /** 12% tint background used by tinted tiles (design HTML `.ti`). */
 export const tint = (a: Accent, pct = 12, base = 'var(--bg)'): string =>

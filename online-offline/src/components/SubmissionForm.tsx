@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { saveContent, getCurrentPeriod, withdrawContent } from '@/lib/supabase/content';
 import { TEXT_SUBMISSION_MAX_WORDS, TEXT_SUBMISSION_WARN_WORDS } from '@/lib/constants/submission';
 import { uploadMedia } from '@/lib/supabase/storage';
+import { isPoetry } from '@/lib/textDetect';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSupabase } from '@/lib/supabase/useSupabase';
@@ -53,22 +54,6 @@ const generateUniqueId = (): string =>
   `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
 const MAX_ENTRIES = 8;
-
-// Display-only mirror of isPoetry() in src/magazine/core/selectionLogic.ts (not
-// exported there; that dir is never touched by app work). Drives the "Reads as
-// poetry / essay" line under the text body. Nothing is written from this.
-const countWords = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length;
-const readsAsPoetry = (body: string): boolean => {
-  if (!body.includes('\n\n')) return false;
-  const lines = body.split('\n');
-  const nonEmpty = lines.filter(l => l.trim().length > 0);
-  if (nonEmpty.length === 0) return false;
-  const avgLineLen = nonEmpty.reduce((s, l) => s + l.length, 0) / nonEmpty.length;
-  if (avgLineLen >= 60) return false;
-  const words = countWords(body);
-  if (words === 0) return false;
-  return (lines.length / words) * 100 >= 3;
-};
 
 // v2 footer buttons (design `.btn`): sec = 1px --line2 outline, pri = filled
 // accent + glow (the one glow on the screen), ghost = --ink3 text only.
@@ -448,7 +433,7 @@ export default function SubmissionForm() {
           />
           <div style={{ paddingTop: 14, font: `400 11px/1 ${MONO}`, color: 'var(--ink3)' }}>
             {textWordCount > 0 && (
-              <>Reads as <b style={{ color: 'var(--gold)', fontWeight: 500 }}>{readsAsPoetry(textBody) ? 'poetry' : 'essay'}</b> · </>
+              <>Reads as <b style={{ color: 'var(--gold)', fontWeight: 500 }}>{isPoetry(textBody) ? 'poetry' : 'essay'}</b> · </>
             )}
             <span style={{ color: overLimit ? 'var(--orange)' : textWordCount >= TEXT_SUBMISSION_WARN_WORDS ? 'var(--gold)' : undefined }}>
               {textWordCount} / {TEXT_SUBMISSION_MAX_WORDS} words

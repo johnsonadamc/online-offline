@@ -1,16 +1,10 @@
 import type { Metadata } from "next";
-import { Instrument_Sans, Instrument_Serif, Courier_Prime, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
+import { Instrument_Serif, Hanken_Grotesk, JetBrains_Mono } from 'next/font/google';
 import "./globals.css";
 import RegistrationMarks from '@/components/layout/RegistrationMarks';
 
-const instrumentSans = Instrument_Sans({
-  subsets: ['latin'],
-  weight: ['400', '500'],
-  style: ['normal', 'italic'],
-  variable: '--font-sans',
-  display: 'swap',
-});
-
+// Design System v2 fonts (Phase 13 retired Instrument Sans + Courier Prime; the
+// magazine templates load their own fonts in the generated HTML).
 const instrumentSerif = Instrument_Serif({
   subsets: ['latin'],
   weight: '400',
@@ -19,25 +13,17 @@ const instrumentSerif = Instrument_Serif({
   display: 'swap',
 });
 
-const courierPrime = Courier_Prime({
-  subsets: ['latin'],
-  weight: ['400', '700'],
-  variable: '--font-mono',
-  display: 'swap',
-});
-
-// Design System v2 fonts — coexist with v1 fonts until redesign Phase 13
 const hankenGrotesk = Hanken_Grotesk({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-sans-v2',
+  variable: '--font-sans',
   display: 'swap',
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   weight: ['400', '500'],
-  variable: '--font-mono-v2',
+  variable: '--font-mono',
   display: 'swap',
 });
 
@@ -54,7 +40,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${instrumentSans.variable} ${instrumentSerif.variable} ${courierPrime.variable} ${hankenGrotesk.variable} ${jetbrainsMono.variable}`}
+      className={`${instrumentSerif.variable} ${hankenGrotesk.variable} ${jetbrainsMono.variable}`}
     >
       <body>
         <div className="grain" aria-hidden="true" />

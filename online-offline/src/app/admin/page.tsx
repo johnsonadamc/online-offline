@@ -4,12 +4,22 @@ import React, { useState, useEffect } from 'react';
 import { useSupabase } from '@/lib/supabase/useSupabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { PageShell, SectionLabel, SERIF, SANS, MONO } from '@/components/v2';
 
 interface CuratorRow {
   id: string;
   name: string;
   selectionCount: number;
 }
+
+// Design System v2 (Phase 13 light restyle): ink-only header, one row per
+// curator (serif name, mono count), quiet outlined "Preview" button. The data
+// flow below is unchanged.
+const Wordmark = () => (
+  <div style={{ font: `400 19px/1 ${SERIF}`, color: 'var(--ink)' }}>
+    online<span style={{ color: 'var(--ink3)' }}>{'//'}</span>offline
+  </div>
+);
 
 export default function AdminPage() {
   const supabase = useSupabase();
@@ -75,129 +85,78 @@ export default function AdminPage() {
     load();
   }, []);
 
+  const header = (
+    <>
+      <Link href="/dashboard" style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', textDecoration: 'none', flex: 'none' }}>‹ Dashboard</Link>
+      <Wordmark />
+      <span style={{ font: `500 12px/1 ${SANS}`, color: 'var(--ink2)', flex: 'none' }}>Admin</span>
+    </>
+  );
+
   if (loading) {
     return (
-      <div style={{
-        background: 'var(--lt-bg)', minHeight: '100vh',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: 13,
-          color: 'var(--paper-4)', letterSpacing: '0.08em',
-        }}>
-          loading…
-        </span>
-      </div>
+      <PageShell header={header}>
+        <div style={{ paddingTop: 26, font: `400 12px/1 ${MONO}`, letterSpacing: '0.14em', color: 'var(--ink3)', textAlign: 'center' }}>loading…</div>
+      </PageShell>
     );
   }
 
   return (
-    <div style={{ background: 'var(--lt-bg)', minHeight: '100vh', padding: '48px 32px' }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: 48 }}>
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 10,
-            color: 'var(--paper-4)', letterSpacing: '0.14em',
-            textTransform: 'uppercase', marginBottom: 12,
-          }}>
-            admin · magazine preview
-          </div>
-          <div style={{
-            height: 1,
-            background: 'var(--paper)',
-            opacity: 0.8,
-            marginBottom: 24,
-            boxShadow: '0 0 6px 1px rgba(240,235,226,0.25), 0 0 20px rgba(240,235,226,0.08)',
-          }} />
-          <h1 style={{
-            fontFamily: 'var(--font-serif)', fontSize: 40,
-            color: 'var(--paper)', margin: 0, lineHeight: 1.1,
-          }}>
-            {periodName || 'Active Period'}
-          </h1>
-          <p style={{
-            fontFamily: 'var(--font-sans)', fontSize: 14, fontWeight: 300,
-            color: 'var(--paper-3)', margin: '10px 0 0',
-          }}>
-            {curators.length} curator{curators.length !== 1 ? 's' : ''} with creator selections
-          </p>
-        </div>
-
-        {error && (
-          <div style={{
-            fontFamily: 'var(--font-mono)', fontSize: 12,
-            color: 'var(--neon-accent)', marginBottom: 24,
-            letterSpacing: '0.06em',
-          }}>
-            {error}
-          </div>
-        )}
-
-        {curators.length === 0 ? (
-          <p style={{
-            fontFamily: 'var(--font-serif)', fontStyle: 'italic',
-            fontSize: 15, color: 'var(--paper-4)',
-          }}>
-            No curators have selections for this period yet.
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {curators.map(c => (
-              <Link key={c.id} href={`/admin/preview/${c.id}`} style={{ textDecoration: 'none' }}>
-                <div style={{
-                  background: 'var(--ground-2)',
-                  border: '1px solid var(--rule)',
-                  borderLeft: '2px solid var(--neon-accent)',
-                  boxShadow: '-3px 0 10px -2px var(--glow-accent), inset 0 0 0 0 transparent',
-                  borderRadius: 3,
-                  padding: '18px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 16,
-                }}>
-                  <div>
-                    <div style={{
-                      fontFamily: 'var(--font-serif)', fontSize: 22,
-                      color: 'var(--paper)', lineHeight: 1.2,
-                    }}>
-                      {c.name}
-                    </div>
-                    <div style={{
-                      fontFamily: 'var(--font-mono)', fontSize: 10,
-                      color: 'var(--paper-4)', letterSpacing: '0.1em',
-                      marginTop: 5,
-                    }}>
-                      {c.selectionCount} creator selection{c.selectionCount !== 1 ? 's' : ''}
-                    </div>
-                  </div>
-
-                  {/* Press mechanic button */}
-                  <div style={{
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 9,
-                    letterSpacing: '0.14em',
-                    textTransform: 'uppercase',
-                    color: 'var(--neon-accent)',
-                    border: '1px solid var(--rule-mid)',
-                    borderBottom: '2px solid var(--ground-4)',
-                    borderRadius: 2,
-                    padding: '7px 14px',
-                    boxShadow: '0 2px 0 var(--ground-4), 0 3px 6px rgba(0,0,0,0.4)',
-                    flexShrink: 0,
-                    whiteSpace: 'nowrap',
-                  }}>
-                    Preview →
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-
+    <PageShell header={header} columnStyle={{ paddingBottom: 48 }}>
+      {/* Title block */}
+      <div style={{ padding: '28px 0 22px', borderBottom: '1px solid var(--line)' }}>
+        <SectionLabel>magazine preview</SectionLabel>
+        <h1 style={{ font: `400 32px/1.1 ${SERIF}`, color: 'var(--ink)', margin: '12px 0 0' }}>
+          {periodName || 'Active Period'}
+        </h1>
+        <p style={{ font: `400 13.5px/1.4 ${SANS}`, color: 'var(--ink2)', margin: '8px 0 0' }}>
+          {curators.length} curator{curators.length !== 1 ? 's' : ''} with creator selections
+        </p>
       </div>
-    </div>
+
+      {error && (
+        <p style={{ font: `400 12px/1.4 ${MONO}`, color: 'var(--orange)', letterSpacing: '0.04em', margin: '18px 0 0' }}>
+          {error}
+        </p>
+      )}
+
+      {curators.length === 0 ? (
+        <div style={{ font: `italic 400 15px/1.4 ${SERIF}`, color: 'var(--ink3)', textAlign: 'center', padding: '26px 0 0' }}>
+          No curators have selections for this period yet.
+        </div>
+      ) : (
+        <div>
+          {curators.map(c => (
+            <Link
+              key={c.id}
+              href={`/admin/preview/${c.id}`}
+              style={{
+                textDecoration: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+                padding: '18px 0',
+                borderBottom: '1px solid var(--line)',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ font: `400 21px/1.2 ${SERIF}`, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {c.name}
+                </div>
+                <div style={{ font: `400 11px/1 ${MONO}`, color: 'var(--ink3)', letterSpacing: '0.08em', marginTop: 6 }}>
+                  {c.selectionCount} creator selection{c.selectionCount !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              <span style={{
+                font: `500 12px/1 ${SANS}`, letterSpacing: '0.14em', textTransform: 'uppercase',
+                color: 'var(--ink2)', padding: '11px 14px', borderRadius: 5,
+                border: '1px solid var(--line2)', flex: 'none', whiteSpace: 'nowrap',
+              }}>
+                Preview
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </PageShell>
   );
 }

@@ -9,30 +9,10 @@ import type {
   CommunicationsPageData,
   CampaignPageData,
 } from './types';
-
-function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(Boolean).length;
-}
+import { countWords, isPoetry } from '../../lib/textDetect';
 
 function totalCaptionWords(entries: Array<{ caption?: string }>): number {
   return entries.reduce((sum, e) => sum + countWords(e.caption ?? ''), 0);
-}
-
-// Poetry detection: ALL three conditions must hold.
-function isPoetry(body: string): boolean {
-  if (!body.includes('\n\n')) return false; // must have a stanza break
-
-  const lines = body.split('\n');
-  const nonEmpty = lines.filter(l => l.trim().length > 0);
-  if (nonEmpty.length === 0) return false;
-
-  const avgLineLen = nonEmpty.reduce((s, l) => s + l.length, 0) / nonEmpty.length;
-  if (avgLineLen >= 60) return false;
-
-  const words = countWords(body);
-  if (words === 0) return false;
-  const lineBreaksPer100Words = (lines.length / words) * 100;
-  return lineBreaksPer100Words >= 3;
 }
 
 function splitBody(body: string): { para1: string; para2: string; para3: string } {
