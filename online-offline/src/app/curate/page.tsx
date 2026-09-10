@@ -926,9 +926,9 @@ export default function CurationInterface() {
                   <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
                     {([
                       { id: 'all' as const,         label: 'All' },
-                      { id: 'photography' as const, label: 'Photo',   accent: 'blue' as Accent },
-                      { id: 'art' as const,         label: 'Art',     accent: 'purple' as Accent },
-                      { id: 'writing' as const,     label: 'Writing', accent: 'gold' as Accent },
+                      { id: 'photography' as const, label: 'Photo',   accent: 'blue' as Accent,   icon: 'camera' as IconName },
+                      { id: 'art' as const,         label: 'Art',     accent: 'purple' as Accent, icon: 'brush' as IconName },
+                      { id: 'writing' as const,     label: 'Writing', accent: 'gold' as Accent,   icon: 'quill' as IconName },
                     ]).map(chip => {
                       const on = typeFilter === chip.id;
                       return (
@@ -939,7 +939,11 @@ export default function CurationInterface() {
                           aria-pressed={on}
                           style={{ height: 30, padding: '0 12px', borderRadius: 15, borderWidth: 1, borderStyle: 'solid', borderColor: on ? 'var(--ink2)' : 'var(--line2)', background: 'transparent', display: 'flex', alignItems: 'center', gap: 6, color: on ? 'var(--ink)' : 'var(--ink3)', font: `400 12px/1 ${SANS}`, whiteSpace: 'nowrap', cursor: 'pointer', flex: 'none', WebkitTapHighlightColor: 'transparent' }}
                         >
-                          {chip.accent && <i aria-hidden="true" style={{ width: 6, height: 6, borderRadius: '50%', background: accentVar(chip.accent), display: 'block' }} />}
+                          {chip.accent && chip.icon && (
+                            <span aria-hidden="true" style={{ display: 'block', color: accentVar(chip.accent), flex: 'none' }}>
+                              <Icon name={chip.icon} size={12} strokeWidth={1.5} />
+                            </span>
+                          )}
                           {chip.label}
                         </button>
                       );

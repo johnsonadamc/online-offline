@@ -472,7 +472,8 @@ Key v2 screen facts (full specs in the READMEs):
   one tap to /collabs/[id]/submit.
 - Curate: page meter (20 bars) colored by composition — content orange, collabs by mode, comms gold, ads
   outlined ink2; glow = added this session; one-line dot legend beneath (● Content ● Community ● Local ● Private
-  ● Comms ○ Ads); price ONLY in the sticky footer; the pill IS the
+  ● Comms ○ Ads); contributor filter chips carry the 12px type icon (camera / brush / quill in the type color), not a
+  dot; price ONLY in the sticky footer; the pill IS the
   toggle in the collabs tab (same toggleItem args); local pill opens a city sheet; alert() → Toast.
 - Submit: FocalPointFrame drag/tap sets focal_x/focal_y; ThumbStrip order = order_index; handleCopyTags
   dropped from the UI.
