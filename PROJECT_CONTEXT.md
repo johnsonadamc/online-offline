@@ -47,14 +47,14 @@ These two colors never appear on the same element. On the cover, gold leads and 
 
 1. **Focus on participation** — prioritize calls to action that encourage participation in existing activities over creating new ones
 2. **Simplify primary actions** — make the most important action on any screen immediately obvious
-3. **Provide visual feedback** — use the neon system to indicate state changes
+3. **Provide visual feedback** — use the v2 meaning-map colors (a dot, a tinted tile, or a hairline — never a filled panel)
 4. **Reduce cognitive load** — break complex tasks into simpler steps; use progressive disclosure
 5. **Maintain context** — users should always know where they are in a process
 6. **Prioritize content** — UI elements support rather than distract
 7. **Implicit default states** — do not explicitly label draft status; only show submitted or published
 8. **Consistent icon color coding** — community=blue, local=green, private=purple, everywhere, always
 9. **Mobile-first** — primary usage is expected on phones
-10. **No flashy animations** — the press mechanic button is the deliberate exception
+10. **No flashy animations** — glow only on the one primary action per screen and newly-filled page-meter bars
 
 ---
 
@@ -96,7 +96,7 @@ The three participation modes reflect different social dynamics:
 ## Magazine Generation — Current State and Architecture
 
 ### Status
-Template design system is complete. Generation pipeline is the next major build.
+Template system, generation pipeline, interspersed ordering, and print profiles (screen, magcloud) are complete and MagCloud-validated.
 
 ### Template System (completed May 2026)
 18 active templates designed in React+JSX, committed to `src/magazine/`:
@@ -234,7 +234,7 @@ When ready:
 - Local collab creates geographic texture that makes the platform feel personal
 - Curator role appeals to editorial/curation-minded users who want to make something
 
-**The name:** online//offline — the `//` represents the translation between digital submission and physical print. In the app wordmark, `//` renders in `--paper-5` (most muted). In the magazine, `//` always renders in terracotta `#e05a28`.
+**The name:** online//offline — the `//` represents the translation between digital submission and physical print. `//` renders in `--ink3` in the app; in the magazine, `//` always renders in terracotta `#e05a28`.
 
 ---
 
