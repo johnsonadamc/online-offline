@@ -367,8 +367,15 @@ Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never 
 - magcloud: 8.5×11in (612×792pt) output for MagCloud's Standard magazine (8.25×10.75in trim). Asymmetric
   bleed: 0.125in top/bottom, 0.25in OUTSIDE, 0 on the SPINE side → even/left pages and odd/right pages get
   mirrored horizontal offsets (cover = page 1 = right-hand page). safetyInsetIn 0.1 maps the design trim
-  0.1in INSIDE MagCloud's trim (their cut wanders ±1/8"); a full-page bleed underlay (same image XObject,
-  stretched) sits beneath the inset draw so a wide cut shows duplicated edge content, never white.
+  0.1in INSIDE MagCloud's trim (their cut wanders ±1/8"), which leaves the 11px design bleed reaching only
+  ~0.015in past the assumed trim. The gap between the main draw and the page edge is filled with MIRRORED
+  EDGE STRIPS (Sept 2026): the same image XObject reflected across each draw-rect edge at the main draw's own
+  sx/sy scale and registration (negative width/height in pdf-lib drawImage, clipped via pushGraphicsState/
+  rectangle/clip/endPath), both-axes reflection in the two outside corners, nothing on the spine side. A wide
+  cut therefore shows edge content continuing across the seam at the same position. The previous fill was the
+  whole page stretched to 8.5×11 (~1.027× / 1.021× the main draw, corner-anchored): the first physical print
+  showed it as a ~1/8in strip on the OUTSIDE edges repeating the page's own edge content shifted ~2.5mm
+  down. All of this lives inside the `if (!coversPage)` branch, which the screen profile never enters.
   includePrinterMarks=false: BleedMarks/RegistrationMark are reassigned to null-renderers in the injected
   HTML (no template edits). JPEG q92 at deviceScaleFactor 3 → ~279×288 dpi effective on trim; ~22MB vs
   318MB (MagCloud hard cap: 300MB). ~2.5% horizontal anisotropy is inherent to trim-to-trim mapping.
@@ -391,6 +398,21 @@ Print Fulfillment
   perfect bind $1.00/piece (24–384pp). ~$6.40 print + ship for 32pp.
 - Later: Mixam (better unit price ≥~10 copies, real paper choices) as a second print profile.
 - Test terracotta #e05a28 and gold #e8a020 on the first physical copy — warm colors shift in CMYK.
+- First physical print — Sept 2026 findings (Lena's magcloud PDF, one MagCloud copy):
+  1. Outside-edge strip ~1/8in wide repeating the page's own edge content, shifted ~2.5mm down; top and bottom
+     edges clean. Cause: the stretched whole-page bleed underlay (different scale + registration) showing
+     between the 11px design bleed and MagCloud's cut. FIXED: mirrored edge strips (see print profiles above).
+  2. CollabSpreadCommunity right page: the "Contributors to this collaboration" roster (uncapped, one row per
+     contributor, 22px pitch) has room for only 3 rows above the "Community · open call" chip; with 6+ names
+     rows 4–6 print over the chip and the folio. PENDING (next session): two columns × 3 rows, hard cap 6 with
+     a "+ N others" cell, explicit height + overflow hidden. CollabSpreadLocal is worse: creditsTop = 1035 puts
+     its whole credits block below the trim (1043) and its right-page captions over the folio — verify + fix.
+  3. SpreadPanorama right page prints `data.page` (the LEFT page number) in its folio; every other spread
+     passes `data.page + 1` on the right page. PENDING (next session, templates-18-19.jsx line 117).
+  4. Option D — moving the assumed trim to 0.125in per side (bleedInside 0.125 / bleedOutside 0.125) — is
+     GATED on measuring the printed page: trimmed width fold-to-face (8.25in = MagCloud centred the trim, apply
+     D; 8.375in = face cut moved out, spine stays 0) and cut-edge-to-folio on a right-hand page (0.708in =
+     published trim, 0.833in = centred). Do not change safetyInsetIn or any bleed value until measured.
 
 Design System v1 — RETIRED (Phase 13, Sept 2026). The magazine templates keep their own C./F. constants.
 What it was: the "print shop at dusk" neon UI — --ground/--paper/--neon-*/--glow-*/--rule/--lt-* tokens, Instrument Sans +

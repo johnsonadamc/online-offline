@@ -3,7 +3,7 @@
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import puppeteer from 'puppeteer';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, pushGraphicsState, popGraphicsState, rectangle, clip, endPath } from 'pdf-lib';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
@@ -762,20 +762,70 @@ export async function generateMagazine(
 
         const drawX = trimLeftPt + insetPt - DESIGN_BLEED * sx;
 
-        // Bleed underlay: with a non-zero safety inset the design's own 11px
-        // bleed is too thin to reach the page edges, so first draw the SAME
-        // image stretched to cover the entire page (pdf-lib reuses the embedded
-        // XObject — only a second draw operator is added). The underlay is
-        // visible only outside the main draw's footprint, which lies entirely
-        // beyond the profile trim: a worst-case trim cut reveals duplicated
-        // edge content instead of unprinted white. Skipped whenever the main
-        // draw already covers the full page (screen profile), keeping that
-        // output behaviorally identical.
+        // Bleed edge fill: with a non-zero safety inset the design's own 11px
+        // bleed is too thin to reach the page edges, so the gap between the
+        // main draw's footprint and the page edge is filled first with the
+        // SAME image (pdf-lib reuses the embedded XObject — only extra draw
+        // operators are added). The fill is visible only outside the main
+        // draw's footprint, which lies entirely beyond the profile trim: a
+        // worst-case trim cut reveals continued edge content instead of
+        // unprinted white. Skipped whenever the main draw already covers the
+        // full page (screen profile), keeping that output behaviorally
+        // identical.
         const coversPage =
           drawX <= 0 && drawY <= 0 &&
           drawX + drawW >= pageWPt && drawY + drawH >= pageHPt;
         if (!coversPage) {
-          pdfPage.drawImage(image, { x: 0, y: 0, width: pageWPt, height: pageHPt });
+          // Mirrored strips, not a stretched underlay. The first physical
+          // MagCloud print (Sept 2026) showed a ~1/8in strip on the outside
+          // edges repeating the page's own edge content shifted a few mm: the
+          // old whole-page underlay was drawn at a different scale (page/draw
+          // ≈ 1.027×1.021) and registration, so wherever the cut fell outside
+          // the 11px design bleed the seam was visible. Each page edge the
+          // main draw does not reach now gets the same XObject REFLECTED
+          // across that draw-rect edge at the main draw's own sx/sy scale and
+          // same offset on the other axis, clipped to the gap between the
+          // draw-rect edge and the page edge — a rule or image edge continues
+          // across the seam at exactly the same position. The two outside
+          // corners get a both-axes reflection; the spine side, where the
+          // draw rect is clipped past the page edge, needs nothing (its gap
+          // is ≤ 0 and skipped). Parity comes from drawX alone (isLeftPage
+          // above); there is no second parity computation here. The flip is
+          // a negative width/height: pdf-lib's drawImage only type-checks
+          // them and emits them straight into the `cm` matrix.
+          const gapLeft   = drawX;
+          const gapRight  = pageWPt - (drawX + drawW);
+          const gapBottom = drawY;
+          const gapTop    = pageHPt - (drawY + drawH);
+          const drawMirrored = (
+            clipX: number, clipY: number, clipW: number, clipH: number,
+            flipX: boolean, flipY: boolean,
+          ) => {
+            if (clipW <= 0 || clipH <= 0) return;
+            pdfPage.pushOperators(pushGraphicsState(), rectangle(clipX, clipY, clipW, clipH), clip(), endPath());
+            pdfPage.drawImage(image, {
+              // Reflection across the draw rect's left edge places the image's
+              // left column at drawX and runs leftward (negative width);
+              // across its right edge, the right column sits at drawX + drawW.
+              x: flipX && clipX >= drawX + drawW ? drawX + 2 * drawW : drawX,
+              y: flipY && clipY >= drawY + drawH ? drawY + 2 * drawH : drawY,
+              width:  flipX ? -drawW : drawW,
+              height: flipY ? -drawH : drawH,
+            });
+            pdfPage.pushOperators(popGraphicsState());
+          };
+          const rightEdge = drawX + drawW;
+          const topEdge   = drawY + drawH;
+          // Side strips (full draw height), then top/bottom strips (full draw width).
+          drawMirrored(0,         drawY, gapLeft,  drawH, true,  false);
+          drawMirrored(rightEdge, drawY, gapRight, drawH, true,  false);
+          drawMirrored(drawX, 0,       drawW, gapBottom, false, true);
+          drawMirrored(drawX, topEdge, drawW, gapTop,    false, true);
+          // Corners: both-axes reflection wherever both gaps are open.
+          drawMirrored(0,         0,       gapLeft,  gapBottom, true, true);
+          drawMirrored(rightEdge, 0,       gapRight, gapBottom, true, true);
+          drawMirrored(0,         topEdge, gapLeft,  gapTop,    true, true);
+          drawMirrored(rightEdge, topEdge, gapRight, gapTop,    true, true);
         }
 
         pdfPage.drawImage(image, {
