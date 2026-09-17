@@ -66,7 +66,7 @@ function CoverA({ data={}, showAnnotations=false }) {
 
       {/* ── Top metadata bar ── */}
       <div style={{
-        position:'absolute', top:BLEED+18, left:BLEED+ML, right:BLEED+MR,
+        position:'absolute', top:BLEED+22, left:BLEED+ML, right:BLEED+MR,
         display:'flex', justifyContent:'space-between', alignItems:'center',
         zIndex:4,
       }}>
@@ -362,4 +362,4 @@ function MultiPhoto2SideBySide({ data={}, showAnnotations=false }) {
   );
 }
 
-Object.assign(window, { CoverA, SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, W, H, BLEED, AW, AH, ML, MR, MT, MB, LIVEW });
+Object.assign(window, { CoverA, SinglePhoto, MultiPhoto2Stacked, MultiPhoto2SideBySide, W, H, BLEED, SAFE_INSET, AW, AH, ML, MR, MT, MB, LIVEW });

@@ -12,6 +12,8 @@ function Spread2({ data={}, showAnnotations=false }) {
   const spreadW = AW * 2;
   const priH = Math.floor(AH * 0.58);
   const secH = AH - priH;
+  // Index labels on a canvas edge sit 31px in (20px inside the trim); interior sides keep 10/12.
+  const idxEdge = BLEED + SAFE_INSET + 4;
 
   return (
     <div style={{ width: spreadW, height: AH, position: 'relative', overflow: 'hidden', display: 'flex' }}>
@@ -22,7 +24,7 @@ function Spread2({ data={}, showAnnotations=false }) {
         {/* Primary image — top ~58% */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: priH }}>
           <ImageFrame w={AW} h={priH} label={entries[0]?.title || 'primary image'} focal_x={entries[0]?.focal_x || 50} focal_y={entries[0]?.focal_y || 50} media_url={entries[0]?.media_url}/>
-          <div style={{ position: 'absolute', bottom: 10, left: 12, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
+          <div style={{ position: 'absolute', bottom: 10, left: idxEdge, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
           {showAnnotations && <Annotation label="entry[0] image" style={{ top: 8, left: 8 }}/>}
         </div>
 
@@ -32,7 +34,7 @@ function Spread2({ data={}, showAnnotations=false }) {
         {/* Secondary image — bottom ~42% */}
         <div style={{ position: 'absolute', top: priH + 3, left: 0, width: AW, height: secH - 3 }}>
           <ImageFrame w={AW} h={secH - 3} label={entries[1]?.title || 'secondary image'} focal_x={entries[1]?.focal_x || 50} focal_y={entries[1]?.focal_y || 50} media_url={entries[1]?.media_url}/>
-          <div style={{ position: 'absolute', bottom: 10, left: 12, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>02</div>
+          <div style={{ position: 'absolute', bottom: idxEdge, left: idxEdge, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>02</div>
           {showAnnotations && <Annotation label="entry[1] image" style={{ top: 8, left: 8 }}/>}
         </div>
 
@@ -145,6 +147,8 @@ function Spread4({ data={}, showAnnotations=false }) {
   const gutter = 4;
   const cellW = Math.floor((AW - gutter) / 2);
   const cellH = Math.floor((AH - gutter) / 2);
+  // Index labels on a canvas edge (left column, bottom row) sit 31px in (20px inside the trim); interior sides keep 8.
+  const idxEdge = BLEED + SAFE_INSET + 4;
 
   return (
     <div style={{ width: spreadW, height: AH, position: 'relative', overflow: 'hidden', display: 'flex' }}>
@@ -159,7 +163,7 @@ function Spread4({ data={}, showAnnotations=false }) {
             {[0, 1].map(col => (
               <div key={col} style={{ position: 'relative', width: cellW, height: cellH, flexShrink: 0 }}>
                 <ImageFrame w={cellW} h={cellH} label={entries[col]?.title || `image ${col + 1}`} focal_x={entries[col]?.focal_x || 50} focal_y={entries[col]?.focal_y || 50} media_url={entries[col]?.media_url}/>
-                <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
+                <div style={{ position: 'absolute', bottom: 8, left: col === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                   {String(col + 1).padStart(2, '0')}
                 </div>
               </div>
@@ -170,7 +174,7 @@ function Spread4({ data={}, showAnnotations=false }) {
             {[2, 3].map((idx, col) => (
               <div key={col} style={{ position: 'relative', width: cellW, height: cellH, flexShrink: 0 }}>
                 <ImageFrame w={cellW} h={cellH} label={entries[idx]?.title || `image ${idx + 1}`} focal_x={entries[idx]?.focal_x || 50} focal_y={entries[idx]?.focal_y || 50} media_url={entries[idx]?.media_url}/>
-                <div style={{ position: 'absolute', bottom: 8, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
+                <div style={{ position: 'absolute', bottom: idxEdge, left: col === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                   {String(idx + 1).padStart(2, '0')}
                 </div>
               </div>
@@ -304,6 +308,11 @@ function Spread6({ data={}, showAnnotations=false }) {
   const cols = 3;
   const gutter = 4;
   const cellW = Math.floor((AW - gutter * (cols - 1)) / cols);
+  // floor() leaves 2px: 3×260 + 2×4 = 788 < AW. The last cell takes the remainder so the
+  // grid reaches the canvas edge on both pages (no bare-ground sliver at the spine).
+  const lastW = AW - (cellW + gutter) * (cols - 1);
+  // Index labels on a canvas edge (first cell of each page) sit 31px in (20px inside the trim).
+  const idxEdge = BLEED + SAFE_INSET + 4;
 
   return (
     <div style={{ width: spreadW, height: AH, position: 'relative', overflow: 'hidden', display: 'flex' }}>
@@ -314,9 +323,9 @@ function Spread6({ data={}, showAnnotations=false }) {
         {/* Left 3 images */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: imgAreaH, display: 'flex', gap: gutter }}>
           {entries.slice(0, 3).map((entry, i) => (
-            <div key={i} style={{ position: 'relative', width: cellW, height: imgAreaH, flexShrink: 0 }}>
-              <ImageFrame w={cellW} h={imgAreaH} label={entry.title || `image ${i + 1}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
-              <div style={{ position: 'absolute', bottom: 10, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
+            <div key={i} style={{ position: 'relative', width: i === cols - 1 ? lastW : cellW, height: imgAreaH, flexShrink: 0 }}>
+              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 1}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
+              <div style={{ position: 'absolute', bottom: 10, left: i === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
             </div>
@@ -360,9 +369,9 @@ function Spread6({ data={}, showAnnotations=false }) {
         {/* Right 3 images */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: imgAreaH, display: 'flex', gap: gutter }}>
           {entries.slice(3, 6).map((entry, i) => (
-            <div key={i} style={{ position: 'relative', width: cellW, height: imgAreaH, flexShrink: 0 }}>
-              <ImageFrame w={cellW} h={imgAreaH} label={entry.title || `image ${i + 4}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
-              <div style={{ position: 'absolute', bottom: 10, left: 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
+            <div key={i} style={{ position: 'relative', width: i === cols - 1 ? lastW : cellW, height: imgAreaH, flexShrink: 0 }}>
+              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 4}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
+              <div style={{ position: 'absolute', bottom: 10, left: i === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                 {String(i + 4).padStart(2, '0')}
               </div>
             </div>

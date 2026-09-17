@@ -111,6 +111,14 @@ MANDATORY REQUIREMENTS — every template must:
   9. Full-bleed elements: position absolute, top:0, left:0, width:AW, height:AH
   10. Never leave a gap between a colored element and the page edge —
       extend to full canvas including bleed
+  11. SAFE_INSET (constant, 16px): every meaning-carrying text element, folio,
+      wordmark, index label, vertical label, chip and rule sits ≥16px inside the
+      design trim, i.e. ≥ BLEED + SAFE_INSET = 27px from any canvas edge, the spine
+      included. Only full-bleed images, bands and full-width rules may cross it.
+      Index labels ("01") are template divs, not ImageFrame's `n`: on any side that
+      coincides with a canvas edge use `const idxEdge = BLEED + SAFE_INSET + 4` (31px,
+      20px inside the trim); interior sides keep 8–12px. Verify by rendering and
+      measuring getBoundingClientRect, never by eye.
 
 MINIMUM TEXT SIZES:
   Body text: 11px minimum, line-height 1.75 minimum
@@ -386,6 +394,13 @@ What to keep in base (never override per issue):
 - **VerticalContributorLabel** — only on light-background pages, never dark
 - **Minimum caption word count for SpreadPanorama** — the caption band is 72px,
   fitting ~20–30 words comfortably, 50 words maximum before switching to Spread
+- **SpreadPanorama caption fit (measured)** — the band's text zone is 988–1026 (38px:
+  top 6 under the terra rule, bottom BLEED+SAFE_INSET+1 above the bleed). The caption
+  column is 652 − 20 − title width: 2 lines hold 47 words at "The Salt Line" (472px)
+  and 43 at a 209px title; 3 lines hold 67 / 57. A 50-word caption needs 3 lines, so the
+  caption is 9.5px at line-height 1.3 (3 × 12.35 = 37px) with WebkitLineClamp 3 as the
+  backstop. Any change to the band, the title size or the caption size must re-measure
+  that a 50-word caption still fits before changing the clamp
 - **Roster cap** — a contributor roster is never open-ended. Cap it (MAX_ROSTER 6:
   5 names + a "+ N others" cell), lay it out in 2 columns of pinned 16px rows, and
   give its container an explicit height with overflow hidden so a 30-contributor
@@ -398,3 +413,12 @@ What to keep in base (never override per issue):
   unset div inherits the 16px default line box and silently grows (the community mode
   chip rendered 24px tall around a 7px label; a bare `<div><GoldMark/></div>` is 18px).
   Pin line boxes wherever a derived height depends on them
+- **SAFE_INSET audit** — see Part 1 item 11. Bottom-anchored folios at BLEED+MB−14 are
+  42px inside the trim; wordmarks at BLEED+MT−30 are 26px; a label tucked 8px into a
+  full-bleed image corner is 3px OUTSIDE the trim. Anything derived from the canvas
+  edge rather than a margin needs idxEdge
+- **SpreadMosaic limits** — the left info band flows from the top (paddingTop 34 under
+  the wordmark, paddingBottom 73 above the folio, overflow hidden): the title is ONE
+  line of 26px serif and clips beyond it. The right caption strip is pinned to
+  captionStripH (56px) and the image columns are derived from the zone above it, so
+  captions are at most TWO lines of 7.5px sans (WebkitLineClamp 2); titles one line

@@ -76,9 +76,11 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
         {/* Terra rule at top of band */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: 1.5, background: C.terra }}/>
 
-        {/* Left page text — contributor name, city, title + caption — within left 790px */}
+        {/* Left page text — contributor name, city, title + caption — within left 790px.
+            Content zone 988–1026: top 6 below the terra rule, bottom BLEED+SAFE_INSET+1 (28) so the
+            lowest line clears the trim by ≥16px (the band's bottom 11px are bleed). */}
         <div style={{
-          position: 'absolute', top: 0, bottom: 0,
+          position: 'absolute', top: 6, bottom: BLEED + SAFE_INSET + 1,
           left: BLEED + ML, right: AW + BLEED + MR,
           display: 'flex', alignItems: 'center', gap: 20,
         }}>
@@ -96,23 +98,27 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
             </div>
             {showAnnotations && <Annotation label="contributor.name / city / page_title" style={{ top: 0, left: 0 }}/>}
           </div>
+          {/* Caption: 3 lines of 12.35px (line-height 1.3) = 37px fit the 38px zone. Measured with the real
+              font: 2 lines hold 47 words at a short title (472px column) and 43 at a 209px title (423px),
+              3 lines hold 67 / 57 — so a 50-word caption (the SpreadPanorama threshold) always fits in 3.
+              The clamp is a backstop for longer titles, never the normal path. */}
           <div style={{
             fontFamily: F.serif, fontStyle: 'italic', fontSize: 9.5, color: C.paper3,
-            lineHeight: 1.55, flexShrink: 1, overflow: 'hidden',
+            lineHeight: 1.3, flexShrink: 1, overflow: 'hidden',
+            display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
           }}>
             {entry.caption || 'A caption describing the panoramic photograph and the moment it captures.'}
             {showAnnotations && <Annotation label="entry.caption" style={{ top: 0, left: 0 }}/>}
           </div>
         </div>
 
-        {/* Right page text — section/gold marks + folio — within right 790px */}
+        {/* Right page text — section mark + folio — within right 790px (same 988–1026 zone) */}
         <div style={{
-          position: 'absolute', top: 0, bottom: 0,
+          position: 'absolute', top: 6, bottom: BLEED + SAFE_INSET + 1,
           left: AW + BLEED + ML, right: BLEED + MR,
           display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', gap: 4,
         }}>
           <SectionMark>{data.type || 'Photography'}</SectionMark>
-          <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
           <div style={{ marginTop: 2 }}>
             <Folio page={(data.page || 30) + 1} side="right" dark={true} season={data.season || 'Spring 2026'}/>
           </div>
@@ -142,6 +148,14 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
   // ── LEFT PAGE geometry ──
   const infoBandH = 148;
   const img01H = AH - infoBandH;
+  // The band's content zone stops 10px above the folio (bottom BLEED+MB-14, 10px line box) and
+  // starts 13px below the wordmark row (top 12 + 9). Content flows from the top and clips,
+  // so the title can never share the folio's row again.
+  const leftFolioTop = AH - (BLEED + MB - 14) - 10;
+  const bandPadTop = 34;
+  const bandPadBottom = AH - (leftFolioTop - 10);
+  // Index label on the canvas edge sits 31px in (20px inside the trim).
+  const idxEdge = BLEED + SAFE_INSET + 4;
 
   // ── RIGHT PAGE geometry ──
   const rpLeft = BLEED + ML;
@@ -150,7 +164,11 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
   const captionStripH = 56;
   const gutter = 8;
   const colW = Math.floor((rpLiveW - gutter) / 2);
-  const rightImgTotalH = AH - BLEED - MT - captionStripH - BLEED - MB;
+  // Image column height is derived from the zone above the caption strip: the strip is pinned to
+  // captionStripH above the bottom margin, the grid starts at BLEED+MT+22, and 8px separates them.
+  // (Previously the 22px header offset was not subtracted, so two-line captions pushed the strip's
+  // rule 9px up into the image bottoms.)
+  const rightImgTotalH = (AH - BLEED - MB - captionStripH) - (BLEED + MT + 22) - 8;
   const img02H = Math.floor(rightImgTotalH * 0.62);
   const img03H = rightImgTotalH - img02H - gutter;
   const img04H = Math.floor(rightImgTotalH * 0.38);
@@ -165,7 +183,7 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
         {/* Image 01 — fills top of left page */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: img01H }}>
           <ImageFrame w={AW} h={img01H} label={entries[0]?.title || 'image 01'} focal_x={entries[0]?.focal_x || 50} focal_y={entries[0]?.focal_y || 50} media_url={entries[0]?.media_url}/>
-          <div style={{ position: 'absolute', bottom: 10, left: 12, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
+          <div style={{ position: 'absolute', bottom: 10, left: idxEdge, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
           {showAnnotations && <Annotation label="entry[0] — primary" style={{ top: 8, left: 8 }}/>}
         </div>
 
@@ -176,8 +194,9 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
         <div style={{
           position: 'absolute', top: img01H + 2, left: 0, width: AW, height: infoBandH - 2,
           background: C.ground,
-          display: 'flex', flexDirection: 'column', justifyContent: 'center',
+          display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
           paddingLeft: BLEED + ML, paddingRight: BLEED + MR,
+          paddingTop: bandPadTop, paddingBottom: bandPadBottom, overflow: 'hidden',
           gap: 6, boxSizing: 'border-box',
         }}>
           {/* Wordmark top-left inside band */}
@@ -277,6 +296,7 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
           position: 'absolute',
           bottom: BLEED + MB,
           left: rpLeft, right: rpRight,
+          height: captionStripH, overflow: 'hidden',
           borderTop: `0.5px solid ${C.paper5}`,
           paddingTop: 8,
           display: 'flex', gap: 16,

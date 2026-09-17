@@ -1,7 +1,7 @@
 // primitives.jsx — Reusable primitive components for online//offline magazine
 
 // Page constants — shared across all templates
-const W=768, H=1032, BLEED=11;
+const W=768, H=1032, BLEED=11, SAFE_INSET=16; // SAFE_INSET: meaning-carrying text/rules stay ≥16px inside the design trim (MagCloud 0.25in safe zone minus the profile's 0.1in inset)
 const AW=W+BLEED*2, AH=H+BLEED*2;
 const ML=58, MR=58, MT=56, MB=56;
 const LIVEW=W-ML-MR;
@@ -159,7 +159,9 @@ function RegistrationMark({ side }) {
 function VerticalContributorLabel({ name, type, issue }) {
   return (
     <div style={{
-      position:'absolute', left:0, top:0, bottom:0, width:46,
+      /* left:12 (was 0): the rotated text's bbox starts 18px inside the box, so at left:0 it sat 7px
+         inside the trim; at 12 it is 19px inside (SAFE_INSET 16). The rule (right:0) moves with it. */
+      position:'absolute', left:12, top:0, bottom:0, width:46,
       display:'flex', alignItems:'center', justifyContent:'center',
     }}>
       <div style={{

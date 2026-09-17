@@ -371,6 +371,26 @@ Template notes (changed Sept 2026, after the first physical print):
   = 718), no longer imgHLeft. LEFT page: leftGridTop = BLEED+MT + 77 (the header's real height, city GoldMark div
   pinned to a 9px line) + 8 = 152, imgHLeft = leftFolioTop − 10 − caption block 22 − leftGridTop = 807, so the
   column-1 caption ends 10px above the folio. Left/right image heights differ by design; each page derives from its own zone.
+- Session 3 edge-safety pass (SAFE_INSET audit, all 17 templates rendered with real fonts): 13 FAIL groups fixed.
+  · Index labels on canvas-edge sides → idxEdge (Spread2, Spread4, Spread6, SpreadMosaic "01"); they were −3…+1px from the trim.
+  · VerticalContributorLabel (primitives.jsx) box left:0 → 12: the rotated text was 7px inside the trim, now 19px; the
+    0.5px rule (right:0 of the box) moved with it, x 45.5 → 57.5 (11px to the body column). TextSubmission, TextSpread,
+    PoetryPage.
+  · CoverA metadata bar top BLEED+18 → BLEED+22 (was 18px from the trim, now 22).
+  · SpreadMosaic: left info band justifyContent flex-start, paddingTop 34, paddingBottom AH − (leftFolioTop − 10) = 73,
+    overflow hidden → title 955–981, 10px above the folio (it shared the folio row); the title is ONE line (clips).
+    Right page: caption strip pinned to captionStripH 56 (931–987, overflow hidden) and rightImgTotalH = (AH − BLEED −
+    MB − captionStripH) − (BLEED+MT+22) − 8 = 834 so the columns end at 923, 8px above the strip rule (two-line captions
+    had pushed the rule 9px into the images); captions are at most TWO lines (line clamp). The 22px header offset had
+    been left out of the image math.
+  · SpreadPanorama band: the middle GoldMark season line removed (the folio carries it); both text containers are
+    top 6 / bottom BLEED+SAFE_INSET+1 = 28 → content zone 988–1026 (the band's bottom 11px are bleed). Caption fit,
+    MEASURED with the real font: the caption column is 652 − 20 − title width (472px at "The Salt Line", 423px at a
+    209px title); 2 lines hold 47 / 43 words, 3 lines 67 / 57 (61 at 9px). A 50-word caption (the SpreadPanorama
+    selection threshold) therefore needs THREE lines, which fit the zone only at line-height 1.3 (3 × 12.35 = 37px):
+    the caption is 9.5px / 1.3 with WebkitLineClamp 3 as a backstop (titles wider than ~260px push 50 words to a 4th
+    line and clip). Never clamp below the line count that fits 50 words.
+  · CollabSpreadPrivate chip pinned to a 14px line box (same fix as the community chip).
 
 Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never changes; only PDF output maps
 - screen (default): 790×1054pt output (design canvas 768×1032 + 11px bleed), PNG, deviceScaleFactor 4,
@@ -433,10 +453,10 @@ Print Fulfillment
      GATED on measuring the printed page: trimmed width fold-to-face (8.25in = MagCloud centred the trim, apply
      D; 8.375in = face cut moved out, spine stays 0) and cut-edge-to-folio on a right-hand page (0.708in =
      published trim, 0.833in = centred). Do not change safetyInsetIn or any bleed value until measured.
-  5. Spread6 left page: cellW = floor((AW − 2·gutter)/3) = 260 leaves design columns 788–790 as bare C.ground at the
-     spine edge — with bright photos it prints as a dark hairline along the fold. PENDING (template): give the last
-     cell the remainder (or flex:1) so the image row spans the full AW. TextSpread's 0.5px vertical label rule at
-     x=46 is intentional design; keep unless unwanted.
+  5. Spread6 left page: cellW = floor((AW − 2·gutter)/3) = 260 left design columns 788–790 as bare C.ground at the
+     spine edge — with bright photos it printed as a dark hairline along the fold. FIXED (Sept 2026, Session 3): the
+     last cell takes the remainder (lastW = AW − (cellW+gutter)·2 = 262) on both pages. TextSpread's 0.5px vertical
+     label rule is intentional design (now at x=57.5, see the VerticalContributorLabel note).
 
 Design System v1 — RETIRED (Phase 13, Sept 2026). The magazine templates keep their own C./F. constants.
 What it was: the "print shop at dusk" neon UI — --ground/--paper/--neon-*/--glow-*/--rule/--lt-* tokens, Instrument Sans +
@@ -769,6 +789,14 @@ Key Gotchas & Hard-Won Lessons
 - Derive every block's height from the zone above it on ITS page, never by reusing a sibling page's height
   (imgHRight = imgHLeft put the local credits below the trim). Rosters are capped (MAX_ROSTER 6) inside an
   explicit-height, overflow-hidden container so a 30-contributor collab clips instead of colliding.
+- SAFE_INSET = 16 (primitives.jsx constants line, exported to window with BLEED): every meaning-carrying text element,
+  folio, wordmark, index label, vertical label, chip and rule must sit ≥16px inside the design trim (≥ BLEED+16 = 27px
+  from any canvas edge, spine included). Rationale: MagCloud's 0.25in safe zone minus the magcloud profile's 0.1in inset
+  leaves 0.15in ≈ 14.3px for the template to supply; rounded up. Audit = render offline, getBoundingClientRect every text
+  leaf/rule, distance to trim on all four edges (Session 3 audit script pattern). Index labels ("01"…) are template-level
+  divs, NOT ImageFrame's `n` (that only renders on the no-image placeholder), so each full-bleed template defines
+  `const idxEdge = BLEED + SAFE_INSET + 4` (31px from the canvas edge, 20px inside the trim) and applies it ONLY to label
+  sides that coincide with a canvas edge (left column, bottom row, first cell after the spine); interior sides keep 8–12.
 - eslint IGNORES .jsx templates ("File ignored because no matching configuration was supplied") and tsc does not
   type-check them, so the esbuild JSX transform is the syntax check for template edits:
   node -e "require('esbuild').transformSync(require('fs').readFileSync('<file>','utf8'),{loader:'jsx'})".

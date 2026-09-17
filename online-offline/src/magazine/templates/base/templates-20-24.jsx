@@ -489,8 +489,8 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
           <div style={{ height:4 }}/>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:8, rowGap:2 }}>
             {rosterShown.map((c, i) => (
-              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', minWidth:0, height:16, lineHeight:'16px' }}>
-                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, flex:1, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||'Contributor'}</span>
+              <div key={i} style={{ display:'flex', alignItems:'baseline', gap:10, minWidth:0, height:16, lineHeight:'16px' }}>
+                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||'Contributor'}</span>
                 <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, letterSpacing:'0.08em', flexShrink:0 }}>{c.city||''}</span>
               </div>
             ))}
@@ -936,10 +936,11 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
           {showAnnotations && <Annotation label="entries[2..5] 2×2 grid" style={{ top:0, right:0 }}/>}
         </div>
 
-        {/* Private badge */}
+        {/* Private badge — the div pins font-size/line-height so its line box is 8px, not the inherited 16px default (14px chip) */}
         <div style={{
           position:'absolute', bottom:BLEED+MB+10, right:BLEED+MR,
           background:C.terra, borderRadius:4, padding:'3px 8px',
+          fontFamily:F.mono, fontSize:7, lineHeight:'8px',
         }}>
           <span style={{ fontFamily:F.mono, fontSize:7, color:C.paper, letterSpacing:'0.08em' }}>
             Private · Invite Only
