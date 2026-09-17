@@ -376,6 +376,13 @@ Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never 
   whole page stretched to 8.5×11 (~1.027× / 1.021× the main draw, corner-anchored): the first physical print
   showed it as a ~1/8in strip on the OUTSIDE edges repeating the page's own edge content shifted ~2.5mm
   down. All of this lives inside the `if (!coversPage)` branch, which the screen profile never enters.
+  Hairline check (Sept 2026): two full-height dark vertical hairlines reported in the magcloud PDF (page 12 TextSpread
+  left margin; page 16 Spread6 spine edge) were traced to the TEMPLATES, not the strips — the strip code emits only
+  q/re/W/n/cm/Do/Q (no path is stroked or filled), every clip rect lies in its edge gap, and flat-grey + synthetic
+  pages raster with zero stray lines in poppler and pdfium. Page 12 = VerticalContributorLabel's 0.5px C.paper5 rule
+  at design x=46 (primitives.jsx); page 16 = Spread6's 2px bare-ground sliver at design x=788–790 (3×260 + 2×4 = 788
+  < AW) under the gutter shadow. Both are in the raw Puppeteer screenshot of BOTH profiles at identical depth; a 50%
+  admin-preview iframe collapses the 0.5px rule, which is the likely reason it looked profile-specific. No generator fix.
   includePrinterMarks=false: BleedMarks/RegistrationMark are reassigned to null-renderers in the injected
   HTML (no template edits). JPEG q92 at deviceScaleFactor 3 → ~279×288 dpi effective on trim; ~22MB vs
   318MB (MagCloud hard cap: 300MB). ~2.5% horizontal anisotropy is inherent to trim-to-trim mapping.
@@ -413,6 +420,10 @@ Print Fulfillment
      GATED on measuring the printed page: trimmed width fold-to-face (8.25in = MagCloud centred the trim, apply
      D; 8.375in = face cut moved out, spine stays 0) and cut-edge-to-folio on a right-hand page (0.708in =
      published trim, 0.833in = centred). Do not change safetyInsetIn or any bleed value until measured.
+  5. Spread6 left page: cellW = floor((AW − 2·gutter)/3) = 260 leaves design columns 788–790 as bare C.ground at the
+     spine edge — with bright photos it prints as a dark hairline along the fold. PENDING (template): give the last
+     cell the remainder (or flex:1) so the image row spans the full AW. TextSpread's 0.5px vertical label rule at
+     x=46 is intentional design; keep unless unwanted.
 
 Design System v1 — RETIRED (Phase 13, Sept 2026). The magazine templates keep their own C./F. constants.
 What it was: the "print shop at dusk" neon UI — --ground/--paper/--neon-*/--glow-*/--rule/--lt-* tokens, Instrument Sans +
@@ -747,6 +758,15 @@ Key Gotchas & Hard-Won Lessons
 - Ordering: orderContentForFlow() — see "Page sequence". Watch the log for "alignment fallback" (should never appear).
 - Profiles: printProfiles.ts — add a printer as a profile; never hard-code page.pdf() geometry.
 - Puppeteer maps CSS px → PDF pt 1:1; deviceScaleFactor affects raster quality, not page size.
+- Verification of magcloud assembly changes must scan rasters for stray lines, not just check seams and edge
+  whiteness: rasterize at 300dpi (pdftoppm) and flag any column/row whose mean dips below its ±15px neighbours in
+  ≥50% of the page, on a flat-grey AND a synthetic page, both parities, and compare against the screen profile as
+  the control. A dark line that also appears in the raw Puppeteer screenshot of both profiles is a template element,
+  not an assembly bug — locate it by mapping x back to design px ((x_in − drawX_in)/sx_in on the left page).
+- The sandbox CAN render real templates offline for diagnostics: unpkg is blocked by the proxy, but esbuild (a tsx
+  dependency) transforms the JSX and `esbuild --bundle --format=iife` wraps react + react-dom/client into a
+  window.React/ReactDOM global; Puppeteer runs with executablePath /opt/pw-browsers/chromium; serve fake
+  https:// images via page.setRequestInterception. Keep such harnesses out of the repo (.edgefill-harness/, deleted).
 
 ### Git / Codespaces — see "Branch Discipline" at top. Short version:
 - Sync before: git fetch origin && git pull origin main; confirm git branch.
