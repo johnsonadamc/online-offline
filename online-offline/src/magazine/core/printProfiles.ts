@@ -49,12 +49,20 @@ export const PRINT_PROFILES: Record<string, PrintProfile> = {
     trimHeightIn: 10.75,
     bleedTopIn:    0.125,
     bleedBottomIn: 0.125,
-    bleedInsideIn: 0,
-    bleedOutsideIn: 0.25,
+    bleedInsideIn: 0.125,
+    bleedOutsideIn: 0.125,
     // 0.1in extra headroom: MagCloud trims with ±1/8in variance, and mapping the
     // design trim exactly onto their trim left bottom-edge folios/captions in
     // the danger zone. The design trim maps onto the trim rect inset by this on
-    // all four sides; a full-page bleed underlay fills the page edges.
+    // all four sides; mirrored edge strips fill the page edges.
+    // Option D (2026-09-17), measured on copy one (Lena's book, MagCloud Standard
+    // saddle-stitch): back-cover width fold-to-cut 8.25in, inner pages 8.125–
+    // 8.25in (creep), right-hand page cut edge to the end of the folio text
+    // 7/8in where the published 0.25in-outside / 0-spine bleed predicted
+    // 0.708in. MagCloud trims 8.25×10.75 CENTERED in the 8.5×11 page, 0.125in
+    // per side, so inside and outside bleed are both 0.125 and the generator's
+    // even/odd horizontal mirroring becomes a no-op. The repeated-edge strip on
+    // copy one had the same cause.
     safetyInsetIn: 0.1,
     includePrinterMarks: false,
     deviceScaleFactor: 3,

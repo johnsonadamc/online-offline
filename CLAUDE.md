@@ -395,14 +395,19 @@ Template notes (changed Sept 2026, after the first physical print):
 Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never changes; only PDF output maps
 - screen (default): 790×1054pt output (design canvas 768×1032 + 11px bleed), PNG, deviceScaleFactor 4,
   printer marks on. Used by generate-test default and the admin preview.
-- magcloud: 8.5×11in (612×792pt) output for MagCloud's Standard magazine (8.25×10.75in trim). Asymmetric
-  bleed: 0.125in top/bottom, 0.25in OUTSIDE, 0 on the SPINE side → even/left pages and odd/right pages get
-  mirrored horizontal offsets (cover = page 1 = right-hand page). safetyInsetIn 0.1 maps the design trim
-  0.1in INSIDE MagCloud's trim (their cut wanders ±1/8"), which leaves the 11px design bleed reaching only
-  ~0.015in past the assumed trim. The gap between the main draw and the page edge is filled with MIRRORED
-  EDGE STRIPS (Sept 2026): the same image XObject reflected across each draw-rect edge at the main draw's own
-  sx/sy scale and registration (negative width/height in pdf-lib drawImage, clipped via pushGraphicsState/
-  rectangle/clip/endPath), both-axes reflection in the two outside corners, nothing on the spine side. A wide
+- magcloud: 8.5×11in (612×792pt) output for MagCloud's Standard magazine (8.25×10.75in trim). SYMMETRIC bleed
+  0.125in on all four sides (Option D, applied 2026-09-17): MagCloud trims 8.25×10.75 CENTERED in the 8.5×11 page,
+  not the published 0.25in outside / 0 spine. Evidence, copy one (Lena's book, saddle-stitch): back-cover width
+  fold-to-cut 8.25in, inner pages 8.125–8.25in (creep), right-hand page cut edge to the end of the folio text 7/8in
+  where the published spec predicted 0.708in; the repeated-edge strip on copy one had the same cause. The generator's
+  even/odd horizontal mirroring (trimLeftPt = isLeftPage ? outside : inside) is still there but is now a NO-OP: drawX
+  is 7.898pt = 0.1097in on both parities, the design trim sits 0.225in (0.125 bleed + 0.1 inset) from every page edge,
+  and the 11px design bleed reaches 0.1097in from the edge horizontally / 0.1125in vertically (0.015in / 0.0125in past
+  MagCloud's trim line). safetyInsetIn 0.1 maps the design trim 0.1in INSIDE MagCloud's trim (their cut wanders
+  ±1/8"). The gap between the main draw and the page edge is filled with MIRRORED EDGE STRIPS (Sept 2026): the same
+  image XObject reflected across each draw-rect edge at the main draw's own sx/sy scale and registration (negative
+  width/height in pdf-lib drawImage, clipped via pushGraphicsState/rectangle/clip/endPath) — since Option D one strip
+  on EVERY edge (spine included) plus all four corners, eight clip rects per page, none overlapping the main draw. A wide
   cut therefore shows edge content continuing across the seam at the same position. The previous fill was the
   whole page stretched to 8.5×11 (~1.027× / 1.021× the main draw, corner-anchored): the first physical print
   showed it as a ~1/8in strip on the OUTSIDE edges repeating the page's own edge content shifted ~2.5mm
@@ -436,6 +441,11 @@ Print Fulfillment
   perfect bind $1.00/piece (24–384pp). ~$6.40 print + ship for 32pp.
 - Later: Mixam (better unit price ≥~10 copies, real paper choices) as a second print profile.
 - Test terracotta #e05a28 and gold #e8a020 on the first physical copy — warm colors shift in CMYK.
+- ⚠️ MagCloud's PUBLISHED bleed spec (0.25in outside / 0 spine) does NOT match their saddle-stitch trim: copy one
+  measured 8.25in fold-to-cut on the back cover and 7/8in cut-edge-to-folio on a right-hand page, i.e. the 8.25×10.75
+  trim is centred in the 8.5×11 page, 0.125in per side. The magcloud profile uses 0.125 on all four sides (Option D).
+  Inner pages creep ~1/8in narrower (8.125–8.25in) toward the centre of the book — content near the outside edge of
+  centre spreads sits closer to the cut than the profile predicts; SAFE_INSET covers the difference.
 - First physical print — Sept 2026 findings (Lena's magcloud PDF, one MagCloud copy):
   1. Outside-edge strip ~1/8in wide repeating the page's own edge content, shifted ~2.5mm down; top and bottom
      edges clean. Cause: the stretched whole-page bleed underlay (different scale + registration) showing
@@ -449,10 +459,12 @@ Print Fulfillment
      (see Template notes, Sept 2026).
   3. SpreadPanorama right page printed `data.page` (the LEFT page number) in its folio; every other spread
      passes `data.page + 1` on the right page. FIXED (Sept 2026).
-  4. Option D — moving the assumed trim to 0.125in per side (bleedInside 0.125 / bleedOutside 0.125) — is
-     GATED on measuring the printed page: trimmed width fold-to-face (8.25in = MagCloud centred the trim, apply
-     D; 8.375in = face cut moved out, spine stays 0) and cut-edge-to-folio on a right-hand page (0.708in =
-     published trim, 0.833in = centred). Do not change safetyInsetIn or any bleed value until measured.
+  4. Option D — moving the assumed trim to 0.125in per side (bleedInside 0.125 / bleedOutside 0.125) — was
+     GATED on measuring the printed page. MEASURED 2026-09-17: back-cover width fold-to-cut 8.25in (inner pages
+     8.125–8.25in, creep), cut-edge-to-folio on a right-hand page 7/8in (published spec predicted 0.708in) → the
+     trim is centred. APPLIED (Session 4): bleedInsideIn 0.125, bleedOutsideIn 0.125; safetyInsetIn stays 0.1.
+     Verified in the sandbox: 612×792, drawX identical on both parities, one mirrored strip per edge + 4 corners,
+     seams continuous on all four edges, no white within 0.3in, no stray lines, screen rasters unchanged.
   5. Spread6 left page: cellW = floor((AW − 2·gutter)/3) = 260 left design columns 788–790 as bare C.ground at the
      spine edge — with bright photos it printed as a dark hairline along the fold. FIXED (Sept 2026, Session 3): the
      last cell takes the remainder (lastW = AW − (cellW+gutter)·2 = 262) on both pages. TextSpread's 0.5px vertical
