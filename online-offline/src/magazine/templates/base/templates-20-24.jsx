@@ -352,6 +352,24 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
   const rightImgH       = imgH;
   const rightCreditsTop = rightGridTop + rightImgH + captionH + 14;
 
+  // Credits zone: the mode badge's bottom sits at BLEED+MB+10; the badge div
+  // pins its own font-size/line-height (7px mono on an 8px line + 3+3 padding
+  // = 14px). Without that it inherited the 16px default line box and was 24px
+  // tall. The roster must end 10px above the badge top. Height is derived from
+  // the layout constants, never a literal.
+  const badgeLineH      = 8;
+  const badgeH          = badgeLineH + 3 + 3;
+  const badgeTop        = AH - (BLEED + MB + 10) - badgeH;
+  const creditsH        = badgeTop - rightCreditsTop - 10;
+  // Roster: 2 columns × 3 rows of pinned 16px line boxes (row gap 2) after the
+  // label (9 + 4), rule (1) and spacer (4) = 70px, inside the 81px zone.
+  // Hard cap: show 5 names + "+ N others" when there are more than 6.
+  const MAX_ROSTER      = 6;
+  const rosterShown     = uniqueContributors.length > MAX_ROSTER
+    ? uniqueContributors.slice(0, MAX_ROSTER - 1)
+    : uniqueContributors;
+  const rosterOverflow  = uniqueContributors.length - rosterShown.length;
+
   return (
     <div style={{ width:spreadW, height:AH, position:'relative', overflow:'hidden', display:'flex' }}>
 
@@ -462,28 +480,34 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
           {showAnnotations && <Annotation label="entries[3..5] — right page" style={{ top:0, left:0 }}/>}
         </div>
 
-        {/* Credits section */}
-        <div style={{ position:'absolute', top:rightCreditsTop, left:BLEED+ML, right:BLEED+MR }}>
-          <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', marginBottom:5 }}>
+        {/* Credits section — explicit height + overflow hidden: metric drift clips, never collides */}
+        <div style={{ position:'absolute', top:rightCreditsTop, left:BLEED+ML, right:BLEED+MR, height:creditsH, overflow:'hidden' }}>
+          <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', lineHeight:'9px', marginBottom:4 }}>
             Contributors to this collaboration
           </div>
           <GoldRule/>
-          <div style={{ height:10 }}/>
-          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            {uniqueContributors.map((c, i) => (
-              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline' }}>
-                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground }}>{c.name||'Contributor'}</span>
-                <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, letterSpacing:'0.08em' }}>{c.city||''}</span>
+          <div style={{ height:4 }}/>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:8, rowGap:2 }}>
+            {rosterShown.map((c, i) => (
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', minWidth:0, height:16, lineHeight:'16px' }}>
+                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, flex:1, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||'Contributor'}</span>
+                <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, letterSpacing:'0.08em', flexShrink:0 }}>{c.city||''}</span>
               </div>
             ))}
+            {rosterOverflow > 0 && (
+              <div style={{ display:'flex', alignItems:'baseline', minWidth:0, height:16, lineHeight:'16px' }}>
+                <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, textTransform:'uppercase', letterSpacing:'0.08em' }}>+ {rosterOverflow} others</span>
+              </div>
+            )}
           </div>
           {showAnnotations && <Annotation label="contributors credits" style={{ top:0, left:0 }}/>}
         </div>
 
-        {/* Mode badge */}
+        {/* Mode badge — the div pins font-size/line-height so its line box is 8px, not the inherited 16px default */}
         <div style={{
           position:'absolute', bottom:BLEED+MB+10, right:BLEED+MR,
           background:C.ground, borderRadius:4, padding:'3px 8px',
+          fontFamily:F.mono, fontSize:7, lineHeight:`${badgeLineH}px`,
         }}>
           <span style={{ fontFamily:F.mono, fontSize:7, color:C.paper3, letterSpacing:'0.08em' }}>
             Community · open call
@@ -527,20 +551,46 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
   const uniqueContributors = entries.map(e => e.contributor).filter(Boolean)
     .filter((c, i, arr) => arr.findIndex(x => x.name === c.name) === i);
 
-  const bandH   = 108;
   const gutter  = 8;
   const cols    = 3;
   const colW    = Math.floor((LIVEW - gutter*(cols-1)) / cols);
   const captH   = 30;
-  const folioH  = 28;
   const descH   = 46;
   const ruleH   = 2;
-  const leftGridTop = bandH + 16;
-  const imgHLeft = Math.floor((AH - leftGridTop - captH - folioH - 8));
-  const rightDescTop = BLEED+MT;
-  const rightGridTop = rightDescTop + descH + ruleH + 10;
-  const creditsTop   = rightGridTop + imgHLeft + captH + 16;
-  const imgHRight = imgHLeft;
+
+  // ── LEFT PAGE — every height derived from the zone above it, never from a
+  // sibling page. Header: label 9 + 8, title 34×0.92 ≈ 31.3 + 6, city GoldMark
+  // (its div pins a 9px line box) 9 + 4, count 9 → 76.3, so 77. The grid starts
+  // 8px below it; the images end where the caption block (4 + 9 + 9 = 22) still
+  // clears the folio's 10px line box by 10px.
+  const leftHeaderH   = 77;
+  const leftGridTop   = BLEED + MT + leftHeaderH + 8;
+  const leftCaptionH  = 4 + 9 + 9;
+  const leftFolioTop  = AH - (BLEED + MB - 14) - 10;
+  const imgHLeft      = leftFolioTop - 10 - leftCaptionH - leftGridTop;
+
+  // ── RIGHT PAGE — the credits zone is sized from its own content and pinned
+  // 10px above the folio; the image height is whatever remains above it (it
+  // must NOT reuse imgHLeft: that put creditsTop at 1035, below the trim).
+  const rightDescTop    = BLEED+MT;
+  const rightGridTop    = rightDescTop + descH + ruleH + 10;
+  const rightFolioTop   = AH - (BLEED + MB - 14) - 9;
+  const creditsBottom   = rightFolioTop - 10;
+  const rosterRowH      = 16;
+  const rosterRowGap    = 2;
+  const rosterRows      = 3;
+  const creditsLabelH   = 9 + 4 + 1 + 4;                                     // label line + margin + rule + spacer
+  const rosterH         = rosterRows * rosterRowH + (rosterRows - 1) * rosterRowGap;
+  const footerNoteH     = 8 + 15;                                            // marginTop + one pinned 15px line
+  const creditsH        = creditsLabelH + rosterH + footerNoteH;
+  const creditsTop      = creditsBottom - creditsH;
+  const imgHRight       = creditsTop - 16 - captH - rightGridTop;
+  // Roster: 2 columns × 3 rows; hard cap 6 = 5 names + "+ N others".
+  const MAX_ROSTER      = 6;
+  const rosterShown     = uniqueContributors.length > MAX_ROSTER
+    ? uniqueContributors.slice(0, MAX_ROSTER - 1)
+    : uniqueContributors;
+  const rosterOverflow  = uniqueContributors.length - rosterShown.length;
 
   return (
     <div style={{ width:spreadW, height:AH, position:'relative', overflow:'hidden', display:'flex' }}>
@@ -567,8 +617,8 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
           <div style={{ fontFamily:F.serif, fontSize:34, color:C.paper, lineHeight:0.92, marginBottom:6 }}>
             {collabTitle}
           </div>
-          <div style={{ marginBottom:4 }}><GoldMark>{city}</GoldMark></div>
-          <div style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, letterSpacing:'0.08em' }}>
+          <div style={{ marginBottom:4, fontFamily:F.mono, fontSize:8, lineHeight:'9px' }}><GoldMark>{city}</GoldMark></div>
+          <div style={{ fontFamily:F.mono, fontSize:8, lineHeight:'9px', color:C.paper4, letterSpacing:'0.08em' }}>
             {uniqueContributors.length} contributors
           </div>
           {showAnnotations && <Annotation label="collab_title / city" style={{ top:0, left:0 }}/>}
@@ -653,23 +703,29 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
           })}
         </div>
 
-        {/* Credits section */}
-        <div style={{ position:'absolute', top:creditsTop, left:BLEED+ML, right:BLEED+MR }}>
-          <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', marginBottom:5 }}>
+        {/* Credits section — explicit height + overflow hidden: metric drift clips, never collides */}
+        <div style={{ position:'absolute', top:creditsTop, left:BLEED+ML, right:BLEED+MR, height:creditsH, overflow:'hidden' }}>
+          <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', lineHeight:'9px', marginBottom:4 }}>
             Contributors — {city}
           </div>
           <GoldRule/>
-          <div style={{ height:10 }}/>
-          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            {uniqueContributors.map((c, i) => (
-              <div key={i} style={{ display:'flex', alignItems:'baseline', gap:8 }}>
-                <span style={{ color:C.terra, fontFamily:F.mono, fontSize:8 }}>·</span>
-                <span style={{ fontFamily:F.serif, fontSize:14, color:C.ground }}>{c.name||''}</span>
+          <div style={{ height:4 }}/>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:8, rowGap:rosterRowGap }}>
+            {rosterShown.map((c, i) => (
+              <div key={i} style={{ display:'flex', alignItems:'baseline', gap:8, minWidth:0, height:rosterRowH, lineHeight:`${rosterRowH}px` }}>
+                <span style={{ color:C.terra, fontFamily:F.mono, fontSize:8, flexShrink:0 }}>·</span>
+                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, flex:1, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||''}</span>
               </div>
             ))}
+            {rosterOverflow > 0 && (
+              <div style={{ display:'flex', alignItems:'baseline', gap:8, minWidth:0, height:rosterRowH, lineHeight:`${rosterRowH}px` }}>
+                <span style={{ color:C.terra, fontFamily:F.mono, fontSize:8, flexShrink:0 }}>·</span>
+                <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, textTransform:'uppercase', letterSpacing:'0.08em' }}>+ {rosterOverflow} others</span>
+              </div>
+            )}
           </div>
           {/* Footer note */}
-          <div style={{ marginTop:16, fontFamily:F.serif, fontStyle:'italic', fontSize:9, color:C.paper4, lineHeight:1.6 }}>
+          <div style={{ marginTop:8, fontFamily:F.serif, fontStyle:'italic', fontSize:9, color:C.paper4, lineHeight:'15px' }}>
             This collaboration was open to contributors based in {city} during {season}.
           </div>
           {showAnnotations && <Annotation label="contributors / footer note" style={{ top:0, left:0 }}/>}

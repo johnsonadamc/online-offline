@@ -360,6 +360,17 @@ Template notes (changed Aug 2026):
   used only as the no-image placeholder.
 - ⚠️ Spread4 with 3 images leaves an EMPTY grid cell. Known gap — a dedicated 3-image template (Spread3) is
   planned. Until then, submissions should have 4 images, not 3.
+Template notes (changed Sept 2026, after the first physical print):
+- SpreadPanorama right folio = data.page + 1 (it printed data.page, the LEFT page number). Left page: wordmark only.
+- CollabSpreadCommunity + CollabSpreadLocal roster: 2 columns (322px, column gap 8), MAX_ROSTER 6 → 5 names + a
+  "+ N others" cell (mono 7.5 uppercase), rows pinned to 16px line boxes (row gap 2), name serif 13 with ellipsis,
+  credits container has an EXPLICIT height derived from the zone above the chip (community: badgeTop − creditsTop − 10
+  = 81) or the folio (local: 93 incl. the footer note) and overflow hidden. Community's mode chip pins
+  fontFamily/fontSize/lineHeight so it is 14px tall (it inherited the 16px default line box and was 24px).
+- CollabSpreadLocal RIGHT page: imgHRight is derived from the credits zone (creditsTop 889 − 16 − captH − rightGridTop
+  = 718), no longer imgHLeft. LEFT page: leftGridTop = BLEED+MT + 77 (the header's real height, city GoldMark div
+  pinned to a 9px line) + 8 = 152, imgHLeft = leftFolioTop − 10 − caption block 22 − leftGridTop = 807, so the
+  column-1 caption ends 10px above the folio. Left/right image heights differ by design; each page derives from its own zone.
 
 Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never changes; only PDF output maps
 - screen (default): 790×1054pt output (design canvas 768×1032 + 11px bleed), PNG, deviceScaleFactor 4,
@@ -411,11 +422,13 @@ Print Fulfillment
      between the 11px design bleed and MagCloud's cut. FIXED: mirrored edge strips (see print profiles above).
   2. CollabSpreadCommunity right page: the "Contributors to this collaboration" roster (uncapped, one row per
      contributor, 22px pitch) has room for only 3 rows above the "Community · open call" chip; with 6+ names
-     rows 4–6 print over the chip and the folio. PENDING (next session): two columns × 3 rows, hard cap 6 with
-     a "+ N others" cell, explicit height + overflow hidden. CollabSpreadLocal is worse: creditsTop = 1035 puts
-     its whole credits block below the trim (1043) and its right-page captions over the folio — verify + fix.
-  3. SpreadPanorama right page prints `data.page` (the LEFT page number) in its folio; every other spread
-     passes `data.page + 1` on the right page. PENDING (next session, templates-18-19.jsx line 117).
+     rows 4–6 print over the chip and the folio. FIXED (Sept 2026): two columns × 3 rows, hard cap 6 with
+     a "+ N others" cell, explicit height + overflow hidden, chip pinned to 14px. CollabSpreadLocal was worse:
+     creditsTop = 1035 put its whole credits block below the trim (1043), its right-page captions over the folio,
+     its left header behind the images and its left column-1 caption over the left folio — FIXED, both pages
+     (see Template notes, Sept 2026).
+  3. SpreadPanorama right page printed `data.page` (the LEFT page number) in its folio; every other spread
+     passes `data.page + 1` on the right page. FIXED (Sept 2026).
   4. Option D — moving the assumed trim to 0.125in per side (bleedInside 0.125 / bleedOutside 0.125) — is
      GATED on measuring the printed page: trimmed width fold-to-face (8.25in = MagCloud centred the trim, apply
      D; 8.375in = face cut moved out, spine stays 0) and cut-edge-to-folio on a right-hand page (0.708in =
@@ -750,6 +763,17 @@ Key Gotchas & Hard-Won Lessons
 - CollabSpreadLocal reads data.city (must be a CITIES value); CampaignPage reads data.avatar_url;
   Cover reads data.volume/data.issue.
 - Templates never change for app-redesign work.
+- Any div holding small mono text must set its own font-size/line-height; an unset div inherits a 16px line box and
+  silently grows (the community mode chip was 24px tall, the local header's city GoldMark line 18px). Pin line boxes
+  (lineHeight:'9px' for 8px mono, 16px rows for 13px serif) wherever a height is derived from them.
+- Derive every block's height from the zone above it on ITS page, never by reusing a sibling page's height
+  (imgHRight = imgHLeft put the local credits below the trim). Rosters are capped (MAX_ROSTER 6) inside an
+  explicit-height, overflow-hidden container so a 30-contributor collab clips instead of colliding.
+- eslint IGNORES .jsx templates ("File ignored because no matching configuration was supplied") and tsc does not
+  type-check them, so the esbuild JSX transform is the syntax check for template edits:
+  node -e "require('esbuild').transformSync(require('fs').readFileSync('<file>','utf8'),{loader:'jsx'})".
+  Verify layout by rendering with the offline recipe (Generator gotchas) and measuring getBoundingClientRect, with
+  the real Google fonts inlined as data: @font-face (curl the css2 URL and the fonts.gstatic.com woff2 via the proxy).
 
 ### Generator
 - Codespaces run only (sandbox can't). Needs .env.local + npm install + Chromium libs (see "Running the generator").

@@ -114,7 +114,7 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
           <SectionMark>{data.type || 'Photography'}</SectionMark>
           <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
           <div style={{ marginTop: 2 }}>
-            <Folio page={data.page || 30} side="right" dark={true} season={data.season || 'Spring 2026'}/>
+            <Folio page={(data.page || 30) + 1} side="right" dark={true} season={data.season || 'Spring 2026'}/>
           </div>
           {showAnnotations && <Annotation label="type / season / folio" style={{ top: 0, right: 0 }}/>}
         </div>

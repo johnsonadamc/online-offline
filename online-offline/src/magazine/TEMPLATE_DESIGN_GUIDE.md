@@ -386,3 +386,15 @@ What to keep in base (never override per issue):
 - **VerticalContributorLabel** — only on light-background pages, never dark
 - **Minimum caption word count for SpreadPanorama** — the caption band is 72px,
   fitting ~20–30 words comfortably, 50 words maximum before switching to Spread
+- **Roster cap** — a contributor roster is never open-ended. Cap it (MAX_ROSTER 6:
+  5 names + a "+ N others" cell), lay it out in 2 columns of pinned 16px rows, and
+  give its container an explicit height with overflow hidden so a 30-contributor
+  collab clips instead of printing over the chip, the folio or the trim
+- **Derive heights from the zone above, never reuse a sibling page's height** —
+  each page's image height is whatever remains between its own header/caption
+  zone and its own credits/folio zone. `imgHRight = imgHLeft` put CollabSpreadLocal's
+  credits block below the trim; the right page has a credits zone the left page lacks
+- **Any div holding small mono text must set its own font-size/line-height** — an
+  unset div inherits the 16px default line box and silently grows (the community mode
+  chip rendered 24px tall around a 7px label; a bare `<div><GoldMark/></div>` is 18px).
+  Pin line boxes wherever a derived height depends on them
