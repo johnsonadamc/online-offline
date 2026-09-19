@@ -31,6 +31,7 @@ export const PRINT_PROFILES: Record<string, PrintProfile> = {
     bleedOutsideIn: 11 / 72,
     safetyInsetIn: 0,
     includePrinterMarks: true,
+    includeGutterShadow: true,
     deviceScaleFactor: 4,
     imageFormat: 'png',
   },
@@ -65,6 +66,8 @@ export const PRINT_PROFILES: Record<string, PrintProfile> = {
     // copy one had the same cause.
     safetyInsetIn: 0.1,
     includePrinterMarks: false,
+    // The shadow is a browser-preview element; 0.9mm of it survived MagCloud's cut at the fold.
+    includeGutterShadow: false,
     deviceScaleFactor: 3,
     imageFormat: 'jpeg',
     jpegQuality: 92,

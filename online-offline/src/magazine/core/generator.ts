@@ -85,7 +85,7 @@ function makeClient(): SupabaseClient {
 
 // ─── HTML Page Builder ────────────────────────────────────────────────────────
 
-function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks = false): string {
+function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks = false, suppressGutterShadow = false): string {
   const primitivesCode = readFileSync(PRIMITIVES_PATH, 'utf-8');
 
   // Printer-marks suppression (print profiles with includePrinterMarks:false):
@@ -97,6 +97,15 @@ function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks
   // which keeps that render behaviorally identical to the pre-profile pipeline.
   const marksOverride = suppressPrinterMarks
     ? 'BleedMarks = function(){ return null; }; RegistrationMark = function(){ return null; };'
+    : '';
+  // Gutter-shadow suppression (print profiles with includeGutterShadow:false):
+  // every spread template's gutter-shadow div carries className="gutter-shadow";
+  // this print-only rule hides it in the page's <style> block. The shadow is a
+  // browser-preview element — under the magcloud profile 0.9mm of it survived
+  // MagCloud's cut at the fold. Empty string (no rule, byte-identical HTML) for
+  // profiles that keep it.
+  const shadowRule = suppressGutterShadow
+    ? '\n    .gutter-shadow { display: none !important; }'
     : '';
   const templateFile = TEMPLATE_FILE_MAP[templateName];
 
@@ -144,7 +153,7 @@ function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #252119; width: ${pageW}px; height: ${AH}px; overflow: hidden; }
+    body { background: #252119; width: ${pageW}px; height: ${AH}px; overflow: hidden; }${shadowRule}
   </style>
 </head>
 <body>
@@ -190,7 +199,7 @@ async function renderPageToBuffers(
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: viewportW, height: AH, deviceScaleFactor: profile.deviceScaleFactor });
-    const html = buildPageHtml(templateName, data, !profile.includePrinterMarks);
+    const html = buildPageHtml(templateName, data, !profile.includePrinterMarks, !profile.includeGutterShadow);
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
     await page.evaluateHandle('document.fonts.ready');
 

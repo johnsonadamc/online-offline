@@ -56,7 +56,7 @@ function Spread2({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 5, width: 10, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.20) 100%)',
       }}/>
@@ -201,7 +201,7 @@ function Spread4({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 5, width: 10, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.20) 100%)',
       }}/>
@@ -358,7 +358,7 @@ function Spread6({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 5, width: 10, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.20) 100%)',
       }}/>
@@ -524,7 +524,7 @@ function TextSpread({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 5, width: 10, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.08) 100%)',
       }}/>

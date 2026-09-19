@@ -448,7 +448,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position:'absolute', top:0, left:AW-5, width:10, height:AH, zIndex:10, pointerEvents:'none',
         background:'linear-gradient(to right, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.10) 100%)',
       }}/>
@@ -659,7 +659,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position:'absolute', top:0, left:AW-5, width:10, height:AH, zIndex:10, pointerEvents:'none',
         background:'linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.16) 100%)',
       }}/>
@@ -856,7 +856,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position:'absolute', top:0, left:AW-5, width:10, height:AH, zIndex:10, pointerEvents:'none',
         background:'linear-gradient(to right, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.22) 100%)',
       }}/>

@@ -141,7 +141,8 @@ SPREAD TEMPLATES additionally:
   - Use className="print-page-spread" (1580×1054px) not "print-page"
   - Left page: dark background, full-bleed images
   - Right page: light paper background, text/caption content
-  - Gutter shadow: absolute 10px wide centered gradient between pages
+  - Gutter shadow: absolute 10px wide centered gradient between pages — the div MUST carry
+    className="gutter-shadow" (the magcloud print profile hides it by that class; see Part 6)
   - Folio: left page bottom-left only, right page bottom-right only
   - WordMark top-left of left page: Courier Prime 8px,
     "online" + "//" (terra) + "offline" in rgba(224,90,40,0.55)
@@ -390,7 +391,11 @@ What to keep in base (never override per issue):
 - **Full-bleed images** — use position:absolute, top:0, left:0, width:AW, height:AH
   not width:100%, height:100% (percentage sizing can have rounding issues)
 - **Gutter shadow on spreads** — position:absolute, centered at AW from left,
-  width:10px, full height, linear-gradient dark-to-transparent-to-dark
+  width:10px, full height, linear-gradient dark-to-transparent-to-dark, AND
+  className="gutter-shadow". It is a browser-preview element: print profiles with
+  includeGutterShadow=false (magcloud) hide it via a `.gutter-shadow { display:none }`
+  rule the generator injects. A shadow div without the class is not hidden and prints
+  as a ~0.9mm dark sliver at the fold (0.110–0.162in from the spine edge).
 - **VerticalContributorLabel** — only on light-background pages, never dark
 - **Minimum caption word count for SpreadPanorama** — the caption band is 72px,
   fitting ~20–30 words comfortably, 50 words maximum before switching to Spread

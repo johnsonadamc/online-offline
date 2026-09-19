@@ -42,7 +42,7 @@ function SpreadPanorama({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 5, width: 10, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.30) 0%, rgba(0,0,0,0.04) 50%, rgba(0,0,0,0.18) 100%)',
       }}/>
@@ -241,7 +241,7 @@ function SpreadMosaic({ data={}, showAnnotations=false }) {
       </div>
 
       {/* Gutter shadow */}
-      <div style={{
+      <div className="gutter-shadow" style={{
         position: 'absolute', top: 0, left: AW - 4, width: 8, height: AH, zIndex: 10, pointerEvents: 'none',
         background: 'linear-gradient(to right, rgba(0,0,0,0.22) 0%, rgba(0,0,0,0.03) 50%, rgba(0,0,0,0.12) 100%)',
       }}/>

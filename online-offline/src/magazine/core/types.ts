@@ -178,6 +178,7 @@ export interface PrintProfile {
                                 // (all four sides) as headroom for trim variance;
                                 // 0 = design trim maps exactly onto profile trim
   includePrinterMarks: boolean; // false = suppress BleedMarks/RegistrationMark in render
+  includeGutterShadow: boolean; // false = hide the spreads' .gutter-shadow div (print-only CSS rule)
   deviceScaleFactor: number;    // Puppeteer render resolution
   imageFormat: 'png' | 'jpeg';  // page raster format embedded in the PDF
   jpegQuality?: number;         // only for imageFormat 'jpeg'

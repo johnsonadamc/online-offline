@@ -422,9 +422,15 @@ Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never 
   includePrinterMarks=false: BleedMarks/RegistrationMark are reassigned to null-renderers in the injected
   HTML (no template edits). JPEG q92 at deviceScaleFactor 3 → ~279×288 dpi effective on trim; ~22MB vs
   318MB (MagCloud hard cap: 300MB). ~2.5% horizontal anisotropy is inherent to trim-to-trim mapping.
+  includeGutterShadow=false (magcloud; screen keeps it true): the spread gutter shadow is a browser-preview element —
+  0.9mm of it survived MagCloud's cut at the fold (the div spans design x 785–795, i.e. 0.110–0.162in from the spine
+  edge under Option D; MagCloud cuts at 0.125in). Suppression (Option B2, Sept 2026): every spread's gutter-shadow div
+  carries className="gutter-shadow" and buildPageHtml emits `.gutter-shadow { display: none !important; }` into the
+  page's <style> block alongside marksOverride, only when the profile's flag is false — no template geometry change,
+  the screen HTML is byte-identical, and the admin preview route (its own buildPageHtml) still shows the shadow.
 - PrintProfile fields: pageWidthIn/HeightIn, trimWidthIn/HeightIn, bleedTop/Bottom/Inside/OutsideIn,
-  safetyInsetIn, includePrinterMarks, deviceScaleFactor, imageFormat, jpegQuality. Add printers as profiles
-  (Mixam next) — never hard-code a printer's geometry into page.pdf().
+  safetyInsetIn, includePrinterMarks, includeGutterShadow, deviceScaleFactor, imageFormat, jpegQuality. Add printers
+  as profiles (Mixam next) — never hard-code a printer's geometry into page.pdf().
 Check a PDF: pdfinfo <file> | grep "Page size" (needs poppler-utils). screen = 790×1054 pts; magcloud = 612×792.
 
 Key Design Constants (primitives.jsx)
@@ -809,6 +815,11 @@ Key Gotchas & Hard-Won Lessons
   divs, NOT ImageFrame's `n` (that only renders on the no-image placeholder), so each full-bleed template defines
   `const idxEdge = BLEED + SAFE_INSET + 4` (31px from the canvas edge, 20px inside the trim) and applies it ONLY to label
   sides that coincide with a canvas edge (left column, bottom row, first cell after the spine); interior sides keep 8–12.
+- Every spread's gutter-shadow div must carry className="gutter-shadow" — the magcloud profile hides it by that class
+  (includeGutterShadow=false → print-only CSS rule in buildPageHtml); a shadow without the class prints as a ~0.9mm dark
+  sliver at the fold. Ten sites today (Spread, Spread2, Spread4, Spread6, TextSpread, SpreadPanorama, SpreadMosaic,
+  CollabSpreadCommunity/Local/Private). Intended long-term form is Option C — a GutterShadow primitive in primitives.jsx
+  that carries the class (and the gradient) so a new spread cannot forget it; until then, copy the attribute.
 - eslint IGNORES .jsx templates ("File ignored because no matching configuration was supplied") and tsc does not
   type-check them, so the esbuild JSX transform is the syntax check for template edits:
   node -e "require('esbuild').transformSync(require('fs').readFileSync('<file>','utf8'),{loader:'jsx'})".
