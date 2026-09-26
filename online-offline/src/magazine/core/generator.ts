@@ -595,21 +595,15 @@ function orderContentForFlow(items: SelectionItem[]): SelectionItem[] {
   return ordered;
 }
 
-// ─── Main Generator ───────────────────────────────────────────────────────────
+// ─── Page Sequence (pre-render) ──────────────────────────────────────────────
 
-export async function generateMagazine(
+export type PageSpec = { templateName: string; data: unknown; pageCount: number };
+export type PageSequenceResult = { pageSequence: PageSpec[]; colophonPage: number };
+
+export async function buildPageSequence(
   curatorId: string,
-  periodId: string,
-  profileName: string = 'screen'
-): Promise<string> {
-  const profile = PRINT_PROFILES[profileName];
-  if (!profile) {
-    throw new Error(
-      `Unknown print profile "${profileName}". Available: ${Object.keys(PRINT_PROFILES).join(', ')}`
-    );
-  }
-  console.log(`[generator] Print profile: ${profile.name} (${profile.pageWidthIn}×${profile.pageHeightIn}in, marks=${profile.includePrinterMarks}, ${profile.imageFormat} @ dSF${profile.deviceScaleFactor})`);
-
+  periodId: string
+): Promise<PageSequenceResult> {
   const db = makeClient();
 
   console.log('[generator] Fetching period and curator...');
@@ -701,7 +695,6 @@ export async function generateMagazine(
   };
 
   // ── Full page sequence ─────────────────────────────────────────────────────
-  type PageSpec = { templateName: string; data: unknown; pageCount: number };
   const pageSequence: PageSpec[] = [
     { templateName: 'CoverA',      data: coverData,       pageCount: 1 },
     { templateName: 'BlankPage',   data: { season },      pageCount: 1 },
@@ -709,6 +702,26 @@ export async function generateMagazine(
     ...middlePages,
     { templateName: 'ColophonPage', data: colophonData, pageCount: 1 },
   ];
+
+  return { pageSequence, colophonPage };
+}
+
+// ─── Main Generator ───────────────────────────────────────────────────────────
+
+export async function generateMagazine(
+  curatorId: string,
+  periodId: string,
+  profileName: string = 'screen'
+): Promise<string> {
+  const profile = PRINT_PROFILES[profileName];
+  if (!profile) {
+    throw new Error(
+      `Unknown print profile "${profileName}". Available: ${Object.keys(PRINT_PROFILES).join(', ')}`
+    );
+  }
+  console.log(`[generator] Print profile: ${profile.name} (${profile.pageWidthIn}×${profile.pageHeightIn}in, marks=${profile.includePrinterMarks}, ${profile.imageFormat} @ dSF${profile.deviceScaleFactor})`);
+
+  const { pageSequence, colophonPage } = await buildPageSequence(curatorId, periodId);
 
   console.log(`[generator] Page sequence: ${pageSequence.length} template slots, ${colophonPage} total pages`);
 

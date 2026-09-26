@@ -318,10 +318,16 @@ Template contract: online-offline/docs/TEMPLATE_CONTRACT.md — code-derived (Se
   edge proximity and seed samples for all 18 templates; AUTHORITATIVE over src/magazine/TEMPLATE_DESIGN_GUIDE.md and
   SELECTION_LOGIC.md where they differ (its §4 lists the discrepancies, e.g. Spread6 renders 6 of 7–8 images, SpreadMosaic
   5 of 6, TextSubmission/TextSpread print sample pull-quote/paragraph copy, no page padding to a multiple of 4).
-Data dump (scripts/dump-template-data.ts): NOT written yet — generator.ts exports only generateMagazine(), so the page list
-  cannot be obtained without duplicating its ordering. Needs `export async function buildPageSequence(curatorId, periodId)`
-  extracted from generator.ts:613–711 (proposal in TEMPLATE_CONTRACT.md §6). Once it exists, run from Codespaces:
+Data dump (scripts/dump-template-data.ts, Sept 2026): READ-ONLY — no writes, no Puppeteer, no PDF. Prints one line per page
+  (page, template) + a per-template summary (images, caption words, essay words/paragraphs passed, poem lines, roster
+  sizes, note words) and writes /tmp/template-data-<curator>.json with every data object. Run from Codespaces:
   cd online-offline && set -a && source .env.local && set +a && npx tsx scripts/dump-template-data.ts --curator=<uuid>
+  (default curator Lena; needs SUPABASE_SERVICE_ROLE_KEY). It calls generator.ts's exported
+  buildPageSequence(curatorId, periodId) → { pageSequence, colophonPage } — a PURE EXTRACTION of generateMagazine's
+  pre-render block (fetch → orderContentForFlow → numbering → Cover/TOC/Colophon), no behavior change; generateMagazine
+  calls it. ⚠️ The admin preview route does NOT use it yet (own grouped order, no spread alignment → its page numbers
+  still drift from print) — switching it over is a separate session. scripts/ is outside tsconfig "include", so
+  `npx tsc --noEmit` does not type-check scripts; check them with a tsconfig that extends the project one.
 
 Running the generator (Codespaces)
   cd online-offline
