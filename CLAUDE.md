@@ -314,6 +314,14 @@ where curator is an active participant. Do NOT change seeded grouping/display.
 
 Magazine Generation System
 Status: ✅ FULLY OPERATIONAL, print-validated against MagCloud.
+Template contract: online-offline/docs/TEMPLATE_CONTRACT.md — code-derived (Sept 2026) data shapes, capacities, frames,
+  edge proximity and seed samples for all 18 templates; AUTHORITATIVE over src/magazine/TEMPLATE_DESIGN_GUIDE.md and
+  SELECTION_LOGIC.md where they differ (its §4 lists the discrepancies, e.g. Spread6 renders 6 of 7–8 images, SpreadMosaic
+  5 of 6, TextSubmission/TextSpread print sample pull-quote/paragraph copy, no page padding to a multiple of 4).
+Data dump (scripts/dump-template-data.ts): NOT written yet — generator.ts exports only generateMagazine(), so the page list
+  cannot be obtained without duplicating its ordering. Needs `export async function buildPageSequence(curatorId, periodId)`
+  extracted from generator.ts:613–711 (proposal in TEMPLATE_CONTRACT.md §6). Once it exists, run from Codespaces:
+  cd online-offline && set -a && source .env.local && set +a && npx tsx scripts/dump-template-data.ts --curator=<uuid>
 
 Running the generator (Codespaces)
   cd online-offline
