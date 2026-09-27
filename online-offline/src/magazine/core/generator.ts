@@ -9,6 +9,7 @@ import { join } from 'path';
 
 import { selectTemplate } from './selectionLogic';
 import { PRINT_PROFILES, inToPt } from './printProfiles';
+import { loadTemplateSet, resolveTemplateSetName, type LoadedTemplateSet } from './templateSets';
 import type {
   PrintProfile,
   SelectionItem,
@@ -85,7 +86,7 @@ function makeClient(): SupabaseClient {
 
 // ─── HTML Page Builder ────────────────────────────────────────────────────────
 
-function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks = false, suppressGutterShadow = false): string {
+export function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks = false, suppressGutterShadow = false, set: LoadedTemplateSet | null = null): string {
   const primitivesCode = readFileSync(PRIMITIVES_PATH, 'utf-8');
 
   // Printer-marks suppression (print profiles with includePrinterMarks:false):
@@ -139,15 +140,26 @@ function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks
         );
       }`;
 
+  // Template set (templateSets.ts): only when one is active. The IIFE goes between the base
+  // template code and the bootstrap (the bootstrap's window[_name] lookup runs at the end of THIS
+  // block, so a later <script> could not override it); its fontCss follows the Google Fonts link;
+  // its adapt() reshapes data on the Node side, for the templates the set provides. With no set
+  // all three are empty/no-ops and the string is byte-identical to the pre-set pipeline.
+  const setCode = set ? `\n${set.code}` : '';
+  const setFontStyle = set && set.fontCss ? `\n  <style>${set.fontCss}</style>` : '';
+  const pageData = set && set.manifest.adapt && set.manifest.provides.includes(templateName)
+    ? set.manifest.adapt(templateName, data)
+    : data;
+
   const isSpread = SPREAD_TEMPLATES.has(templateName);
   const pageW = isSpread ? AW * 2 : AW;
-  const serialized = JSON.stringify({ templateName, data });
+  const serialized = JSON.stringify({ templateName, data: pageData });
 
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@300;400;500&family=Courier+Prime&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@300;400;500&family=Courier+Prime&display=swap" rel="stylesheet">${setFontStyle}
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.9/babel.min.js"></script>
@@ -162,7 +174,7 @@ function buildPageHtml(templateName: string, data: unknown, suppressPrinterMarks
   <script type="text/babel">
     ${primitivesCode}
     ${marksOverride}
-    ${templateCode}
+    ${templateCode}${setCode}
     const { templateName: _name, data: _data } = window.__magazine_page__;
     const _Component = window[_name];
     if (!_Component) throw new Error('Template not found on window: ' + _name);
@@ -183,7 +195,8 @@ async function renderPageToBuffers(
   data: unknown,
   pageCount: number,
   browser: PuppeteerBrowser,
-  profile: PrintProfile
+  profile: PrintProfile,
+  set: LoadedTemplateSet | null = null
 ): Promise<Buffer[]> {
   const isSpread = pageCount === 2 && SPREAD_TEMPLATES.has(templateName);
   const viewportW = isSpread ? AW * 2 : AW;
@@ -199,7 +212,7 @@ async function renderPageToBuffers(
   const page = await browser.newPage();
   try {
     await page.setViewport({ width: viewportW, height: AH, deviceScaleFactor: profile.deviceScaleFactor });
-    const html = buildPageHtml(templateName, data, !profile.includePrinterMarks, !profile.includeGutterShadow);
+    const html = buildPageHtml(templateName, data, !profile.includePrinterMarks, !profile.includeGutterShadow, set);
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 30_000 });
     await page.evaluateHandle('document.fonts.ready');
 
@@ -221,6 +234,11 @@ async function renderPageToBuffers(
     await page.close();
   }
 }
+
+// The page loop in generateMagazine (frozen) calls renderPageToBuffers(...) by name with five
+// arguments. generateMagazine shadows that name with a wrapper bound to the run's template set,
+// which calls the real renderer through this alias.
+const renderPageToBuffersWithSet = renderPageToBuffers;
 
 // ─── Supabase Data Fetchers ───────────────────────────────────────────────────
 
@@ -706,12 +724,33 @@ export async function buildPageSequence(
   return { pageSequence, colophonPage };
 }
 
+// periods.template_set_name (scripts/migrations/2026-09-27-periods-template-set-name.sql).
+// Read separately from fetchPeriod, and tolerant: before the migration runs the column does not
+// exist, and that must not break generation — it just means "no set".
+async function fetchTemplateSetName(periodId: string): Promise<string | null> {
+  const { data, error } = await makeClient()
+    .from('periods')
+    .select('template_set_name')
+    .eq('id', periodId)
+    .maybeSingle();
+  if (error) {
+    console.warn(`[generator] periods.template_set_name not readable (${error.message}) — using base`);
+    return null;
+  }
+  return ((data as { template_set_name?: string | null } | null)?.template_set_name) ?? null;
+}
+
+export interface GenerateOptions {
+  set?: string | null;   // template set name; overrides periods.template_set_name; 'base' forces base
+}
+
 // ─── Main Generator ───────────────────────────────────────────────────────────
 
 export async function generateMagazine(
   curatorId: string,
   periodId: string,
-  profileName: string = 'screen'
+  profileName: string = 'screen',
+  options: GenerateOptions = {}
 ): Promise<string> {
   const profile = PRINT_PROFILES[profileName];
   if (!profile) {
@@ -724,6 +763,19 @@ export async function generateMagazine(
   const { pageSequence, colophonPage } = await buildPageSequence(curatorId, periodId);
 
   console.log(`[generator] Page sequence: ${pageSequence.length} template slots, ${colophonPage} total pages`);
+
+  // ── Template set: resolved once per run (flag > periods.template_set_name > base) ──
+  const setName = resolveTemplateSetName(
+    options.set,
+    options.set === undefined ? await fetchTemplateSetName(periodId) : null,
+  );
+  const activeSet = setName ? await loadTemplateSet(setName) : null;
+  console.log(activeSet
+    ? `[generator] Template set: ${setName} (provides ${activeSet.manifest.provides.join(', ')})`
+    : '[generator] Template set: base');
+  const renderPageToBuffers = (
+    templateName: string, data: unknown, pageCount: number, browser: PuppeteerBrowser, profile: PrintProfile,
+  ) => renderPageToBuffersWithSet(templateName, data, pageCount, browser, profile, activeSet);
 
   // ── Launch Puppeteer ───────────────────────────────────────────────────────
   console.log('[generator] Launching Puppeteer...');

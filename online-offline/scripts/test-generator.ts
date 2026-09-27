@@ -3,6 +3,8 @@
 // Options (after --):
 //   --profile=screen|magcloud   print profile for PDF output (default: screen)
 //   --curator=<uuid>            curator to generate for (default: Lena Vasquez)
+//   --set=<name>|base           template set (src/magazine/templates/sets/<name>); overrides
+//                               periods.template_set_name; 'base' forces base templates
 // Example: npm run generate-test -- --profile=magcloud --curator=2ad6af92-279d-4eb7-a1b6-b51ec042aa85
 
 import { createClient } from '@supabase/supabase-js';
@@ -33,9 +35,10 @@ async function getActivePeriodId(): Promise<string> {
 async function main() {
   const curatorId = argValue('curator') ?? DEFAULT_CURATOR_ID;
   const profile = argValue('profile') ?? 'screen';
+  const set = argValue('set');
   console.log(`[test] Generating magazine for curator ${curatorId} (profile: ${profile})...`);
   const periodId = await getActivePeriodId();
-  const outputPath = await generateMagazine(curatorId, periodId, profile);
+  const outputPath = await generateMagazine(curatorId, periodId, profile, set !== undefined ? { set } : {});
   console.log(`[test] Done. PDF at: ${outputPath}`);
 }
 

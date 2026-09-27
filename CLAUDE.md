@@ -328,6 +328,36 @@ Data dump (scripts/dump-template-data.ts, Sept 2026): READ-ONLY — no writes, n
   calls it. ⚠️ The admin preview route does NOT use it yet (own grouped order, no spread alignment → its page numbers
   still drift from print) — switching it over is a separate session. scripts/ is outside tsconfig "include", so
   `npx tsc --noEmit` does not type-check scripts; check them with a tsconfig that extends the project one.
+Fixtures (scripts/fixtures/template-data-<curator>.json, 26 Sep 2026 dumps for Lena + Adam): real pipeline data for
+  offline work — the byte-identical HTML gate, set adapters, template capacity checks — without Supabase or Puppeteer.
+
+Template sets (Session L, Sept 2026) — restyle templates per issue WITHOUT touching templates/base/
+  Folder: src/magazine/templates/sets/<name>/ = manifest.ts (default export) + .jsx files. Rules + checklist:
+  src/magazine/templates/sets/README.md. Loader: src/magazine/core/templateSets.ts (loadTemplateSet, resolveTemplateSetName,
+  EMITTABLE_TEMPLATES). Manifest: name · provides (PIPELINE names; unknown → console.warn, never throw) · files (load order;
+  missing folder/manifest/file → throw) · fontCss? (injected as <style> right after the Google Fonts <link>) · nameMap?
+  (kit → pipeline, e.g. { Cover: 'CoverA' }; the loader appends Object.assign(window,{CoverA: window.Cover}) inside the IIFE)
+  · adapt?(templateName, data) (Node side, before serialization, ONLY for names in provides).
+  Splice: buildPageHtml (now exported) puts `(function(){ <files> <nameMap aliases> })();` INSIDE the page's single
+  <script type="text/babel">, after the base template file and BEFORE the bootstrap. A second <script> block does NOT
+  work: the bootstrap (`const _Component = window[_name]` + render) runs at the end of the FIRST block, so a later block
+  registers too late. The IIFE matters: base templates resolve primitives (Folio, ImageFrame, C, F, AW…) as global
+  bindings, so a set's top-level `function Folio` would replace them for base too — proven in the Session L harness
+  (unwrapped: base SpreadMosaic lost both folios; wrapped: intact). A set publishes ONLY via its own Object.assign(window).
+  Activation, resolved once per run and logged ("[generator] Template set: …"): --set=<name> on scripts/test-generator.ts
+  (→ generateMagazine(…, profile, { set })) > periods.template_set_name > base; null / '' / 'base' = base, so --set=base
+  forces base. The column is read by fetchTemplateSetName, tolerantly (missing column → warn → base), NOT by fetchPeriod:
+  fetchPeriod runs inside the frozen buildPageSequence and a missing column would fail every generation pre-migration.
+  Migration: scripts/migrations/2026-09-27-periods-template-set-name.sql. The frozen page loop still calls
+  renderPageToBuffers(...) with five args; generateMagazine shadows that name with a wrapper bound to the run's set
+  (module alias renderPageToBuffersWithSet). Admin preview does NOT load sets (own buildPageHtml) — later session.
+  Gates (Session L): no set ⇒ buildPageHtml output byte-identical — 76 strings (38 slots × screen/magcloud flags, both
+  fixtures, 57 pages) hashed at the Babel-pin commit vs after the loader: all identical. Override smoke (throwaway set,
+  offline esbuild render): SpreadPanorama → set marker + adapted data; Spread4/SpreadMosaic → base with base Folio text;
+  bogus provides → warn; fontCss <style> only with a set. Page counts cannot change (selection untouched).
+  Babel pin: the page HTML loads @babel/standalone@7.29.9 (npm `latest`; `next` is 8.0.0-rc.6 — an unpinned URL would have
+  switched every render to Babel 8 on release). It is NOT a node_modules dependency. React stays at the major-pinned react@18
+  UMD. The admin preview route still loads the UNPINNED Babel URL.
 
 Running the generator (Codespaces)
   cd online-offline
@@ -628,6 +658,9 @@ Print-test seed (scripts/seed-print-test.sql, Aug 2026 — additive, idempotent,
   (Moleskine, Risograph, Gulf Coast Film Lab, The Standing Desk); 4 communications; full selections for
   Curator A (Lena: 10 contributors, community+local, 2 ads) and Curator B (Adam: 9 contributors, local+private,
   2 ads — shorter book; only 4 of his 9 have solo content). Bumps period end_date to 2026-12-31.
+  Baseline (26 Sep 2026 dump, scripts/fixtures/): Lena 19 slots / 29 pages (unchanged); Adam 19 slots / 28 pages — his
+  book grew from app-test data (extra 1-entry CollabSpreadPrivate + CollabSpreadCommunity spreads, 4 campaigns), not from
+  seed changes. Neither is a multiple of 4 (no padding — see TEMPLATE_CONTRACT.md §4).
   Note: caption word counts are load-bearing (≤50 → SpreadPanorama, >50 → Spread).
 Cleaning junk user-created test collabs:
   DELETE FROM collab_participants WHERE collab_id IN (SELECT id FROM collabs WHERE is_user_created=true);
@@ -911,6 +944,10 @@ In Progress 🔧
 - (nothing — next: Stripe, first physical print)
 
 Remaining / Known Issues ⚠️
+0. PLUMBING, FIRST (measured in the 26 Sep 2026 dump): essays pass only 3 paragraphs (selectionLogic.ts splitBody) —
+   TextSubmission "The Slow Channel" 403 words / 9 paragraphs → 3 passed; TextSpread "Against the Feed" 825 / 13 → 3.
+   The templates fill the rest with SAMPLE copy (TextSubmission's placeholder pull quote; TextSpread's body_para4/5
+   fallbacks), so the real essay is cut and fake text prints. Fix in base (plumbing), not in a set.
 1. Spread3 — a dedicated 3-image template so Spread4 never shows an empty cell (+ selectionLogic branch,
    TEMPLATE_DESIGN_GUIDE wiring). Until then submissions should use 4 images.
 2. First physical print — order one MagCloud copy of Lena's magcloud PDF; check terracotta/gold shift,

@@ -266,71 +266,40 @@ In `src/magazine/core/generator.ts`:
 
 ---
 
-## Part 4 — Per-Issue Template Variation
-### (How to create issue-specific template overrides)
+## Part 4 — Per-Issue Template Variation (template sets)
+### (The real mechanism — Session L, Sept 2026. Full rules: `templates/sets/README.md`)
 
-Each quarterly issue can have unique visual variants while inheriting base infrastructure.
+An issue restyles templates with a **template set**. `templates/base/` is never edited for this. A set is
+loaded alongside base and wins by name, and every template it does not provide renders from base.
 
-### Folder structure
 ```
 src/magazine/templates/
-├── base/                    ← canonical templates, always used as fallback
-│   ├── CoverA.tsx
-│   ├── SpreadPanorama.tsx
-│   └── ... (all 18 templates)
-├── spring-2026/             ← issue-specific overrides
-│   ├── Cover.tsx            ← this issue's cover design
-│   ├── index.ts             ← exports complete template set for this issue
-│   └── (only files that differ from base)
-└── autumn-2026/
-    ├── Cover.tsx
-    └── index.ts
+├── base/                     ← canonical .jsx templates, loaded one file per page (TEMPLATE_FILE_MAP)
+└── sets/
+    ├── README.md             ← manifest fields + rules
+    └── <name>/
+        ├── manifest.ts       ← default export: { name, provides, files, fontCss?, nameMap?, adapt? }
+        └── *.jsx
 ```
 
-### Issue index.ts pattern
-```typescript
-// spring-2026/index.ts
-import * as Base from '../base'
-import { SpringCover } from './Cover'
-import { SpringSpread } from './Spread'  // if this issue has a unique spread
+- **Loader:** `src/magazine/core/templateSets.ts` (`loadTemplateSet`). The set's files are concatenated and
+  wrapped in `(function(){ … })();`, then spliced into the page's single `<script type="text/babel">` block
+  after the base template file and **before** the bootstrap (`window[templateName]` + render). A second
+  script block would run after the lookup, so it could not override anything. The IIFE keeps the set's
+  top-level names (even `Folio`) from replacing base primitives. A set publishes only through its own
+  `Object.assign(window, { … })`, and `nameMap` aliases kit names onto pipeline names (`Cover → CoverA`).
+- **Fonts:** `fontCss` is injected as a `<style>` after the base Google Fonts link.
+- **Data:** `adapt(templateName, data)` reshapes the pipeline's data (`docs/TEMPLATE_CONTRACT.md`) for the
+  templates the set provides, on the Node side. The set's components never have to guess pipeline keys.
+- **Choosing a set:** `npm run generate-test -- --set=<name>` > `periods.template_set_name`
+  (`scripts/migrations/2026-09-27-periods-template-set-name.sql`) > base. `'base'` or null means base.
+- **Guarantee:** with no set active, the page HTML is byte-identical to the pipeline without sets.
 
-export const Spring2026Templates = {
-  ...Base,                    // inherit everything from base
-  CoverA: SpringCover,        // override just what's different
-  SpreadPanorama: SpringSpread,
-}
-```
-
-### Top-level template registry
-```typescript
-// src/magazine/templates/index.ts
-import { Spring2026Templates } from './spring-2026'
-import { Autumn2026Templates } from './autumn-2026'
-
-export const TEMPLATE_SETS: Record<string, typeof Spring2026Templates> = {
-  'spring-2026': Spring2026Templates,
-  'autumn-2026': Autumn2026Templates,
-}
-```
-
-### Triggering the right set
-The `periods` table should carry a `template_set_name` field (e.g. 'spring-2026').
-The pipeline reads this and loads the matching template set:
-```typescript
-const templates = TEMPLATE_SETS[period.template_set_name] ?? TEMPLATE_SETS['base']
-```
-
-### What to vary per issue
-Good candidates for issue-specific overrides:
-- Cover design (always unique per issue)
-- Cover accent color or seasonal palette adjustment
-- A new spread variant that fits the season's aesthetic
-- Colophon design
-
-What to keep in base (never override per issue):
-- Primitive components (ImageFrame, Folio, GrainOverlay, etc.)
-- Core constants (W, H, BLEED, margins)
-- The selection logic
+What a set may vary: anything visual inside the page. That includes covers, spreads, type, colour and
+ornament.
+What it may never vary: the canvas (W/H/BLEED/SAFE_INSET, page size), single vs spread, selection and
+ordering, print-profile and bleed geometry, and the `gutter-shadow` class on spreads. It must also not
+truncate contributor text.
 
 ---
 
