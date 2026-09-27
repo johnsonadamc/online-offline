@@ -107,11 +107,17 @@ https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/
 
 ⚠️ All four are uppercase `.PNG`
 
+⚠️ Gulf Coast Film Lab uses `campaign-03-v2.PNG`: the San Carlos art was rebuilt with edge clearance, and the
+`campaigns` row was repointed to it on 26 Sep 2026 (copy two was printed with it). `scripts/seed-print-test.sql`
+still writes the old `campaign-03.PNG` (its INSERT and UPDATE for Gulf Coast Film Lab), so re-running that seed
+reverts the row to the old art. Fix the SQL, or re-point the row afterwards:
+`UPDATE campaigns SET avatar_url='https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-03-v2.PNG' WHERE name='Gulf Coast Film Lab';`
+
 | Campaign | avatar_url |
 |---|---|
 | Moleskine | `https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-01.PNG` |
 | Risograph Press Co. | `https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-02.PNG` |
-| Gulf Coast Film Lab | `https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-03.PNG` |
+| Gulf Coast Film Lab | `https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-03-v2.PNG` |
 | The Standing Desk | `https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-04.PNG` |
 
 ---

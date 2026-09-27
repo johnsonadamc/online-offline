@@ -1,5 +1,8 @@
 CLAUDE.md — online//offline
 Last updated: September 2026
+Latest handoff: HANDOFF-2026-09-27.md (repo root; 26–27 Sep 2026 sessions, verified against main @ f815a91). It
+supersedes Part A of the earlier HANDOFF-2026-09 (kept in the Claude Project, not in the repo); that file's Part B
+(how we work) still applies.
 
 Project Vision
 online//offline is "slowcial media" — the antithesis of dopamine-driven social platforms. Contributors submit creative work (photos, art, poetry, and essays) quarterly. Curators select what goes into their personalized printed magazines. The physical magazine is the product. The app is the infrastructure that makes it possible.
@@ -591,6 +594,10 @@ Print Fulfillment
      spine edge — with bright photos it printed as a dark hairline along the fold. FIXED (Sept 2026, Session 3): the
      last cell takes the remainder (lastW = AW − (cellW+gutter)·2 = 262) on both pages. TextSpread's 0.5px vertical
      label rule is intentional design (now at x=57.5, see the VerticalContributorLabel note).
+- Copy two — ORDERED 26 Sep 2026 from MagCloud ($7 print + $8 ship): Lena's book, base templates at 26d167f (it predates
+  the B1 plumbing in f815a91), with the rebuilt San Carlos ad art campaign-03-v2.PNG. Not yet arrived. On-arrival
+  checklist: (1) right-hand folio ≈ 0.71in (18mm) from the cut — confirms Option D; (2) no repeated strip on the outside
+  edges; (3) open a spread flat — no dark hairline at the fold; (4) a general read for anything only paper shows.
 
 Design System v1 — RETIRED (Phase 13, Sept 2026). The magazine templates keep their own C./F. constants.
 What it was: the "print shop at dusk" neon UI — --ground/--paper/--neon-*/--glow-*/--rule/--lt-* tokens, Instrument Sans +
@@ -733,6 +740,8 @@ Print-test seed (scripts/seed-print-test.sql, Aug 2026 — additive, idempotent,
   Baseline (26 Sep 2026 dump, scripts/fixtures/): Lena 19 slots / 29 pages (unchanged); Adam 19 slots / 28 pages — his
   book grew from app-test data (extra 1-entry CollabSpreadPrivate + CollabSpreadCommunity spreads, 4 campaigns), not from
   seed changes. Lena's 29 is not a multiple of 4; Adam's 28 is only by coincidence (no padding — TEMPLATE_CONTRACT.md §4).
+  Adam's seed book drifted to 19 slots / 28 pages via app-test data — clean or re-seed before copy three (copy three =
+  Adam's own content on base).
   Note: caption word counts are load-bearing (≤50 → SpreadPanorama, >50 → Spread).
 Cleaning junk user-created test collabs:
   DELETE FROM collab_participants WHERE collab_id IN (SELECT id FROM collabs WHERE is_user_created=true);
@@ -934,6 +943,13 @@ Key Gotchas & Hard-Won Lessons
   divs, NOT ImageFrame's `n` (that only renders on the no-image placeholder), so each full-bleed template defines
   `const idxEdge = BLEED + SAFE_INSET + 4` (31px from the canvas edge, 20px inside the trim) and applies it ONLY to label
   sides that coincide with a canvas edge (left column, bottom row, first cell after the spine); interior sides keep 8–12.
+- STANDING GATES for any template or generator change (all run offline against scripts/fixtures/):
+  (1) BYTE-IDENTICAL: hash buildPageHtml for all 76 strings (38 slots × screen/magcloud flags) before and after. When
+  base templates change legitimately, compare the rendered #root DOM of every slot instead, and list the allowed
+  differences in advance; every other slot must render identically. (Compare #root innerHTML, not body: body also
+  contains the page script.) (2) EMPTY-DATA RENDER: render every touched template with only {page, season}. It must
+  give 0 errors, 0 undefined/null/NaN and 0 sample text (in B1 this caught a leftover sample contributor in Spread6).
+  (3) RASTER SCAN for magcloud assembly changes (see Generator: the stray-line scan, not just seams and whiteness).
 - NO SAMPLE FALLBACKS (Session B1): sample copy lives only in preview data. An empty field removes its element and the
   layout closes up; never `data.x || 'Sample text'`. Structural defaults only (page numbers, season default, volume/issue,
   printer, ImageFrame placeholder labels). Focal points `?? 50`, never `|| 50`. Full rule: TEMPLATE_DESIGN_GUIDE Part 1 #6.
@@ -1016,7 +1032,7 @@ Completed ✅
   retired v1 tokens/fonts, shadcn, the orphan /curate/communications route, and the root-level duplicates
 
 In Progress 🔧
-- (nothing — next: Stripe, first physical print)
+- Copy two ordered 26 Sep, awaiting arrival (checklist under Print Fulfillment). Next: Session B2 (see Known Issues 0).
 
 Remaining / Known Issues ⚠️
 0. ✅ FIXED (Session B1, Sept 2026): essays print the whole body (no sample pull quote / paragraphs), every sample
@@ -1053,6 +1069,17 @@ Remaining / Known Issues ⚠️
 13. Essay cap vs template — MEASURED (Session B1): TextSpread holds ~1,291 words, above the app's 800 cap, so the cap is
     the real limit and the tripwire guards it; selectionLogic's 1,800 bound is unreachable from the app. Raise the cap
     only after re-measuring (TEMPLATE_DESIGN_GUIDE Part 6).
+
+Polish list (batch these when the files are next open; source: HANDOFF-2026-09-27.md §7 item 5):
+- SpreadMosaic left info band: the wordmark repeats what the folio says — drop it.
+- printProfiles.ts: the magcloud profile's comment still describes MagCloud's published bleed spec (0.25in outside / 0 spine), not Option D.
+- GutterShadow primitive (Option C) carrying className="gutter-shadow", so a new spread cannot forget it.
+- SpreadPanorama title glyphs sit 26px from the canvas edge against the 27px SAFE_INSET threshold (pre-existing).
+- SpreadMosaic 2-line caption clamp cuts after ~15 words (5 images) or ~12 words (6 images).
+- seed-print-test.sql (its INSERT and UPDATE) and seed-print-test-content.md still name campaign-03; the row and the manifest now use campaign-03-v2.PNG, and re-running the seed reverts the row.
+- ✅ Design kit fold-detail rule — added to docs/CLAUDE_DESIGN_KIT.md (27 Sep docs session).
+- Caption caps at Submit, per route (the durable fix for every silent clamp — see Known Issues 0).
+- Paths: 4e50f50 renamed online-offline/_design/redesign-b → online-offline/design/redesign-b. This file (the _design/ mentions) and the comments in components/v2/README.md and shared.ts still use the old path.
 
 User Roles
 - Contributors: submit content, join/create collabs, invite, send communications

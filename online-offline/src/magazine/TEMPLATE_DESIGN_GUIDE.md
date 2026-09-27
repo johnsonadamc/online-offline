@@ -297,6 +297,11 @@ src/magazine/templates/
   script block would run after the lookup, so it could not override anything. The IIFE keeps the set's
   top-level names (even `Folio`) from replacing base primitives. A set publishes only through its own
   `Object.assign(window, { … })`, and `nameMap` aliases kit names onto pipeline names (`Cover → CoverA`).
+- **Window guard (234c4d3):** the IIFE hides declarations, but not assignments to `window`. Base primitives
+  and templates are properties of `window`, so a set that publishes its own `Folio` would replace base's
+  `Folio` on the same page. The loader therefore snapshots every name base publishes before the IIFE runs
+  (49 at f815a91, parsed from base's own `Object.assign(window, …)` calls). Afterwards it restores each name
+  not in `provides`, and deletes any that did not exist before. So a set publishes page components only.
 - **Fonts:** `fontCss` is injected as a `<style>` after the base Google Fonts link.
 - **Data:** `adapt(templateName, data)` reshapes the pipeline's data (`docs/TEMPLATE_CONTRACT.md`) for the
   templates the set provides, on the Node side. The set's components never have to guess pipeline keys.

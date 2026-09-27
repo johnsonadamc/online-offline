@@ -31,7 +31,7 @@ online//offline is a printed magazine made each season. Contributors submit phot
 CANVAS
 Single page: 790 × 1054 px (768 × 1032 trim + 11 px bleed on every side). Spread (two facing pages): 1580 × 1054 px, fold at x = 790.
 Anything that touches an edge runs to the canvas edge (full bleed), never stopping short of it.
-Safe zone: all text, faces and key detail at least 47 px from every canvas edge, and at least 36 px from the fold on each side (keep x = 754–826 clear on spreads). No body text crosses the fold; display type 40 px or larger may.
+Safe zone: all text, faces and key detail at least 47 px from every canvas edge, and at least 36 px from the fold on each side (keep x = 754–826 clear on spreads). No detail smaller than about 30 px centred on the fold; large shapes may cross it (the crease swallows 1–2 mm). No body text crosses the fold; display type 40 px or larger may.
 Use position: absolute for layout on the page root; no flex or grid on the root element.
 Minimum text sizes: body 11 px with line-height at least 1.75; captions 8 px; labels and page numbers 7.5 px.
 
