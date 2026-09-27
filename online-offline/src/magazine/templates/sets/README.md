@@ -44,6 +44,7 @@ wrapped as:
   global bindings. A top-level `function Folio` in a set would replace them for every base template
   on the page. Inside the IIFE the set still *reads* every primitive and constant, but its own
   declarations stay private.
+- **Guard:** the IIFE itself sits inside a snapshot/restore wrapper (see the rule on `window` below).
 - **No set active ⇒ the page HTML is byte-identical to the pipeline without sets.**
 
 ## Activation
@@ -63,6 +64,14 @@ does not load sets yet.
   changes how a page *looks*.
 - publish anything except through its own `Object.assign(window, { … })`, or rely on a top-level
   declaration leaking out of the IIFE.
+- **publish anything through `window` except its page components** (the names in `provides`, plus the kit
+  names `nameMap` aliases from). Never publish a primitive or helper name: `Folio`, `Photo`, `C`, `Grain`,
+  and so on. Base's primitives and templates are global function declarations, which makes them
+  properties of `window`. `window.Folio = X` therefore replaces base's `Folio` for every base template on
+  the same page; the IIFE does not prevent that. Session P proved it: base SpreadMosaic lost both
+  folios. The loader now **enforces** this: it snapshots every name base publishes (parsed from base's
+  own `Object.assign(window, …)` calls) before the set runs, and restores each one not in `provides`
+  afterwards. This rule is the explanation; the guard is the enforcement.
 - truncate contributor text with `clampWords`-style cuts. The app has no caption cap, so a clamp
   silently drops printed words. Design for the real lengths in `scripts/fixtures/`, or
   shrink/flow, and flag overflow instead.

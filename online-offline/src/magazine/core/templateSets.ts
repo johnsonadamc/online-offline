@@ -9,7 +9,7 @@
 // own Object.assign(window, { … }). Anything the set does not provide renders from base.
 // See src/magazine/templates/sets/README.md.
 
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { pathToFileURL } from 'url';
 
@@ -75,6 +75,48 @@ export async function loadTemplateSet(name: string, setsDir: string = TEMPLATE_S
   const aliases = Object.entries(manifest.nameMap ?? {})
     .map(([kit, pipeline]) => `Object.assign(window, { ${JSON.stringify(pipeline)}: window[${JSON.stringify(kit)}] });`);
 
-  const code = `(function(){\n${[...sources, ...aliases].join('\n')}\n})();`;
-  return { code, fontCss: manifest.fontCss ?? '', manifest };
+  const iife = `(function(){\n${[...sources, ...aliases].join('\n')}\n})();`;
+  return { code: guardBaseGlobals(iife, manifest.provides), fontCss: manifest.fontCss ?? '', manifest };
+}
+
+// ─── Window-clobber guard ─────────────────────────────────────────────────────
+// The IIFE keeps a set's top-level DECLARATIONS private, but not what it assigns to window.
+// Base's primitives and templates are global function declarations, i.e. properties of window,
+// and base templates resolve them through the global object — so a set that publishes its own
+// Folio via Object.assign(window, …) replaces base's Folio for every base template on the page
+// (proven in Session P: base SpreadMosaic lost both folios). The guard snapshots every name base
+// publishes before the set runs and restores each one the set does not provide afterwards; the
+// set's provided names (after nameMap) are the only ones it may change.
+//
+// The name list is DERIVED at load time from base's own Object.assign(window, { … }) calls
+// (primitives.jsx + templates/base/*.jsx) rather than kept as a constant: a primitive or template
+// added to base is covered automatically, with no second list to drift out of sync.
+const BASE_PRIMITIVES = join(process.cwd(), 'src/magazine/core/primitives.jsx');
+const BASE_TEMPLATES_DIR = join(process.cwd(), 'src/magazine/templates/base');
+
+export function baseWindowNames(): string[] {
+  const files = [BASE_PRIMITIVES, ...readdirSync(BASE_TEMPLATES_DIR).filter(f => f.endsWith('.jsx')).sort().map(f => join(BASE_TEMPLATES_DIR, f))];
+  const names = new Set<string>();
+  for (const f of files) {
+    for (const m of readFileSync(f, 'utf-8').matchAll(/Object\.assign\(\s*window\s*,\s*\{([^}]*)\}/g)) {
+      for (const n of m[1].split(',').map(s => s.trim()).filter(Boolean)) {
+        if (!/^[A-Za-z_$][\w$]*$/.test(n)) throw new Error(`[templateSets] cannot parse base window export "${n}" in ${f}`);
+        names.add(n);
+      }
+    }
+  }
+  if (names.size === 0) throw new Error('[templateSets] found no base Object.assign(window, …) exports — guard would be empty');
+  return [...names].sort();
+}
+
+function guardBaseGlobals(iife: string, provides: string[]): string {
+  const guarded = baseWindowNames().filter(n => !provides.includes(n));
+  return [
+    '(function(){',
+    `var __ooNames = ${JSON.stringify(guarded)}, __ooHad = {}, __ooSnap = {};`,
+    '__ooNames.forEach(function(k){ __ooHad[k] = k in window; __ooSnap[k] = window[k]; });',
+    iife,
+    '__ooNames.forEach(function(k){ if (__ooHad[k]) { window[k] = __ooSnap[k]; } else { delete window[k]; } });',
+    '})();',
+  ].join('\n');
 }

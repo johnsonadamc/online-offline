@@ -148,9 +148,10 @@ RegistrationMark's `side` prop). Consequences:
 - Page count = `3 + Σ pageCount + 1` (Colophon at `cursor`, `generator.ts:664`). **Nothing pads to a multiple of 4.**
   The only blank the generator can insert is the rule-4 alignment filler before a mis-aligned spread
   (`generator.ts:653–657`), and the ordering is built so it never fires.
-- Predicted from the print-test seed: Lena = 9 solo submissions (7 spreads + 2 singles) + 2 collab spreads + comms +
-  2 ads → content pages 4–26, **Colophon = page 27** (27 pages; saddle stitch needs 28). Adam = 3 spreads + 1 single +
-  2 collab spreads + comms + 2 ads → **18 pages** (needs 20). See Open questions.
+- Measured (26 Sep 2026 dumps, `scripts/fixtures/`): **Lena 19 slots / 29 pages** (Colophon = page 29; saddle stitch
+  needs 32). **Adam 19 slots / 28 pages** — a multiple of 4 by coincidence, not by padding. His book includes app-test
+  data: extra 1-entry CollabSpreadPrivate and CollabSpreadCommunity spreads, and 4 campaigns. (This section's first
+  version predicted 27 / 18 from the seed alone; the dumps supersede it.) See Open questions.
 - `orderContentForFlow` only reorders. It never changes a template.
 - ⚠️ The admin preview (`route.ts:486–492`) does **not** call `orderContentForFlow`. It lays items out grouped
   (creators → collabs → comms → campaigns) with no spread alignment, so its page numbers can differ from the printed
@@ -776,7 +777,7 @@ Common `ContentPageData` (`src/magazine/core/types.ts:17–30`), built at `selec
 | j | Spread6 = "6–8 images grid" | Frames 260×934 / 262×934 (aspect **0.278**), `object-fit: cover`. A 2:3 portrait shows 42% of its width, a 3:2 landscape 19%. **Only 6 of 7–8 images render**; no captions render | `templates-12-17.jsx:306–333,371,406` |
 | j′ | SELECTION_LOGIC: 5–6 images → SpreadMosaic | SpreadMosaic renders **5**, so the 6th image is dropped | `templates-18-19.jsx:185–290,304` |
 | k | Guide: "VerticalContributorLabel in left margin of light pages" | No template reads page parity. Single pages render both folios and put the label on the left edge even on right-hand (odd) pages, i.e. at the spine | §1.7 |
-| l | Saddle stitch needs page count divisible by 4 (CLAUDE.md, MagCloud) | **Not handled.** No padding. Seed books are 27 (Lena) and 18 (Adam) pages | `generator.ts:649–711` |
+| l | Saddle stitch needs page count divisible by 4 (CLAUDE.md, MagCloud) | **Not handled.** No padding. Measured books: Lena 29 pages (not a multiple of 4), Adam 28 (a multiple of 4 by coincidence) | `generator.ts:649–711` |
 | m | "Load from Google Fonts. No other fonts ever." / no colors outside C | Fonts confirmed (Instrument Serif 400 + italic, Instrument Sans 300/400/500, Courier Prime 400 only). **Courier Prime italic used but not loaded** (FrontMatter). Many literal colors outside `C` (§1.2) | `generator.ts:150`; `templates-20-24.jsx:115` |
 | n | SELECTION_LOGIC Known Limitations: "TextSpread truncation … not yet implemented" | Truncation IS implemented (`slice(0,1800)` + `…`) but flattens paragraphs. The real limit is that **only 3 paragraphs are ever passed**, and TextSpread's paras 4–5 and TextSubmission's pull quote print **sample copy** | `selectionLogic.ts:18–21,61–71`; `templates-12-17.jsx:440–441`; `templates-5-8.jsx:217–220` |
 | o | Guide Part 1: "Use position:absolute for all layout — no flexbox or grid on the page root" | Every spread root is `display:flex` (two 790 px page children) | e.g. `templates-12-17.jsx:19` |

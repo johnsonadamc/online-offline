@@ -358,6 +358,44 @@ Template sets (Session L, Sept 2026) — restyle templates per issue WITHOUT tou
   Babel pin: the page HTML loads @babel/standalone@7.29.9 (npm `latest`; `next` is 8.0.0-rc.6 — an unpinned URL would have
   switched every render to Babel 8 on release). It is NOT a node_modules dependency. React stays at the major-pinned react@18
   UMD. The admin preview route still loads the UNPINNED Babel URL.
+  ⚠️ WINDOW-CLOBBER (found Session P): the IIFE keeps a set's top-level DECLARATIONS private but not what it ASSIGNS to
+  window. Base primitives/templates are global function declarations = properties of window, so a set publishing its own
+  Folio via Object.assign(window, …) replaced base's Folio for base templates on the same page (base SpreadMosaic lost
+  both folios; Blue Hour as exported publishes Folio, Photo, Grain + ~80 helpers). GUARD (templateSets.ts
+  guardBaseGlobals): the loader wraps the IIFE in a snapshot/restore — before it, every name base publishes (DERIVED at
+  load time by parsing base's own Object.assign(window, {…}) calls in primitives.jsx + templates/base/*.jsx, 49 names —
+  derived, not a constant, so new base names are covered with no second list to drift; throws if it parses none) is
+  snapshotted; after it, every snapshotted name NOT in manifest.provides is restored (or deleted if it did not exist).
+  Positive test: a throwaway set publishing its own Folio + hijacking MusicPage leaves base SpreadMosaic's two folios
+  intact and MusicPage restored; the same IIFE unguarded (control) loses both folios. sets/README.md states the rule
+  (publish only page components); the guard enforces it. No-set HTML is unaffected (the guard is set code only).
+
+Blue Hour set (Session P, Sept 2026) — src/magazine/templates/sets/blue-hour/ — ⚠️ a LOADER TEST RIG, NOT a shippable
+  issue (AI-generated Claude Design export; the pristine source is design/blue-hour/, never edited).
+  Run: npm run generate-test -- --set=blue-hour   (or UPDATE periods SET template_set_name='blue-hour' WHERE is_active).
+  Provides 17 (all but CampaignPage + MusicPage, which fall through to base): CoverA, BlankPage, FrontMatter, ColophonPage,
+  SpreadPanorama, Spread, Spread2, Spread4, SpreadMosaic, Spread6, TextSubmission, TextSpread, PoetryPage,
+  CommunicationsPage, CollabSpreadCommunity/Local/Private. nameMap { Cover: 'CoverA', Endpaper: 'BlankPage' }
+  (Endpaper also becomes the rule-4 alignment filler). fontCss = THEME.fontCss (IBM Plex Mono, Lexend Zetta, Spectral).
+  Port = six of the seven files (02-sample-text.js, index.html and the README are not copied); removed: sample data +
+  DUSK_STATES, StyleSheetPage, fam, the per-file `const {…} = window` lines (all files share ONE IIFE scope — they would
+  redeclare THEME etc.), every helper window export (each file publishes only its page components). Component code
+  unchanged except (a) clamps REMOVED — clampWords SpreadPanorama 60, letters 90; EntryNote maxWords Spread2 80, Spread4 50,
+  SpreadMosaic 40, Spread6 25 — silent truncation is worse than visible overflow; no fixture caption reaches any limit;
+  (b) Cover renders its photo frame only when cover_image.media_url exists.
+  Adapter (manifest.ts adapt, Node side) — decisions per missing field: Cover volume = derived (roman/digits → int,
+  'I' → "Vol. 01"; anything else omitted), cover_image = none in the pipeline → frame omitted; FrontMatter curator_name =
+  curator.name, entries = toc mapped field by field; Colophon contributors = unique names (base passes objects, which
+  React cannot render), about_text = CONSTANT base Colophon paragraph minus "and music", printer_line = derived
+  "Printed by <printer> · Edition n of m", volume/issue/artist_credit = not in ColophonData → omitted; Communications
+  curator_name = first message's recipient, notes = { sender_name: from.name, subject, body } (date, sender city
+  dropped); collabs description = display_text, entries' contributor_name = contributor.name, participants = unique entry
+  contributor names (base's uniqueContributors source). Photo spreads + text/poetry (full `body`) + BlankPage: unchanged.
+  Audit (Session P, offline, real fonts, both fixtures, 32 pages): 0 errors, 0 literal undefined/null/NaN, 0 SAFE_INSET
+  hits, roots 790/1580×1054 overflow hidden; fold band only CollabSpreadLocal's city headline (display type ≥40px, allowed);
+  one-line ellipsis on collab labels (seed titles = captions). Stress: at the old clamp limits nothing overflows; above
+  them captions run past the folio/trim — visible, by decision. Letters: 4 × 250-word notes (the app's cap) overflow the
+  page with the clamp gone (decision: accept in the rig) — BASE CommunicationsPage HAS THE SAME PROBLEM (no clamp either).
 
 Running the generator (Codespaces)
   cd online-offline
@@ -660,7 +698,7 @@ Print-test seed (scripts/seed-print-test.sql, Aug 2026 — additive, idempotent,
   2 ads — shorter book; only 4 of his 9 have solo content). Bumps period end_date to 2026-12-31.
   Baseline (26 Sep 2026 dump, scripts/fixtures/): Lena 19 slots / 29 pages (unchanged); Adam 19 slots / 28 pages — his
   book grew from app-test data (extra 1-entry CollabSpreadPrivate + CollabSpreadCommunity spreads, 4 campaigns), not from
-  seed changes. Neither is a multiple of 4 (no padding — see TEMPLATE_CONTRACT.md §4).
+  seed changes. Lena's 29 is not a multiple of 4; Adam's 28 is only by coincidence (no padding — TEMPLATE_CONTRACT.md §4).
   Note: caption word counts are load-bearing (≤50 → SpreadPanorama, >50 → Spread).
 Cleaning junk user-created test collabs:
   DELETE FROM collab_participants WHERE collab_id IN (SELECT id FROM collabs WHERE is_user_created=true);
@@ -948,6 +986,9 @@ Remaining / Known Issues ⚠️
    TextSubmission "The Slow Channel" 403 words / 9 paragraphs → 3 passed; TextSpread "Against the Feed" 825 / 13 → 3.
    The templates fill the rest with SAMPLE copy (TextSubmission's placeholder pull quote; TextSpread's body_para4/5
    fallbacks), so the real essay is cut and fake text prints. Fix in base (plumbing), not in a set.
+   Blue Hour renders 7 Spread6 images, 6 Mosaic images and the full essay body — the base truncations are
+   TEMPLATE-side, not selection-side (selectionLogic passes all entries and the full `body`; base drops them).
+   Letters: base CommunicationsPage never truncates either — four long notes overflow in base as in Blue Hour.
 1. Spread3 — a dedicated 3-image template so Spread4 never shows an empty cell (+ selectionLogic branch,
    TEMPLATE_DESIGN_GUIDE wiring). Until then submissions should use 4 images.
 2. First physical print — order one MagCloud copy of Lena's magcloud PDF; check terracotta/gold shift,
