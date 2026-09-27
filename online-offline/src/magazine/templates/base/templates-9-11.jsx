@@ -2,36 +2,22 @@
 
 // ─── 9. COMMUNICATIONS PAGE ───────────────────────────────────────────────────
 function CommunicationsPage({ data={}, showAnnotations=false }) {
-  const messages = data.messages || [
-    {
-      from: { name:'A. Chen', city:'Shanghai' },
-      to:   { name:'The Editors' },
-      subject: 'On finding the frame',
-      date: '14 Mar 2026',
-      body: 'I wanted to write before the quarter closed. The theme arrived late for me — I had been shooting for weeks without finding the right frame. Then one morning the fog came in low over the river and everything I had been trying to say was simply there, unavoidable.',
-    },
-    {
-      from: { name:'M. Osei', city:'Accra' },
-      to:   { name:'The Editors' },
-      subject: 'The edit, final',
-      date: '21 Mar 2026',
-      body: 'Three photographs made it through the final edit. I had hoped for more. The ones that did not survive were technically stronger but emotionally thinner — you make the right call by not printing them. Trust the instinct.',
-    },
-    {
-      from: { name:'L. Varga', city:'Budapest' },
-      to:   { name:'Curatorial' },
-      subject: 'Four quarters in',
-      date: '28 Mar 2026',
-      body: 'This is my fourth quarter contributing. Each time I submit I am surprised by which images you select. Not disappointed — surprised. I have started saving your selections alongside my own edits to understand the difference in seeing.',
-    },
-    {
-      from: { name:'R. Patel', city:'Mumbai' },
-      to:   { name:'The Editors' },
-      subject: 'A note of gratitude',
-      date: '02 Apr 2026',
-      body: 'A note of gratitude. The printed edition reaches me two weeks after it ships. I take it to the café near the market where I made half of last year\'s work and read it slowly. It is the only magazine I still do that with.',
-    },
-  ];
+  // Letters are excerpted, never overflowed: each card shows at most EXCERPT_WORDS words of the
+  // note, cut at a word boundary with a visible "…". A 410px card holds ~230 words under a two-line
+  // subject (measured, real fonts), so 200 prints most notes whole (the app caps notes at 250).
+  // The generator fetches at most 4 notes (newest first); the slice is a backstop. Card height is
+  // derived from the zone between the grid top and 10px above the folio: two rows, 14px gap.
+  const EXCERPT_WORDS = 200;
+  const excerpt = (text) => {
+    const words = (text || '').trim().split(/\s+/).filter(Boolean);
+    if (words.length <= EXCERPT_WORDS) return words.join(' ');
+    return words.slice(0, EXCERPT_WORDS).join(' ').replace(/[,;:.\u2014\u2013-]+$/, '') + '\u2026';
+  };
+  const messages = (data.messages || []).slice(0, 4);
+  const gridTop = BLEED + MT + 80;
+  const zoneBottom = AH - (BLEED + MB - 14) - 10 - 10;
+  const rowGap = 14;
+  const cardH = Math.floor((zoneBottom - gridTop - rowGap) / 2);
 
   return (
     <div style={{ width:AW, height:AH, background:C.paper, position:'relative', overflow:'hidden' }}>
@@ -53,33 +39,36 @@ function CommunicationsPage({ data={}, showAnnotations=false }) {
       {/* 2-column message grid */}
       <div style={{
         position:'absolute',
-        top:BLEED+MT+80,
+        top:gridTop,
         left:BLEED+ML, right:BLEED+MR,
         display:'grid',
         gridTemplateColumns:'1fr 1fr',
-        gap:'14px 20px',
+        gridAutoRows:cardH,
+        gap:`${rowGap}px 20px`,
       }}>
         {messages.map((msg, i) => (
           <div key={i} style={{
-            borderTop:`1px solid rgba(240,235,226,0.14)`,
-            paddingTop:10,
+            borderTop:`0.5px solid ${C.paper5}`,
+            paddingTop:10, height:cardH, overflow:'hidden', boxSizing:'border-box', minWidth:0,
           }}>
             <div style={{ fontFamily:F.mono, fontSize:7.5, color:C.terra, textTransform:'uppercase', letterSpacing:'0.14em', marginBottom:4 }}>
               From
             </div>
-            <div style={{ fontFamily:F.serif, fontSize:14, color:C.ground, lineHeight:1.1, marginBottom:4 }}>
-              {msg.from.name}
-            </div>
+            {msg.from?.name && (
+              <div style={{ fontFamily:F.serif, fontSize:14, color:C.ground, lineHeight:1.1, marginBottom:4 }}>
+                {msg.from.name}
+              </div>
+            )}
             {msg.subject && (
               <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.paper3, lineHeight:1.3, marginBottom:4 }}>
                 {msg.subject}
               </div>
             )}
             <div style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, letterSpacing:'0.08em', marginBottom:8 }}>
-              {msg.date} — To: {msg.to.name}
+              {[msg.date, msg.to?.name ? `To: ${msg.to.name}` : ''].filter(Boolean).join(' — ')}
             </div>
             <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:11.5, lineHeight:1.82, color:C.ground }}>
-              {msg.body}
+              {excerpt(msg.body)}
             </div>
             {showAnnotations && i===0 && (
               <>
@@ -119,7 +108,7 @@ function Spread({ data={}, showAnnotations=false }) {
       <div style={{ width:AW, height:AH, background:C.ground, position:'relative', flexShrink:0 }}>
         {/* Full-bleed image fills entire page */}
         <div style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}>
-          <ImageFrame w={AW} h={AH} label="spread full-bleed" focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+          <ImageFrame w={AW} h={AH} label="spread full-bleed" focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
         </div>
         {/* "online//offline" top-left */}
         <div style={{ position:'absolute', top:BLEED+MT-30, left:BLEED+ML, fontFamily:F.mono, fontSize:8, letterSpacing:'0.10em' }}>
@@ -147,14 +136,16 @@ function Spread({ data={}, showAnnotations=false }) {
       <div style={{ width:AW, height:AH, background:C.paper, position:'relative', flexShrink:0 }}>
         <div style={{ position:'absolute', top:BLEED+MT, left:BLEED+ML, right:BLEED+MR }}>
           {/* Section mark with page ref */}
-          <SectionMark>{data.type||'Photography'} · Full Spread · {data.page||18}</SectionMark>
+          <SectionMark>{data.type ? `${data.type} · ` : ''}Full Spread · {data.page||18}</SectionMark>
           {/* Large title */}
-          <div style={{
-            fontFamily:F.serif, fontSize:68, color:C.ground, lineHeight:0.88,
-            fontWeight:400, letterSpacing:'-0.02em', marginTop:10, marginBottom:16,
-          }}>
-            {data.page_title || 'Between the Frames'}
-          </div>
+          {data.page_title && (
+            <div style={{
+              fontFamily:F.serif, fontSize:68, color:C.ground, lineHeight:0.88,
+              fontWeight:400, letterSpacing:'-0.02em', marginTop:10, marginBottom:16,
+            }}>
+              {data.page_title}
+            </div>
+          )}
           {/* Thick rule */}
           <div style={{ height:2, background:C.ground, width:'100%', marginBottom:6 }}/>
           {/* Short gold rule */}
@@ -167,18 +158,24 @@ function Spread({ data={}, showAnnotations=false }) {
             paddingLeft:12, paddingRight:12,
             marginBottom:14,
           }}>
-            <span style={{ fontFamily:F.serif, fontSize:15, color:C.paper }}>
-              {contributor.name||'Contributor Name'}
-            </span>
-            <span style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-              {contributor.city||'City'}
-            </span>
+            {contributor.name && (
+              <span style={{ fontFamily:F.serif, fontSize:15, color:C.paper }}>
+                {contributor.name}
+              </span>
+            )}
+            {contributor.city && (
+              <span style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+                {contributor.city}
+              </span>
+            )}
           </div>
 
           {/* Long caption */}
-          <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:9.5, color:C.paper3, lineHeight:1.7 }}>
-            {entry.caption||'A long descriptive caption for the full-spread photograph, providing context about the moment, the light, and what the contributor intended to capture. This runs to multiple lines, giving the reader enough information to sit with the image on the opposite page.'}
-          </div>
+          {entry.caption && (
+            <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:9.5, color:C.paper3, lineHeight:1.7 }}>
+              {entry.caption}
+            </div>
+          )}
 
           {showAnnotations && (
             <>
@@ -232,7 +229,7 @@ function CampaignPage({ data={}, showAnnotations=false }) {
         <ImageFrame
           w={AW} h={AH}
           label="campaign / brand image"
-          focal_x={data.focal_x||50} focal_y={data.focal_y||50}
+          focal_x={data.focal_x??50} focal_y={data.focal_y??50}
           media_url={data.avatar_url}
           style={{ position:'absolute', top:0, left:0, width:AW, height:AH }}
         />

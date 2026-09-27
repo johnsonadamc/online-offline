@@ -5,6 +5,23 @@ generator code was changed. Where this document and `src/magazine/TEMPLATE_DESIG
 `src/magazine/SELECTION_LOGIC.md` disagree, **this document wins**, because it was traced from the code. The guide's
 problems are listed under "Guide discrepancies".
 
+> **Superseded by Session B1 (2026-09-27, base plumbing, templates only):** statements below about sample
+> fallbacks, the essay paragraphs, SpreadMosaic's 6th image, the letters and the FrontMatter italic describe the
+> code BEFORE that session. Now:
+> - No base template prints sample text. An empty field removes its element, arrays default to `[]`, and only
+>   structural defaults remain (page numbers, the `'Spring 2026'` season default, volume/issue, printer,
+>   ImageFrame placeholder labels).
+> - Focal points use `?? 50` (Panorama `?? 42/38`), so a focal of 0 is kept.
+> - TextSubmission and TextSpread render every paragraph of `data.body`; `body_para1–3` and `pull_quote` are no
+>   longer read. Capacity is ~599 and ~1,291 words, with a terra overflow tripwire.
+> - SpreadMosaic renders 6 images: the right column stacks 245 / 327 / 246.
+> - CommunicationsPage shows ≤4 notes, excerpts each at 200 words with "…", and uses 410px cards with overflow
+>   hidden.
+> - The FrontMatter TOC type label is upright Courier Prime.
+>
+> Still true: Spread6 renders 6 of 7–8 images, there is no ×4 padding, and single pages ignore parity.
+> Details: `src/magazine/TEMPLATE_DESIGN_GUIDE.md` Part 1 rule 6 and Part 6.
+
 **Audience:** a designer building new or replacement templates that must drop into the existing renderer
 unchanged.
 

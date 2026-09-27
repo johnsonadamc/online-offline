@@ -4,11 +4,8 @@
 // Two-page spread for contributors who submitted exactly 2 images.
 // Left: dark, two stacked full-bleed images. Right: paper, title + caption index.
 function Spread2({ data={}, showAnnotations=false }) {
-  const entries = data.entries || [
-    { title: 'Market Gate, 07:12', caption: 'The gate between the old market and the new road.', focal_x: 55, focal_y: 45 },
-    { title: 'Closing Hour', caption: 'Same gate, four hours later. The light entirely changed.', focal_x: 50, focal_y: 60 },
-  ];
-  const contributor = data.contributor || { name: 'M. Osei', city: 'Accra' };
+  const entries = data.entries || [];
+  const contributor = data.contributor || {};
   const spreadW = AW * 2;
   const priH = Math.floor(AH * 0.58);
   const secH = AH - priH;
@@ -23,7 +20,7 @@ function Spread2({ data={}, showAnnotations=false }) {
 
         {/* Primary image — top ~58% */}
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: priH }}>
-          <ImageFrame w={AW} h={priH} label={entries[0]?.title || 'primary image'} focal_x={entries[0]?.focal_x || 50} focal_y={entries[0]?.focal_y || 50} media_url={entries[0]?.media_url}/>
+          <ImageFrame w={AW} h={priH} label={entries[0]?.title || 'primary image'} focal_x={entries[0]?.focal_x ?? 50} focal_y={entries[0]?.focal_y ?? 50} media_url={entries[0]?.media_url}/>
           <div style={{ position: 'absolute', bottom: 10, left: idxEdge, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>01</div>
           {showAnnotations && <Annotation label="entry[0] image" style={{ top: 8, left: 8 }}/>}
         </div>
@@ -33,7 +30,7 @@ function Spread2({ data={}, showAnnotations=false }) {
 
         {/* Secondary image — bottom ~42% */}
         <div style={{ position: 'absolute', top: priH + 3, left: 0, width: AW, height: secH - 3 }}>
-          <ImageFrame w={AW} h={secH - 3} label={entries[1]?.title || 'secondary image'} focal_x={entries[1]?.focal_x || 50} focal_y={entries[1]?.focal_y || 50} media_url={entries[1]?.media_url}/>
+          <ImageFrame w={AW} h={secH - 3} label={entries[1]?.title || 'secondary image'} focal_x={entries[1]?.focal_x ?? 50} focal_y={entries[1]?.focal_y ?? 50} media_url={entries[1]?.media_url}/>
           <div style={{ position: 'absolute', bottom: idxEdge, left: idxEdge, fontFamily: F.mono, fontSize: 12, color: C.gold, letterSpacing: '0.04em' }}>02</div>
           {showAnnotations && <Annotation label="entry[1] image" style={{ top: 8, left: 8 }}/>}
         </div>
@@ -66,15 +63,17 @@ function Spread2({ data={}, showAnnotations=false }) {
         <div style={{ position: 'absolute', top: BLEED + MT, left: BLEED + ML, right: BLEED + MR }}>
 
           {/* Section mark */}
-          <SectionMark>{data.type || 'Photography'} · Spread · {data.page || 20}</SectionMark>
+          <SectionMark>{data.type ? `${data.type} · ` : ''}Spread · {data.page || 20}</SectionMark>
 
           {/* Large title */}
-          <div style={{
-            fontFamily: F.serif, fontSize: 68, color: C.ground, lineHeight: 0.88,
-            fontWeight: 400, letterSpacing: '-0.02em', marginTop: 10, marginBottom: 16,
-          }}>
-            {data.page_title || 'Threshold'}
-          </div>
+          {data.page_title && (
+            <div style={{
+              fontFamily: F.serif, fontSize: 68, color: C.ground, lineHeight: 0.88,
+              fontWeight: 400, letterSpacing: '-0.02em', marginTop: 10, marginBottom: 16,
+            }}>
+              {data.page_title}
+            </div>
+          )}
 
           {/* Thick rule */}
           <div style={{ height: 2, background: C.ground, width: '100%', marginBottom: 6 }}/>
@@ -88,12 +87,16 @@ function Spread2({ data={}, showAnnotations=false }) {
             paddingLeft: 12, paddingRight: 12,
             marginBottom: 20,
           }}>
-            <span style={{ fontFamily: F.serif, fontSize: 15, color: C.paper }}>
-              {contributor.name || 'Contributor Name'}
-            </span>
-            <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-              {contributor.city || 'City'}
-            </span>
+            {contributor.name && (
+              <span style={{ fontFamily: F.serif, fontSize: 15, color: C.paper }}>
+                {contributor.name}
+              </span>
+            )}
+            {contributor.city && (
+              <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+                {contributor.city}
+              </span>
+            )}
           </div>
 
           {/* Caption area — two indexed entries */}
@@ -104,12 +107,16 @@ function Spread2({ data={}, showAnnotations=false }) {
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <div>
-                  <div style={{ fontFamily: F.serif, fontStyle: 'italic', fontSize: 10, color: C.ground, marginBottom: 3 }}>
-                    {entry.title || `Entry ${i + 1} Title`}
-                  </div>
-                  <div style={{ fontFamily: F.sans, fontSize: 9, color: C.paper4, lineHeight: 1.6 }}>
-                    {entry.caption || 'Caption text for this entry.'}
-                  </div>
+                  {entry.title && (
+                    <div style={{ fontFamily: F.serif, fontStyle: 'italic', fontSize: 10, color: C.ground, marginBottom: 3 }}>
+                      {entry.title}
+                    </div>
+                  )}
+                  {entry.caption && (
+                    <div style={{ fontFamily: F.sans, fontSize: 9, color: C.paper4, lineHeight: 1.6 }}>
+                      {entry.caption}
+                    </div>
+                  )}
                 </div>
                 {showAnnotations && i === 0 && <Annotation label="entry[0].title / caption" style={{ top: 0, right: 0 }}/>}
               </div>
@@ -136,13 +143,8 @@ function Spread2({ data={}, showAnnotations=false }) {
 // Two-page spread for contributors who submitted 3 or 4 images.
 // Left: dark, 2×2 full-bleed image grid. Right: paper, title + 2×2 caption grid.
 function Spread4({ data={}, showAnnotations=false }) {
-  const entries = data.entries || [
-    { title: 'Patina I', caption: 'Iron gate detail, Castle District.', focal_x: 50, focal_y: 50 },
-    { title: 'Patina II', caption: 'Plasterwork, same street.', focal_x: 48, focal_y: 52 },
-    { title: 'Rust Study', caption: 'Drainage cover, Buda side.', focal_x: 52, focal_y: 45 },
-    { title: 'Oxide', caption: 'Pipe junction, district VIII.', focal_x: 50, focal_y: 55 },
-  ];
-  const contributor = data.contributor || { name: 'L. Varga', city: 'Budapest' };
+  const entries = data.entries || [];
+  const contributor = data.contributor || {};
   const spreadW = AW * 2;
   const gutter = 4;
   const cellW = Math.floor((AW - gutter) / 2);
@@ -162,7 +164,7 @@ function Spread4({ data={}, showAnnotations=false }) {
           <div style={{ display: 'flex', gap: gutter, marginBottom: gutter }}>
             {[0, 1].map(col => (
               <div key={col} style={{ position: 'relative', width: cellW, height: cellH, flexShrink: 0 }}>
-                <ImageFrame w={cellW} h={cellH} label={entries[col]?.title || `image ${col + 1}`} focal_x={entries[col]?.focal_x || 50} focal_y={entries[col]?.focal_y || 50} media_url={entries[col]?.media_url}/>
+                <ImageFrame w={cellW} h={cellH} label={entries[col]?.title || `image ${col + 1}`} focal_x={entries[col]?.focal_x ?? 50} focal_y={entries[col]?.focal_y ?? 50} media_url={entries[col]?.media_url}/>
                 <div style={{ position: 'absolute', bottom: 8, left: col === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                   {String(col + 1).padStart(2, '0')}
                 </div>
@@ -173,7 +175,7 @@ function Spread4({ data={}, showAnnotations=false }) {
           <div style={{ display: 'flex', gap: gutter }}>
             {[2, 3].map((idx, col) => (
               <div key={col} style={{ position: 'relative', width: cellW, height: cellH, flexShrink: 0 }}>
-                <ImageFrame w={cellW} h={cellH} label={entries[idx]?.title || `image ${idx + 1}`} focal_x={entries[idx]?.focal_x || 50} focal_y={entries[idx]?.focal_y || 50} media_url={entries[idx]?.media_url}/>
+                <ImageFrame w={cellW} h={cellH} label={entries[idx]?.title || `image ${idx + 1}`} focal_x={entries[idx]?.focal_x ?? 50} focal_y={entries[idx]?.focal_y ?? 50} media_url={entries[idx]?.media_url}/>
                 <div style={{ position: 'absolute', bottom: idxEdge, left: col === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                   {String(idx + 1).padStart(2, '0')}
                 </div>
@@ -211,15 +213,17 @@ function Spread4({ data={}, showAnnotations=false }) {
         <div style={{ position: 'absolute', top: BLEED + MT, left: BLEED + ML, right: BLEED + MR }}>
 
           {/* Section mark */}
-          <SectionMark>{data.type || 'Art'} · Spread · {data.page || 22}</SectionMark>
+          <SectionMark>{data.type ? `${data.type} · ` : ''}Spread · {data.page || 22}</SectionMark>
 
           {/* Large title */}
-          <div style={{
-            fontFamily: F.serif, fontSize: 60, color: C.ground, lineHeight: 0.88,
-            fontWeight: 400, letterSpacing: '-0.02em', marginTop: 10, marginBottom: 16,
-          }}>
-            {data.page_title || 'Surfaces'}
-          </div>
+          {data.page_title && (
+            <div style={{
+              fontFamily: F.serif, fontSize: 60, color: C.ground, lineHeight: 0.88,
+              fontWeight: 400, letterSpacing: '-0.02em', marginTop: 10, marginBottom: 16,
+            }}>
+              {data.page_title}
+            </div>
+          )}
 
           {/* Thick rule */}
           <div style={{ height: 2, background: C.ground, width: '100%', marginBottom: 6 }}/>
@@ -233,12 +237,16 @@ function Spread4({ data={}, showAnnotations=false }) {
             paddingLeft: 12, paddingRight: 12,
             marginBottom: 20,
           }}>
-            <span style={{ fontFamily: F.serif, fontSize: 15, color: C.paper }}>
-              {contributor.name || 'Contributor Name'}
-            </span>
-            <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-              {contributor.city || 'City'}
-            </span>
+            {contributor.name && (
+              <span style={{ fontFamily: F.serif, fontSize: 15, color: C.paper }}>
+                {contributor.name}
+              </span>
+            )}
+            {contributor.city && (
+              <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+                {contributor.city}
+              </span>
+            )}
           </div>
 
           {/* 2×2 caption grid matching image grid */}
@@ -257,7 +265,7 @@ function Spread4({ data={}, showAnnotations=false }) {
                               {String(idx + 1).padStart(2, '0')}
                             </span>
                             <span style={{ fontFamily: F.serif, fontStyle: 'italic', fontSize: 9.5, color: C.ground }}>
-                              {entry.title || `Entry ${idx + 1}`}
+                              {entry.title || ''}
                             </span>
                           </div>
                           <div style={{ fontFamily: F.sans, fontSize: 9, color: C.paper4, lineHeight: 1.55, paddingLeft: 16 }}>
@@ -293,15 +301,8 @@ function Spread4({ data={}, showAnnotations=false }) {
 // Two-page spread for contributors who submitted 5–8 images.
 // Both pages: continuous dark surface, image grid across both pages, caption strip at bottom.
 function Spread6({ data={}, showAnnotations=false }) {
-  const entries = data.entries || [
-    { title: 'Marine Lines at Dusk', caption: 'The promenade empties by 19:30.', focal_x: 50, focal_y: 60 },
-    { title: 'Gateway Approach', caption: 'October light, long shadows.', focal_x: 45, focal_y: 50 },
-    { title: 'Tide Marker', caption: 'High-water line.', focal_x: 52, focal_y: 48 },
-    { title: 'Haze Study', caption: 'The city breathing.', focal_x: 50, focal_y: 50 },
-    { title: 'Sea Wall', caption: 'Before the rain.', focal_x: 48, focal_y: 55 },
-    { title: 'Return', caption: 'Last light, western shore.', focal_x: 50, focal_y: 45 },
-  ];
-  const contributor = data.contributor || { name: 'R. Patel', city: 'Mumbai' };
+  const entries = data.entries || [];
+  const contributor = data.contributor || {};
   const spreadW = AW * 2;
   const captionH = 120;
   const imgAreaH = AH - captionH;
@@ -324,7 +325,7 @@ function Spread6({ data={}, showAnnotations=false }) {
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: imgAreaH, display: 'flex', gap: gutter }}>
           {entries.slice(0, 3).map((entry, i) => (
             <div key={i} style={{ position: 'relative', width: i === cols - 1 ? lastW : cellW, height: imgAreaH, flexShrink: 0 }}>
-              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 1}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
+              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 1}`} focal_x={entry.focal_x ?? 50} focal_y={entry.focal_y ?? 50} media_url={entry.media_url}/>
               <div style={{ position: 'absolute', bottom: 10, left: i === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                 {String(i + 1).padStart(2, '0')}
               </div>
@@ -370,7 +371,7 @@ function Spread6({ data={}, showAnnotations=false }) {
         <div style={{ position: 'absolute', top: 0, left: 0, width: AW, height: imgAreaH, display: 'flex', gap: gutter }}>
           {entries.slice(3, 6).map((entry, i) => (
             <div key={i} style={{ position: 'relative', width: i === cols - 1 ? lastW : cellW, height: imgAreaH, flexShrink: 0 }}>
-              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 4}`} focal_x={entry.focal_x || 50} focal_y={entry.focal_y || 50} media_url={entry.media_url}/>
+              <ImageFrame w={i === cols - 1 ? lastW : cellW} h={imgAreaH} label={entry.title || `image ${i + 4}`} focal_x={entry.focal_x ?? 50} focal_y={entry.focal_y ?? 50} media_url={entry.media_url}/>
               <div style={{ position: 'absolute', bottom: 10, left: i === 0 ? idxEdge : 8, fontFamily: F.mono, fontSize: 11, color: C.gold, letterSpacing: '0.04em' }}>
                 {String(i + 4).padStart(2, '0')}
               </div>
@@ -389,16 +390,22 @@ function Spread6({ data={}, showAnnotations=false }) {
         }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
-              <span style={{ fontFamily: F.mono, fontSize: 8, color: C.terra, letterSpacing: '0.10em' }}>
-                {contributor.name || 'Contributor Name'}
-              </span>
-              <span style={{ fontFamily: F.mono, fontSize: 7, color: C.paper4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                {contributor.city || 'City'}
-              </span>
+              {contributor.name && (
+                <span style={{ fontFamily: F.mono, fontSize: 8, color: C.terra, letterSpacing: '0.10em' }}>
+                  {contributor.name}
+                </span>
+              )}
+              {contributor.city && (
+                <span style={{ fontFamily: F.mono, fontSize: 7, color: C.paper4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  {contributor.city}
+                </span>
+              )}
             </div>
-            <div style={{ fontFamily: F.serif, fontStyle: 'italic', fontSize: 14, color: C.paper2, letterSpacing: '-0.01em' }}>
-              {data.page_title || 'Low Season'}
-            </div>
+            {data.page_title ? (
+              <div style={{ fontFamily: F.serif, fontStyle: 'italic', fontSize: 14, color: C.paper2, letterSpacing: '-0.01em' }}>
+                {data.page_title}
+              </div>
+            ) : <div/>}
             <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
           </div>
 
@@ -407,7 +414,7 @@ function Spread6({ data={}, showAnnotations=false }) {
               <span key={i}>
                 {i > 0 && <span style={{ color: C.paper5, margin: '0 5px' }}>·</span>}
                 <span style={{ color: C.gold, marginRight: 3 }}>{String(i + 1).padStart(2, '0')}</span>
-                {entry.title || `Image ${i + 1}`}
+                {entry.title || ''}
               </span>
             ))}
           </div>
@@ -427,97 +434,60 @@ function Spread6({ data={}, showAnnotations=false }) {
   );
 }
 
-// ─── 15. TEXT SPREAD ──────────────────────────────────────────────────────────
-// Two-page spread for long text submissions (essays or poetry over ~600 words).
-// Left: paper, hero title + drop cap opening. Right: paper, body continues.
-function TextSpread({ data={}, showAnnotations=false }) {
-  const contributor = data.contributor || { name: 'T. Nakamura', city: 'Osaka' };
-  const spreadW = AW * 2;
+// Text-zone overflow TRIPWIRE — not a design element. The essay flow has a fixed height and overflow hidden;
+// if the body does not fit, a terra "text continues" bar is drawn at the bottom of the zone so it is SEEN in
+// review, never a silent clip. It can only fire if the app's 800-word essay cap fails upstream: TextSpread holds
+// ~1,291 words (it gets 501–800 from the app) and TextSubmission ~599 (selection sends it ≤500).
+// Re-measures after webfonts load (the generator waits for networkidle0 + fonts.ready before the screenshot).
+// TextSubmission (templates-5-8.jsx) carries its own copy: each base file is loaded alone on a page.
+function useOverflowFlag(ref) {
+  const [over, setOver] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const check = () => { const el = ref.current; if (el) setOver(el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1); };
+    check();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(check);
+  }, []);
+  return over;
+}
+function OverflowFlag() {
+  return (
+    <div style={{ position:'absolute', left:0, right:0, bottom:0, height:14, background:C.terra, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F.mono, fontSize:8, lineHeight:'9px', letterSpacing:'0.14em', textTransform:'uppercase', color:C.paper, zIndex:5 }}>
+      Text continues — this essay does not fit the page
+    </div>
+  );
+}
 
-  const body1 = data.body_para1 || 'The light changed before we noticed it had moved at all. That is the way of certain mornings — they arrive quietly, without announcement, and are already half-spent before attention finds them. She had been standing at the window for some time, watching the quality of the air above the rooftops, the particular way it held the early fog. She was not waiting for anything specific. She was simply watching — which is, in the end, a different kind of waiting.';
-  const body2 = data.body_para2 || 'Later, sorting through the photographs, she would try to identify the exact moment the shift occurred. It was not in any single frame. It lived between them, in the gap the camera could not close — that interval of pure unrecorded time where the real change had quietly taken place without witness.';
-  const body3 = data.body_para3 || 'There is a discipline in waiting for the right light. Most people mistake it for patience. It is closer to a form of grief: the acceptance that what you are waiting for may not come, and that you will wait anyway, because the waiting itself has become the practice.';
-  const body4 = data.body_para4 || 'She had been standing at the window for some time. The city below had not yet decided what kind of morning it would be. The fog held everything in suspension — the traffic, the noise, even the light itself seemed unsure of where to land.';
-  const body5 = data.body_para5 || 'The archive, when she finally opened it, contained more than she remembered. More frames, more moments, more of the slow accumulation of attention that constitutes a practice. She sat with it for a long time before she understood what she was looking at.';
+// ─── 15. TEXT SPREAD ──────────────────────────────────────────────────────────
+// Two-page spread for long text submissions (essays over 500 words).
+// One text flow across both pages: hero title + drop cap opening on the left, body continues on the right.
+function TextSpread({ data={}, showAnnotations=false }) {
+  const contributor = data.contributor || {};
+  const spreadW = AW * 2;
+  const season = data.season || 'Spring 2026';
+  const page = data.page || 26;
+  // Every paragraph of the essay renders (split on blank lines); there is no sample copy.
+  const paras = (data.body || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  const wordCount = data.word_count || (data.body || '').trim().split(/\s+/).filter(Boolean).length;
+  const bodyRef = React.useRef(null);
+  const overflow = useOverflowFlag(bodyRef);
+  // Two columns, each exactly one page's live area (LIVEW 652). The gap is the two inside margins
+  // (MR + BLEED + BLEED + ML = 138px), so no body text ever crosses the gutter. The header sits at the top of
+  // column 1 and the essay continues at the top of column 2 (column-fill auto = sequential, not balanced).
+  // The zone ends 10px above the folio line box, as on TextSubmission.
+  const zoneTop = BLEED + MT;
+  const zoneBottom = AH - ((BLEED + MB - 14) + 10 + 10);
+  const sep = <span style={{ width: 0.5, height: 10, background: C.paper5, display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }}/>;
 
   return (
     <div style={{ width: spreadW, height: AH, position: 'relative', overflow: 'hidden', display: 'flex' }}>
 
       {/* ── TEXT SPREAD LEFT ── */}
       <div style={{ width: AW, height: AH, background: C.paper, position: 'relative', flexShrink: 0 }}>
-
-        <VerticalContributorLabel
-          name={contributor.name || 'Contributor Name'}
-          type={data.type || 'Essay'}
-          issue={data.season || 'Spring 2026'}
-        />
-
-        <div style={{ position: 'absolute', top: BLEED + MT, left: BLEED + ML, right: BLEED + MR }}>
-
-          <DoubleRule/>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 14 }}>
-            <SectionMark>{data.type || 'Essay'}</SectionMark>
-            <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
-          </div>
-
-          <div style={{
-            fontFamily: F.serif, fontStyle: 'italic', fontSize: 76, color: C.ground,
-            lineHeight: 0.88, letterSpacing: '-0.02em', marginBottom: 16,
-          }}>
-            {data.page_title || 'The Long Exposure'}
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-            <div style={{ width: 28, height: 1.5, background: C.terra, flexShrink: 0 }}/>
-            <div style={{ flex: 1, height: 0.5, background: C.paper5 }}/>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 18, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: F.mono, fontSize: 8.5, color: C.terra, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
-              {contributor.name || 'Contributor Name'}
-            </span>
-            <span style={{ width: 0.5, height: 10, background: C.paper5, display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }}/>
-            <span style={{ fontFamily: F.mono, fontSize: 7.5, color: C.paper4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              {contributor.city || 'City'}
-            </span>
-            <span style={{ width: 0.5, height: 10, background: C.paper5, display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }}/>
-            <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.08em' }}>
-              {data.word_count || '1,840'} words
-            </span>
-            <span style={{ width: 0.5, height: 10, background: C.paper5, display: 'inline-block', margin: '0 8px', verticalAlign: 'middle' }}/>
-            <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.08em' }}>
-              {data.season || 'Spring 2026'}
-            </span>
-          </div>
-
-          <div style={{ fontFamily: F.serif, fontSize: 12.5, lineHeight: 1.88, color: C.ground }}>
-            <p style={{ margin: 0, marginBottom: 10 }}>
-              <span style={{
-                float: 'left', fontSize: 70, lineHeight: 0.78, fontFamily: F.serif,
-                color: C.ground, marginRight: 6, marginTop: 6, marginBottom: 0,
-              }}>
-                {body1[0]}
-              </span>
-              {body1.slice(1)}
-            </p>
-            <p style={{ margin: 0, clear: 'both' }}>{body2}</p>
-          </div>
-
-          {showAnnotations && (
-            <>
-              <Annotation label="content.page_title" style={{ top: 36, left: 0 }}/>
-              <Annotation label="contributor.name / city / word_count" style={{ top: 190, left: 0 }}/>
-              <Annotation label="body_para1 + drop cap" style={{ top: 230, left: 0 }}/>
-            </>
-          )}
-        </div>
-
+        <VerticalContributorLabel name={contributor.name} type={data.type} issue={season}/>
         <div style={{ position: 'absolute', bottom: BLEED + MB - 14, left: BLEED + ML, right: BLEED + MR, display: 'flex', justifyContent: 'space-between' }}>
-          <Folio page={data.page || 26} side="left" season={data.season || 'Spring 2026'}/>
-          <Folio page={data.page || 26} side="right" season={data.season || 'Spring 2026'}/>
+          <Folio page={page} side="left" season={season}/>
+          <Folio page={page} side="right" season={season}/>
         </div>
-
         <RegistrationMark side="left"/>
         <BleedMarks dark={true}/>
         <GrainOverlay/>
@@ -531,39 +501,97 @@ function TextSpread({ data={}, showAnnotations=false }) {
 
       {/* ── TEXT SPREAD RIGHT ── */}
       <div style={{ width: AW, height: AH, background: C.paper, position: 'relative', flexShrink: 0 }}>
-
-        <VerticalContributorLabel
-          name={contributor.name || 'Contributor Name'}
-          type={data.type || 'Essay'}
-          issue={data.season || 'Spring 2026'}
-        />
-
-        <div style={{
-          position: 'absolute', top: BLEED + MT, left: BLEED + ML, right: BLEED + MR,
-          fontFamily: F.serif, fontSize: 12.5, lineHeight: 1.88, color: C.ground,
-        }}>
-          <p style={{ margin: 0, marginBottom: 10 }}>{body3}</p>
-          <p style={{ margin: 0, marginBottom: 10 }}>{body4}</p>
-          <p style={{ margin: 0 }}>{body5}</p>
-
-          {showAnnotations && (
-            <>
-              <Annotation label="body_para3" style={{ top: 0, right: 0 }}/>
-              <Annotation label="body_para4 / body_para5" style={{ top: 80, right: 0 }}/>
-            </>
-          )}
-        </div>
-
+        <VerticalContributorLabel name={contributor.name} type={data.type} issue={season}/>
         <div style={{ position: 'absolute', bottom: BLEED + MB - 14, left: BLEED + ML, right: BLEED + MR, display: 'flex', justifyContent: 'space-between' }}>
-          <Folio page={(data.page || 26) + 1} side="left" season={data.season || 'Spring 2026'}/>
-          <Folio page={(data.page || 26) + 1} side="right" season={data.season || 'Spring 2026'}/>
+          <Folio page={page + 1} side="left" season={season}/>
+          <Folio page={page + 1} side="right" season={season}/>
         </div>
-
         <RegistrationMark side="left"/>
         <RegistrationMark side="right"/>
         <BleedMarks dark={true}/>
         <GrainOverlay/>
       </div>
+
+      {/* ── TEXT FLOW (both pages) ── */}
+      <div ref={bodyRef} style={{
+        position: 'absolute', top: zoneTop, left: BLEED + ML, width: AW + LIVEW, height: zoneBottom - zoneTop,
+        columnCount: 2, columnGap: (MR + BLEED) + (BLEED + ML), columnFill: 'auto', overflow: 'hidden', zIndex: 2,
+      }}>
+        <DoubleRule/>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 14 }}>
+          {data.type && <SectionMark>{data.type}</SectionMark>}
+          <GoldMark>{season}</GoldMark>
+        </div>
+
+        {data.page_title && (
+          <div style={{
+            fontFamily: F.serif, fontStyle: 'italic', fontSize: 76, color: C.ground,
+            lineHeight: 0.88, letterSpacing: '-0.02em', marginBottom: 16,
+          }}>
+            {data.page_title}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ width: 28, height: 1.5, background: C.terra, flexShrink: 0 }}/>
+          <div style={{ flex: 1, height: 0.5, background: C.paper5 }}/>
+        </div>
+
+        {/* Contributor meta — an empty field drops out with its separator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 0, marginBottom: 18, flexWrap: 'wrap' }}>
+          {contributor.name && (
+            <span style={{ fontFamily: F.mono, fontSize: 8.5, color: C.terra, letterSpacing: '0.10em', textTransform: 'uppercase' }}>
+              {contributor.name}
+            </span>
+          )}
+          {contributor.city && <>
+            {contributor.name && sep}
+            <span style={{ fontFamily: F.mono, fontSize: 7.5, color: C.paper4, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              {contributor.city}
+            </span>
+          </>}
+          {wordCount > 0 && <>
+            {(contributor.name || contributor.city) && sep}
+            <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.08em' }}>
+              {wordCount} words
+            </span>
+          </>}
+          {(contributor.name || contributor.city || wordCount > 0) && sep}
+          <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper4, letterSpacing: '0.08em' }}>
+            {season}
+          </span>
+        </div>
+
+        <div style={{ fontFamily: F.serif, fontSize: 12.5, lineHeight: 1.88, color: C.ground }}>
+          {paras.map((p, i) => (
+            <p key={i} style={{ margin: 0, marginBottom: i < paras.length - 1 ? 10 : 0, clear: i === 1 ? 'left' : undefined }}>
+              {i === 0 && (
+                <span style={{
+                  float: 'left', fontSize: 70, lineHeight: 0.78, fontFamily: F.serif,
+                  color: C.ground, marginRight: 6, marginTop: 6, marginBottom: 0,
+                }}>
+                  {p[0]}
+                </span>
+              )}
+              {i === 0 ? p.slice(1) : p}
+            </p>
+          ))}
+        </div>
+
+        {showAnnotations && (
+          <>
+            <Annotation label="content.page_title" style={{ top: 36, left: 0 }}/>
+            <Annotation label="contributor.name / city / word_count" style={{ top: 190, left: 0 }}/>
+            <Annotation label="body (all paragraphs) + drop cap" style={{ top: 230, left: 0 }}/>
+          </>
+        )}
+      </div>
+      {overflow && (
+        <div style={{ position: 'absolute', left: AW + BLEED + ML, width: LIVEW, top: zoneBottom - 14, height: 14, zIndex: 3 }}>
+          <OverflowFlag/>
+        </div>
+      )}
     </div>
   );
 }
@@ -717,14 +745,7 @@ function MusicPage({ data={}, showAnnotations=false }) {
 // ─── 17. COLOPHON PAGE ────────────────────────────────────────────────────────
 // Back matter page. Dark background. Publication info, contributor credits, print info.
 function ColophonPage({ data={}, showAnnotations=false }) {
-  const contributors = data.contributors || [
-    { name: 'A. Chen', city: 'Shanghai' },
-    { name: 'M. Osei', city: 'Accra' },
-    { name: 'L. Varga', city: 'Budapest' },
-    { name: 'R. Patel', city: 'Mumbai' },
-    { name: 'S. Müller', city: 'Berlin' },
-    { name: 'T. Nakamura', city: 'Osaka' },
-  ];
+  const contributors = data.contributors || [];
   const season = data.season || 'Spring 2026';
   const printer = data.printer || 'Magcloud';
   const editionNumber = data.edition_number || 1;
@@ -760,11 +781,11 @@ function ColophonPage({ data={}, showAnnotations=false }) {
           </div>
           <div style={{ width: '100%', height: 1, background: C.gold, marginBottom: 12 }}/>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {contributors.map((c, i) => (
+            {contributors.filter(c => c.name || c.city).map((c, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'baseline', gap: 0 }}>
-                <span style={{ fontFamily: F.serif, fontSize: 13, color: C.paper2, lineHeight: 1.3 }}>{c.name || 'Contributor Name'}</span>
-                <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper5, margin: '0 6px' }}>—</span>
-                <span style={{ fontFamily: F.mono, fontSize: 7.5, color: C.paper4, letterSpacing: '0.08em' }}>{c.city || 'City'}</span>
+                {c.name && <span style={{ fontFamily: F.serif, fontSize: 13, color: C.paper2, lineHeight: 1.3 }}>{c.name}</span>}
+                {c.name && c.city && <span style={{ fontFamily: F.mono, fontSize: 8, color: C.paper5, margin: '0 6px' }}>—</span>}
+                {c.city && <span style={{ fontFamily: F.mono, fontSize: 7.5, color: C.paper4, letterSpacing: '0.08em' }}>{c.city}</span>}
               </div>
             ))}
           </div>

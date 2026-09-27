@@ -316,8 +316,9 @@ Magazine Generation System
 Status: ✅ FULLY OPERATIONAL, print-validated against MagCloud.
 Template contract: online-offline/docs/TEMPLATE_CONTRACT.md — code-derived (Sept 2026) data shapes, capacities, frames,
   edge proximity and seed samples for all 18 templates; AUTHORITATIVE over src/magazine/TEMPLATE_DESIGN_GUIDE.md and
-  SELECTION_LOGIC.md where they differ (its §4 lists the discrepancies, e.g. Spread6 renders 6 of 7–8 images, SpreadMosaic
-  5 of 6, TextSubmission/TextSpread print sample pull-quote/paragraph copy, no page padding to a multiple of 4).
+  SELECTION_LOGIC.md where they differ (its §4 lists the discrepancies, e.g. Spread6 renders 6 of 7–8 images, no page
+  padding to a multiple of 4). Its top note records what Session B1 superseded (sample fallbacks, essay paragraphs,
+  Mosaic 6th image, letters, FrontMatter italic — all fixed).
 Data dump (scripts/dump-template-data.ts, Sept 2026): READ-ONLY — no writes, no Puppeteer, no PDF. Prints one line per page
   (page, template) + a per-template summary (images, caption words, essay words/paragraphs passed, poem lines, roster
   sizes, note words) and writes /tmp/template-data-<curator>.json with every data object. Run from Codespaces:
@@ -395,7 +396,8 @@ Blue Hour set (Session P, Sept 2026) — src/magazine/templates/sets/blue-hour/ 
   hits, roots 790/1580×1054 overflow hidden; fold band only CollabSpreadLocal's city headline (display type ≥40px, allowed);
   one-line ellipsis on collab labels (seed titles = captions). Stress: at the old clamp limits nothing overflows; above
   them captions run past the folio/trim — visible, by decision. Letters: 4 × 250-word notes (the app's cap) overflow the
-  page with the clamp gone (decision: accept in the rig) — BASE CommunicationsPage HAS THE SAME PROBLEM (no clamp either).
+  page with the clamp gone (decision: accept in the rig). Base had the same problem; FIXED in base by Session B1
+  (200-word excerpt, 410px cards) — the rig was not changed.
 
 Running the generator (Codespaces)
   cd online-offline
@@ -473,6 +475,38 @@ Template notes (changed Sept 2026, after the first physical print):
     the caption is 9.5px / 1.3 with WebkitLineClamp 3 as a backstop (titles wider than ~260px push 50 words to a 4th
     line and clip). Never clamp below the line count that fits 50 words.
   · CollabSpreadPrivate chip pinned to a 14px line box (same fix as the community chip).
+Template notes (Session B1, Sept 2026 — base plumbing, templates only; selection/generator untouched, page counts
+  unchanged: Lena 19 slots / 29 pages, Adam 19 / 28):
+- NO SAMPLE FALLBACKS in base. Every `|| 'sample'` / sample array / sample object is gone: an empty field removes its
+  element (and separator) and the layout closes up; arrays → [], objects → {}. Kept (structural): `data.page || n`, the
+  'Spring 2026' season default (unreachable — the pipeline passes 'Spring'), CoverA volume/issue, Colophon printer,
+  ImageFrame placeholder labels (only render when media_url is missing). CoverA's 'Autumn / Winter 2026' season is gone
+  (season block omitted when empty). CollabSpreadLocal with an empty city omits the watermark, the city labels and the
+  footer note. Fallbacks that fired before (fixtures): SpreadPanorama sample caption (Lena p4, Adam p6 — Maya's "After
+  the Rain" has no caption), TextSubmission pull quote (Lena p11), TextSpread paras 4–5 (Lena p12), FrontMatter "City"
+  (Adam p3); copy one very likely printed the first three. focal_x/focal_y `|| 50` → `?? 50` everywhere (Panorama ?? 42/38).
+- ESSAYS render the whole `data.body` (split on blank lines; drop cap on ¶1, ¶2 clears it). No pull quote. body_para1–3
+  are still produced by selectionLogic but no longer read. TextSubmission = one flex column, body box ends 10px above
+  the folio line. TextSpread = ONE flow container, 2 columns of LIVEW 652 with columnGap 138 (MR+BLEED+BLEED+ML), header
+  at the top of column 1 → nothing crosses the fold. Capacity (real fonts, ~60-word ¶): TextSubmission ~599 words (gets
+  ≤500), TextSpread ~1,291 (gets 501–800 under the app cap). OVERFLOW TRIPWIRE: useOverflowFlag measures the text box
+  after fonts.ready and draws a terra "Text continues — this essay does not fit the page" bar — not a design element;
+  it only fires if the 800-word cap fails upstream, and it shows in the PDF + admin preview instead of clipping silently.
+- SpreadMosaic renders 6: with ≥6 entries the right column stacks three frames 245 / 327 / 246 (0.30/0.40/0.30 of
+  834 − 2×8, ends at y 923, 8px above the strip); column 1 unchanged; captions slice(1, 6) (5 cells × 118px). Five
+  images render a byte-identical DOM to before.
+- CommunicationsPage: ≤4 notes (generator already `.limit(4)`), each excerpted to 200 words at a word boundary + "…";
+  cards gridAutoRows 410 = floor((981 − 147 − 14)/2), overflow hidden (a card holds ~230 words under a two-line subject;
+  4 × 250-word notes used to run to y 1027, over the folio); card rule now 0.5px C.paper5 (the old rgba paper rule was
+  invisible on paper). No sample notes.
+- FrontMatter TOC type label: fontStyle italic removed — the page loads Courier Prime REGULAR only, so it was a
+  browser-synthesized oblique.
+- Gates (Session B1): 76 buildPageHtml strings vs 234c4d3 — 4 identical (BlankPage, inline), 72 changed (every base
+  file was touched). Rendered #root DOM, all 38 fixture slots: 30 identical, 8 different = exactly the allowed set
+  (FrontMatter ×2, SpreadPanorama Lena p4/Adam p6, TextSubmission, TextSpread, CommunicationsPage ×2). Re-render of 36
+  non-blank slots: 0 errors, 0 undefined/null/NaN, 0 new text inside SAFE_INSET, 0 sample strings; every template also
+  renders empty data ({page, season}) with 0 errors and 0 sample text. blue-hour: loader warns nothing, Lena 19/19 slots
+  render (17 via the set, CampaignPage ×2 via base).
 
 Print profiles (src/magazine/core/printProfiles.ts) — the design canvas never changes; only PDF output maps
 - screen (default): 790×1054pt output (design canvas 768×1032 + 11px bleed), PNG, deviceScaleFactor 4,
@@ -900,6 +934,9 @@ Key Gotchas & Hard-Won Lessons
   divs, NOT ImageFrame's `n` (that only renders on the no-image placeholder), so each full-bleed template defines
   `const idxEdge = BLEED + SAFE_INSET + 4` (31px from the canvas edge, 20px inside the trim) and applies it ONLY to label
   sides that coincide with a canvas edge (left column, bottom row, first cell after the spine); interior sides keep 8–12.
+- NO SAMPLE FALLBACKS (Session B1): sample copy lives only in preview data. An empty field removes its element and the
+  layout closes up; never `data.x || 'Sample text'`. Structural defaults only (page numbers, season default, volume/issue,
+  printer, ImageFrame placeholder labels). Focal points `?? 50`, never `|| 50`. Full rule: TEMPLATE_DESIGN_GUIDE Part 1 #6.
 - Every spread's gutter-shadow div must carry className="gutter-shadow" — the magcloud profile hides it by that class
   (includeGutterShadow=false → print-only CSS rule in buildPageHtml); a shadow without the class prints as a ~0.9mm dark
   sliver at the fold. Ten sites today (Spread, Spread2, Spread4, Spread6, TextSpread, SpreadPanorama, SpreadMosaic,
@@ -982,13 +1019,20 @@ In Progress 🔧
 - (nothing — next: Stripe, first physical print)
 
 Remaining / Known Issues ⚠️
-0. PLUMBING, FIRST (measured in the 26 Sep 2026 dump): essays pass only 3 paragraphs (selectionLogic.ts splitBody) —
-   TextSubmission "The Slow Channel" 403 words / 9 paragraphs → 3 passed; TextSpread "Against the Feed" 825 / 13 → 3.
-   The templates fill the rest with SAMPLE copy (TextSubmission's placeholder pull quote; TextSpread's body_para4/5
-   fallbacks), so the real essay is cut and fake text prints. Fix in base (plumbing), not in a set.
-   Blue Hour renders 7 Spread6 images, 6 Mosaic images and the full essay body — the base truncations are
-   TEMPLATE-side, not selection-side (selectionLogic passes all entries and the full `body`; base drops them).
-   Letters: base CommunicationsPage never truncates either — four long notes overflow in base as in Blue Hour.
+0. ✅ FIXED (Session B1, Sept 2026): essays print the whole body (no sample pull quote / paragraphs), every sample
+   fallback removed from base, SpreadMosaic renders 6 images, letters excerpted to 200 words in 410px cards, FrontMatter
+   Courier italic removed. See "Template notes (Session B1)". STILL OPEN — next two sessions:
+   · NEXT (generator + templates batch): Spread6 renders 6 of 7–8 images (base truncation; Blue Hour renders 7) ·
+     Music removal (ContentType 'music', selectionLogic → MusicPage, generator + guide references) · page count ×4
+     padding for saddle stitch (Lena 29) · single-page parity: VerticalContributorLabel + folios ignore recto/verso,
+     and CommunicationsPage (like TextSubmission/PoetryPage) prints the SAME page number on both folios — decide the
+     parity convention · Colophon contributor list has duplicates (generator passes one row per content item, e.g.
+     Maya Torres twice) — dedupe in the generator.
+   · AFTER THAT (admin preview): switch /api/admin/preview to buildPageSequence (its page numbers drift from print),
+     load template sets, pin its Babel URL.
+   · Submit-side caption caps: caption caps belong at Submit per route (Panorama 50, Mosaic ~12–15 at two lines, …) —
+     the durable fix for every silent clamp, base and sets (base keeps SpreadMosaic's 2-line clamp and Panorama's
+     3-line backstop until then).
 1. Spread3 — a dedicated 3-image template so Spread4 never shows an empty cell (+ selectionLogic branch,
    TEMPLATE_DESIGN_GUIDE wiring). Until then submissions should use 4 images.
 2. First physical print — order one MagCloud copy of Lena's magcloud PDF; check terracotta/gold shift,
@@ -1006,7 +1050,9 @@ Remaining / Known Issues ⚠️
     collab template read to persist.
 12. Communication images — UI slot removed; schema column image_url remains. Adding images requires a CommunicationsPage
     template redesign (4 cards/page) + generator + handler wiring.
-13. Submit form caps essays at 800 words but TextSpread handles 501–1800 — align the cap or the template.
+13. Essay cap vs template — MEASURED (Session B1): TextSpread holds ~1,291 words, above the app's 800 cap, so the cap is
+    the real limit and the tripwire guards it; selectionLogic's 1,800 bound is unreachable from the app. Raise the cap
+    only after re-measuring (TEMPLATE_DESIGN_GUIDE Part 6).
 
 User Roles
 - Contributors: submit content, join/create collabs, invite, send communications

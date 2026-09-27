@@ -80,7 +80,7 @@ These shapes are simplified. The real pipeline keys differ slightly (see `docs/T
 | **CollabSpreadCommunity** | 2 | `{ page, season, collab_title, description (≤40 words), entries: [{ media_url, contributor_name, title, focal_x, focal_y }] (2–6), participants: [names] }` — show up to 5 names, then "and N others" | 2 entries, 3 participants; 6 entries, 40 participants |
 | **CollabSpreadLocal** | 2 | same + `city` as a design element (shortest "Miami", longest "San Francisco") | Miami, 2 entries; San Francisco, 6 entries |
 | **CollabSpreadPrivate** | 2 | same, but 2–10 members, every name shown; one entry per member (2–10) | 2 members; 10 members |
-| **CommunicationsPage** (letters) | 1 | `{ page, season, curator_name, notes: [{ sender_name, subject (≤10 words), body (≤250 words) }] (1–4) }` — show an excerpt of ~90 words then "…" | 1 note; 4 notes at full length |
+| **CommunicationsPage** (letters) | 1 | `{ page, season, curator_name, notes: [{ sender_name, subject (≤10 words), body (≤250 words) }] (1–4) }` — show an excerpt of ~200 words then "…" | 1 note; 4 notes at full length |
 | CampaignPage (ad) | 1 | advertiser's own art, full bleed — **don't design** | — |
 
 ---

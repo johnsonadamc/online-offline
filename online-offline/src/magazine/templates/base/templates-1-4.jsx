@@ -9,8 +9,8 @@
 // oversized, gold, the only warm element at full opacity.
 
 function CoverA({ data={}, showAnnotations=false }) {
-  const season = data.season || 'Autumn / Winter 2026';
-  const seasonWord = season.split(' / ')[0] || 'Autumn';
+  const season = data.season || '';
+  const seasonWord = season.split(' / ')[0];
 
   // Divider: a strong horizontal band across page at ~55% height
   const divY = Math.floor(AH * 0.54);
@@ -81,21 +81,23 @@ function CoverA({ data={}, showAnnotations=false }) {
         </span>
       </div>
 
-      {/* ── Bottom-left: season block ── */}
-      <div style={{
-        position:'absolute', bottom:BLEED+MB, left:BLEED+ML,
-        zIndex:4,
-      }}>
-        <div style={{ width:28, height:1.5, background:C.gold, marginBottom:10 }}/>
+      {/* ── Bottom-left: season block (omitted when the period has no season) ── */}
+      {seasonWord && (
         <div style={{
-          fontFamily:F.sans, fontWeight:300, fontSize:22,
-          textTransform:'uppercase', color:C.paper,
-          letterSpacing:'0.20em', lineHeight:1,
+          position:'absolute', bottom:BLEED+MB, left:BLEED+ML,
+          zIndex:4,
         }}>
-          {seasonWord}
+          <div style={{ width:28, height:1.5, background:C.gold, marginBottom:10 }}/>
+          <div style={{
+            fontFamily:F.sans, fontWeight:300, fontSize:22,
+            textTransform:'uppercase', color:C.paper,
+            letterSpacing:'0.20em', lineHeight:1,
+          }}>
+            {seasonWord}
+          </div>
+          {showAnnotations && <Annotation label="period.season" style={{ top:-14, left:0 }}/>}
         </div>
-        {showAnnotations && <Annotation label="period.season" style={{ top:-14, left:0 }}/>}
-      </div>
+      )}
 
       {/* ── Thin left-margin vertical rule ── */}
       <div style={{
@@ -130,7 +132,7 @@ function SinglePhoto({ data={}, showAnnotations=false }) {
     <div style={{ width:AW, height:AH, background:C.ground, position:'relative', overflow:'hidden' }}>
       {/* Full-bleed image */}
       <div style={{ position:'absolute', top:0, left:0, width:AW, height:imgH }}>
-        <ImageFrame w={AW} h={imgH} label="main photograph" focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+        <ImageFrame w={AW} h={imgH} label="main photograph" focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
         {showAnnotations && <Annotation label="content_entry.focal_x / focal_y" style={{ top:8, left:8 }}/>}
       </div>
 
@@ -244,7 +246,7 @@ function MultiPhoto2Stacked({ data={}, showAnnotations=false }) {
         {/* Terra vertical rule on left edge */}
         <div style={{ display:'flex' }}>
           <div style={{ width:2, background:C.terra, flexShrink:0, alignSelf:'stretch' }}/>
-          <ImageFrame w={LIVEW-2} h={pri} label={`entry 1 — ${entries[0]?.title||'primary image'}`} n="01" focal_x={entries[0]?.focal_x||50} focal_y={entries[0]?.focal_y||50} media_url={entries[0]?.media_url}/>
+          <ImageFrame w={LIVEW-2} h={pri} label={`entry 1 — ${entries[0]?.title||'primary image'}`} n="01" focal_x={entries[0]?.focal_x??50} focal_y={entries[0]?.focal_y??50} media_url={entries[0]?.media_url}/>
         </div>
         <div style={{ marginTop:5, display:'flex', flexDirection:'column', gap:2 }}>
           <span style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.ground }}>{entries[0]?.title||'Primary Image Title'}</span>
@@ -254,7 +256,7 @@ function MultiPhoto2Stacked({ data={}, showAnnotations=false }) {
 
         {/* Secondary image */}
         <div style={{ marginTop:9 }}>
-          <ImageFrame w={LIVEW} h={sec} label={`entry 2 — ${entries[1]?.title||'secondary image'}`} n="02" focal_x={entries[1]?.focal_x||50} focal_y={entries[1]?.focal_y||50} media_url={entries[1]?.media_url}/>
+          <ImageFrame w={LIVEW} h={sec} label={`entry 2 — ${entries[1]?.title||'secondary image'}`} n="02" focal_x={entries[1]?.focal_x??50} focal_y={entries[1]?.focal_y??50} media_url={entries[1]?.media_url}/>
           <div style={{ marginTop:5, display:'flex', flexDirection:'column', gap:2 }}>
             <span style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.ground }}>{entries[1]?.title||'Secondary Image Title'}</span>
             <span style={{ fontFamily:F.sans, fontSize:9, color:C.paper4, lineHeight:1.5 }}>{entries[1]?.caption||'Caption for the secondary photograph.'}</span>
@@ -325,7 +327,7 @@ function MultiPhoto2SideBySide({ data={}, showAnnotations=false }) {
         <div style={{ display:'flex', alignItems:'flex-start', gap:0 }}>
           {/* Left image */}
           <div style={{ width:leftW, flexShrink:0 }}>
-            <ImageFrame w={leftW} h={imgH} label={entries[0]?.title||'left image'} focal_x={entries[0]?.focal_x||50} focal_y={entries[0]?.focal_y||50} media_url={entries[0]?.media_url}/>
+            <ImageFrame w={leftW} h={imgH} label={entries[0]?.title||'left image'} focal_x={entries[0]?.focal_x??50} focal_y={entries[0]?.focal_y??50} media_url={entries[0]?.media_url}/>
             <div style={{ marginTop:6, paddingRight:8 }}>
               <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:9.5, color:C.ground }}>{entries[0]?.title||'Left Image Title'}</div>
               <div style={{ fontFamily:F.sans, fontSize:9, color:C.paper4, lineHeight:1.5, marginTop:2 }}>{entries[0]?.caption||'Caption for left image.'}</div>
@@ -338,7 +340,7 @@ function MultiPhoto2SideBySide({ data={}, showAnnotations=false }) {
 
           {/* Right image */}
           <div style={{ width:rightW, flexShrink:0 }}>
-            <ImageFrame w={rightW} h={imgH} label={entries[1]?.title||'right image'} focal_x={entries[1]?.focal_x||50} focal_y={entries[1]?.focal_y||50} media_url={entries[1]?.media_url}/>
+            <ImageFrame w={rightW} h={imgH} label={entries[1]?.title||'right image'} focal_x={entries[1]?.focal_x??50} focal_y={entries[1]?.focal_y??50} media_url={entries[1]?.media_url}/>
             <div style={{ marginTop:6, paddingLeft:8 }}>
               <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:9.5, color:C.ground }}>{entries[1]?.title||'Right Image Title'}</div>
               <div style={{ fontFamily:F.sans, fontSize:9, color:C.paper4, lineHeight:1.5, marginTop:2 }}>{entries[1]?.caption||'Caption for right image.'}</div>

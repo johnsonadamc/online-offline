@@ -47,7 +47,7 @@ function MultiPhoto4Feature({ data={}, showAnnotations=false }) {
         {/* Left: feature image */}
         <div style={{ width:leftColW, flexShrink:0 }}>
           <div style={{ position:'relative' }}>
-            <ImageFrame w={leftColW} h={contentH} label={entries[0]?.title||'feature image'} focal_x={entries[0]?.focal_x||50} focal_y={entries[0]?.focal_y||50} media_url={entries[0]?.media_url}/>
+            <ImageFrame w={leftColW} h={contentH} label={entries[0]?.title||'feature image'} focal_x={entries[0]?.focal_x??50} focal_y={entries[0]?.focal_y??50} media_url={entries[0]?.media_url}/>
             {/* Gold index number overlay */}
             <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold, letterSpacing:'0.04em' }}>01</div>
             {showAnnotations && <Annotation label="content_entry[0] focal_x/y" style={{ top:8, left:8 }}/>}
@@ -66,7 +66,7 @@ function MultiPhoto4Feature({ data={}, showAnnotations=false }) {
               <ImageFrame
                 w={rightColW} h={rightImgH}
                 label={entries[i]?.title||`supporting image ${i}`}
-                focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50}
+                focal_x={entries[i]?.focal_x??50} focal_y={entries[i]?.focal_y??50}
                 media_url={entries[i]?.media_url}
               />
               <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:12, color:C.gold, letterSpacing:'0.04em' }}>
@@ -156,7 +156,7 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
         <div style={{ display:'flex', gap:gutterSize, marginBottom:gutterSize }}>
           {[0,1].map(i => (
             <div key={i} style={{ position:'relative', width:cellW, height:cellH, flexShrink:0 }}>
-              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50} media_url={entries[i]?.media_url}/>
+              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x??50} focal_y={entries[i]?.focal_y??50} media_url={entries[i]?.media_url}/>
               <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:13, color:C.gold }}>0{i+1}</div>
               {showAnnotations && <Annotation label={`entry[${i}] focal`} style={{ top:4, left:4 }}/>}
             </div>
@@ -166,7 +166,7 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
         <div style={{ display:'flex', gap:gutterSize }}>
           {[2,3].map(i => (
             <div key={i} style={{ position:'relative', width:cellW, height:cellH, flexShrink:0 }}>
-              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x||50} focal_y={entries[i]?.focal_y||50} media_url={entries[i]?.media_url}/>
+              <ImageFrame w={cellW} h={cellH} label={entries[i]?.title||`image ${i+1}`} focal_x={entries[i]?.focal_x??50} focal_y={entries[i]?.focal_y??50} media_url={entries[i]?.media_url}/>
               <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:13, color:C.gold }}>0{i+1}</div>
             </div>
           ))}
@@ -211,34 +211,57 @@ function MultiPhoto4Grid({ data={}, showAnnotations=false }) {
   );
 }
 
+// Text-zone overflow TRIPWIRE — not a design element. The essay zone has a fixed height and overflow hidden;
+// if the body does not fit, a terra "text continues" bar is drawn at the bottom of the zone so it is SEEN in
+// review, never a silent clip. It can only fire if the app's 800-word essay cap fails upstream: TextSubmission
+// holds ~599 words (selection sends it ≤500) and TextSpread ~1,291 (it gets 501–800 from the app).
+// Re-measures after webfonts load (the generator waits for networkidle0 + fonts.ready before the screenshot).
+// TextSpread (templates-12-17.jsx) carries its own copy: each base file is loaded alone on a page.
+function useOverflowFlag(ref) {
+  const [over, setOver] = React.useState(false);
+  React.useLayoutEffect(() => {
+    const check = () => { const el = ref.current; if (el) setOver(el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1); };
+    check();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(check);
+  }, []);
+  return over;
+}
+function OverflowFlag() {
+  return (
+    <div style={{ position:'absolute', left:0, right:0, bottom:0, height:14, background:C.terra, display:'flex', alignItems:'center', justifyContent:'center', fontFamily:F.mono, fontSize:8, lineHeight:'9px', letterSpacing:'0.14em', textTransform:'uppercase', color:C.paper, zIndex:5 }}>
+      Text continues — this essay does not fit the page
+    </div>
+  );
+}
+
 // ─── 7. TEXT SUBMISSION ────────────────────────────────────────────────────────
 function TextSubmission({ data={}, showAnnotations=false }) {
   const contributor = data.contributor || {};
-  const bodyText1 = data.body_para1 || 'The light changed before we noticed it had moved at all. That is the way of certain mornings — they arrive quietly, without announcement, and are already half-spent before attention finds them. She had been standing at the window for some time, watching the quality of the air above the rooftops, the particular way it held the early fog.';
-  const bodyText2 = data.body_para2 || 'Later, sorting through the photographs, she would try to identify the exact moment the shift occurred. It was not in any single frame. It lived between them, in the gap the camera could not close — that interval of pure unrecorded time where the real change had quietly taken place without witness.';
-  const bodyText3 = data.body_para3 || 'There is a discipline in waiting for the right light. Most people mistake it for patience. It is closer to a form of grief: the acceptance that what you are waiting for may not come, and that you will wait anyway, because the waiting itself has become the practice.';
-  const pullQuote = data.pull_quote || '"It lived between the frames — in the gap the camera could not close."';
+  const paras = (data.body || '').split(/\n\s*\n/).map(p => p.trim()).filter(Boolean);
+  // Every paragraph of the essay renders (split on blank lines); there is no pull quote and no sample copy.
+  const wordCount = data.word_count || (data.body || '').trim().split(/\s+/).filter(Boolean).length;
+  const meta = [contributor.city, wordCount ? `${wordCount} words` : '', data.season || 'Spring 2026'].filter(Boolean);
+  const bodyRef = React.useRef(null);
+  const overflow = useOverflowFlag(bodyRef);
 
   return (
     <div style={{ width:AW, height:AH, background:C.paper, position:'relative', overflow:'hidden' }}>
-      <VerticalContributorLabel
-        name={contributor.name || 'Contributor Name'}
-        type={data.type || 'Essay'}
-        issue={data.season || 'Spring 2026'}
-      />
+      <VerticalContributorLabel name={contributor.name} type={data.type} issue={data.season || 'Spring 2026'}/>
 
-      {/* Main content area */}
-      <div style={{ position:'absolute', top:BLEED+MT, left:BLEED+ML, right:BLEED+MR }}>
+      {/* Text zone: top margin → 10px above the folio line box (folio top = AH − (BLEED+MB−14) − 10). */}
+      <div style={{ position:'absolute', top:BLEED+MT, left:BLEED+ML, right:BLEED+MR, bottom:(BLEED+MB-14) + 10 + 10, display:'flex', flexDirection:'column' }}>
         <DoubleRule/>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, marginBottom:12 }}>
-          <SectionMark>{data.type || 'Essay'}</SectionMark>
+          {data.type && <SectionMark>{data.type}</SectionMark>}
           <GoldMark>{data.season || 'Spring 2026'}</GoldMark>
         </div>
 
         {/* Title */}
-        <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:58, color:C.ground, lineHeight:0.92, letterSpacing:'-0.02em', marginBottom:14 }}>
-          {data.page_title || 'Between the Frames'}
-        </div>
+        {data.page_title && (
+          <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:58, color:C.ground, lineHeight:0.92, letterSpacing:'-0.02em', marginBottom:14 }}>
+            {data.page_title}
+          </div>
+        )}
 
         {/* Short terra rule + full-width paper-5 rule inline */}
         <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:10 }}>
@@ -246,52 +269,32 @@ function TextSubmission({ data={}, showAnnotations=false }) {
           <div style={{ flex:1, height:0.5, background:C.paper5, marginLeft:0 }}/>
         </div>
 
-        {/* Contributor meta */}
+        {/* Contributor meta — an empty field drops out with its separator */}
         <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:16 }}>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.terra, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-            {contributor.name || 'Contributor Name'}
-          </span>
-          <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em' }}>
-            {contributor.city || 'City'}
-          </span>
-          <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em' }}>
-            {data.word_count || '1,240'} words
-          </span>
-          <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em' }}>
-            {data.season || 'Spring 2026'}
-          </span>
+          {contributor.name && (
+            <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.terra, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+              {contributor.name}
+            </span>
+          )}
+          {meta.map((t, i) => (
+            <React.Fragment key={i}>
+              {(contributor.name || i > 0) && <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>}
+              <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em' }}>
+                {t}
+              </span>
+            </React.Fragment>
+          ))}
         </div>
 
-        {/* Body text — first paragraph with drop cap */}
-        <div style={{ fontFamily:F.serif, fontSize:12.5, lineHeight:1.88, color:C.ground }}>
-          <p style={{ margin:0, marginBottom:10 }}>
-            <span style={{
-              float:'left', fontSize:70, lineHeight:0.78, fontFamily:F.serif,
-              color:C.ground, marginRight:6, marginTop:6, marginBottom:0,
-            }}>
-              {bodyText1[0]}
-            </span>
-            {bodyText1.slice(1)}
-          </p>
-
-          {/* Pull quote */}
-          <div style={{
-            borderLeft:`3px solid ${C.gold}`,
-            background:'rgba(232,160,32,0.06)',
-            paddingLeft:14, paddingTop:10, paddingBottom:10, paddingRight:10,
-            margin:'12px 0',
-            fontFamily:F.serif, fontStyle:'italic', fontSize:18, color:C.ground,
-            lineHeight:1.42,
-            clear:'both',
-          }}>
-            {pullQuote}
-          </div>
-
-          <p style={{ margin:0, marginBottom:10 }}>{bodyText2}</p>
-          <p style={{ margin:0 }}>{bodyText3}</p>
+        {/* Body — every paragraph, first with drop cap */}
+        <div ref={bodyRef} style={{ flex:1, minHeight:0, overflow:'hidden', position:'relative', fontFamily:F.serif, fontSize:12.5, lineHeight:1.88, color:C.ground }}>
+          {paras.map((p, i) => (
+            <p key={i} style={{ margin:0, marginBottom: i < paras.length - 1 ? 10 : 0, clear: i === 1 ? 'left' : undefined }}>
+              {i === 0 && <span style={{ float:'left', fontSize:70, lineHeight:0.78, fontFamily:F.serif, color:C.ground, marginRight:6, marginTop:6, marginBottom:0 }}>{p[0]}</span>}
+              {i === 0 ? p.slice(1) : p}
+            </p>
+          ))}
+          {overflow && <OverflowFlag/>}
         </div>
 
         {showAnnotations && (
@@ -299,7 +302,6 @@ function TextSubmission({ data={}, showAnnotations=false }) {
             <Annotation label="content.page_title" style={{ top:36, left:0 }}/>
             <Annotation label="contributor.name" style={{ top:108, left:0 }}/>
             <Annotation label="body text + drop cap" style={{ top:140, left:0 }}/>
-            <Annotation label="pull_quote" style={{ top:270, left:0 }}/>
           </>
         )}
       </div>
@@ -392,7 +394,7 @@ function CollabPage({ data={}, showAnnotations=false }) {
                 return (
                   <div key={col} style={{ width:colW, flexShrink:0 }}>
                     <div style={{ position:'relative' }}>
-                      <ImageFrame w={colW} h={imgH} label={c.name||'contributor'} focal_x={e.focal_x||50} focal_y={e.focal_y||50} media_url={e.media_url}/>
+                      <ImageFrame w={colW} h={imgH} label={c.name||'contributor'} focal_x={e.focal_x??50} focal_y={e.focal_y??50} media_url={e.media_url}/>
                       <div style={{ position:'absolute', top:5, left:6, fontFamily:F.mono, fontSize:9, color:C.gold }}>
                         {String(idx+1).padStart(2,'0')}
                       </div>

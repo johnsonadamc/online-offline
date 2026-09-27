@@ -105,7 +105,16 @@ MANDATORY REQUIREMENTS — every template must:
   3. Include RegistrationMark side="left" and side="right" on every page
   4. Include BleedMarks on every page
   5. Include Folio on every page (omit only on Cover and Colophon)
-  6. Have fallback values for every data field so it renders without real data
+  6. NO sample fallbacks. Sample text lives only in preview data, never in the
+     template: never write `data.x || 'Some sample'` / `?? 'Some sample'`. An empty
+     field removes its element (and its separator), and the layout closes up. Arrays
+     default to [] and objects to {}. Only structural defaults may stay: page numbers
+     (`data.page || n`), the season folio default, volume/issue, the printer name, and
+     ImageFrame placeholder labels (they render only when media_url is missing). Why:
+     in the Sept 2026 fixtures a pull quote, two essay paragraphs, a Panorama caption and
+     a curator "City" all came from fallbacks, and copy one very likely printed the first
+     three. Focal points use
+     `?? 50`, never `|| 50` (0 is a valid focal point)
   7. Export via Object.assign(window, { TemplateName })
   8. Use position:absolute for all layout — no flexbox or grid on the page root
   9. Full-bleed elements: position absolute, top:0, left:0, width:AW, height:AH
@@ -395,4 +404,25 @@ truncate contributor text.
   the wordmark, paddingBottom 73 above the folio, overflow hidden): the title is ONE
   line of 26px serif and clips beyond it. The right caption strip is pinned to
   captionStripH (56px) and the image columns are derived from the zone above it, so
-  captions are at most TWO lines of 7.5px sans (WebkitLineClamp 2); titles one line
+  captions are at most TWO lines of 7.5px sans (WebkitLineClamp 2); titles one line.
+  Measured: the clamp cuts after ~15 words at 5 images (4 cells, 151px) and ~12 at
+  6 images (5 cells, 118px). SIX images (Sept 2026): the right column stacks three
+  frames, 245 / 327 / 246 (0.30 / 0.40 / 0.30 of 834 − 2×8); column 1 is unchanged;
+  captions slice(1, 6). Five images render exactly as before
+- **Essays render the whole `body`** — TextSubmission and TextSpread split `data.body` on
+  blank lines and render every paragraph (no pull quote, no sample paragraphs; the
+  selection's body_para1–3 are no longer read). Capacity, real fonts, ~60-word
+  paragraphs: TextSubmission ~599 words (selection sends it ≤500); TextSpread ~1,291
+  (flowed as two 652px columns, one per page, 138px apart so nothing crosses the fold;
+  it gets 501–800 from the app's 800-word cap). Fixtures: 403 w / 9 ¶ ends at y 782 of
+  a zone ending 981; 825 w / 13 ¶ ends at y 309 on the right page
+- **Overflow tripwire** — both essay templates measure their text zone after fonts load
+  (useOverflowFlag) and, if it overflows, draw a terra bar "Text continues — this essay
+  does not fit the page" at the zone bottom. It is NOT a design element: it can only
+  fire if the 800-word cap fails upstream, and it makes the failure visible in review
+  (the PDF and the admin preview) instead of clipping silently
+- **Letters are excerpted** — CommunicationsPage shows at most 4 notes (the generator
+  already fetches ≤4), each excerpted to 200 words at a word boundary with "…". Cards
+  have an explicit height, floor((981 − 147 − 14) / 2) = 410, with overflow hidden: a
+  card holds ~230 words under a two-line subject, so 200 prints most notes whole (app
+  cap 250). Before this, 4 × 250-word notes ran the second row to y 1027, over the folio

@@ -3,19 +3,9 @@
 // ─── 20. FRONT MATTER ────────────────────────────────────────────────────────
 // First interior page. Curator identity + table of contents.
 function FrontMatter({ data={}, showAnnotations=false }) {
-  const curator = data.curator || { name: 'Lena Vasquez', city: 'Pensacola' };
+  const curator = data.curator || {};
   const season  = data.season  || 'Spring 2026';
-  const toc     = data.toc || [
-    { page:3,  contributor:'A. Chen',      type:'Photography',            title:'Still Waters' },
-    { page:5,  contributor:'M. Osei',      type:'Photography',            title:'Threshold' },
-    { page:7,  contributor:'L. Varga',     type:'Art',                    title:'Surfaces' },
-    { page:9,  contributor:'R. Patel',     type:'Photography',            title:'Low Season' },
-    { page:11, contributor:'S. Müller',    type:'Photography',            title:'Four Corners' },
-    { page:13, contributor:'T. Nakamura',  type:'Essay',                  title:'Between the Frames' },
-    { page:15, contributor:'Shared Light', type:'Collaboration · Community', title:'' },
-    { page:17, contributor:'Dispatches',   type:'Correspondence',         title:'' },
-    { page:19, contributor:'A. Chen',      type:'Photography',            title:'The Hour Before' },
-  ];
+  const toc     = data.toc || [];
 
   function ReverseDoubleRule() {
     return (
@@ -67,12 +57,16 @@ function FrontMatter({ data={}, showAnnotations=false }) {
         <div style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, textTransform:'uppercase', letterSpacing:'0.14em' }}>
           Curated by
         </div>
-        <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:42, color:C.ground, lineHeight:1 }}>
-          {curator.name || 'Curator Name'}
-        </div>
-        <div style={{ fontFamily:F.mono, fontSize:9, color:C.paper4, letterSpacing:'0.08em' }}>
-          {curator.city || 'City'}
-        </div>
+        {curator.name && (
+          <div style={{ fontFamily:F.serif, fontStyle:'italic', fontSize:42, color:C.ground, lineHeight:1 }}>
+            {curator.name}
+          </div>
+        )}
+        {curator.city && (
+          <div style={{ fontFamily:F.mono, fontSize:9, color:C.paper4, letterSpacing:'0.08em' }}>
+            {curator.city}
+          </div>
+        )}
         {/* Short centered terra rule */}
         <div style={{ width:28, height:1.5, background:C.terra, marginTop:4 }}/>
         {showAnnotations && <Annotation label="curator.name / city" style={{ top:24, left:'50%' }}/>}
@@ -107,12 +101,15 @@ function FrontMatter({ data={}, showAnnotations=false }) {
                 {entry.page}
               </div>
               {/* Contributor name */}
-              <div style={{ fontFamily:F.serif, fontSize:14, color:C.ground, flexShrink:0, marginRight:6, whiteSpace:'nowrap' }}>
-                {entry.contributor || 'Contributor'}
-              </div>
-              {/* Type — italic Courier, truncated */}
+              {entry.contributor && (
+                <div style={{ fontFamily:F.serif, fontSize:14, color:C.ground, flexShrink:0, marginRight:6, whiteSpace:'nowrap' }}>
+                  {entry.contributor}
+                </div>
+              )}
+              {/* Type — Courier (upright: the page loads Courier Prime regular only, so an italic here was a
+                  browser-synthesized oblique), truncated */}
               <div style={{
-                fontFamily:F.mono, fontStyle:'italic', fontSize:7.5, color:C.paper4,
+                fontFamily:F.mono, fontSize:7.5, color:C.paper4,
                 flexShrink:1, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis',
                 marginRight: entry.title ? 4 : 0,
               }}>
@@ -161,9 +158,9 @@ function FrontMatter({ data={}, showAnnotations=false }) {
 // ─── 21. POETRY PAGE ─────────────────────────────────────────────────────────
 // Narrow centered column. Preserved line breaks. Generous whitespace.
 function PoetryPage({ data={}, showAnnotations=false }) {
-  const contributor = data.contributor || { name:'T. Nakamura', city:'Osaka' };
+  const contributor = data.contributor || {};
   const season      = data.season      || 'Spring 2026';
-  const body        = data.body        || `The gate opens once.\nNo one remembers\nwho left it ajar.\n\nMorning, the second crossing.\nThe water has opinions\nabout where it goes.\n\nBy the third gate\neven the light\nhas learned to wait.`;
+  const body        = data.body        || '';
   const epigraph    = data.epigraph    || '';
   const stanzas     = body.split(/\n\n+/);
 
@@ -176,8 +173,8 @@ function PoetryPage({ data={}, showAnnotations=false }) {
     <div style={{ width:AW, height:AH, background:C.paper, position:'relative', overflow:'hidden' }}>
 
       <VerticalContributorLabel
-        name={contributor.name || 'Contributor Name'}
-        type={data.type || 'Poetry'}
+        name={contributor.name}
+        type={data.type}
         issue={season}
       />
 
@@ -188,18 +185,20 @@ function PoetryPage({ data={}, showAnnotations=false }) {
 
         {/* SectionMark + GoldMark */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, marginBottom:14 }}>
-          <SectionMark>{data.type || 'Poetry'}</SectionMark>
+          {data.type ? <SectionMark>{data.type}</SectionMark> : <div/>}
           <GoldMark>{season}</GoldMark>
         </div>
 
         {/* Poem title */}
-        <div style={{
-          fontFamily:F.serif, fontStyle:'italic', fontSize:44, color:C.ground,
-          lineHeight:0.92, letterSpacing:'-0.01em', marginBottom:14,
-          textAlign:'center',
-        }}>
-          {data.page_title || 'Three Crossings'}
-        </div>
+        {data.page_title && (
+          <div style={{
+            fontFamily:F.serif, fontStyle:'italic', fontSize:44, color:C.ground,
+            lineHeight:0.92, letterSpacing:'-0.01em', marginBottom:14,
+            textAlign:'center',
+          }}>
+            {data.page_title}
+          </div>
+        )}
 
         {/* Terra rule + full-width paper5 rule */}
         <div style={{ display:'flex', alignItems:'center', marginBottom:12, justifyContent:'center' }}>
@@ -209,16 +208,22 @@ function PoetryPage({ data={}, showAnnotations=false }) {
 
         {/* Contributor meta */}
         <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:24, justifyContent:'center' }}>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.terra, letterSpacing:'0.10em', textTransform:'uppercase' }}>
-            {contributor.name || 'Contributor Name'}
-          </span>
-          <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>
-          <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em', textTransform:'uppercase' }}>
-            {contributor.city || 'City'}
-          </span>
+          {contributor.name && (
+            <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.terra, letterSpacing:'0.10em', textTransform:'uppercase' }}>
+              {contributor.name}
+            </span>
+          )}
+          {contributor.city && (
+            <>
+              {contributor.name && <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>}
+              <span style={{ fontFamily:F.mono, fontSize:8.5, color:C.paper4, letterSpacing:'0.08em', textTransform:'uppercase' }}>
+                {contributor.city}
+              </span>
+            </>
+          )}
           {data.word_count && (
             <>
-              <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>
+              {(contributor.name || contributor.city) && <span style={{ width:0.5, height:10, background:C.paper5, display:'inline-block', margin:'0 8px', verticalAlign:'middle' }}/>}
               <span style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, letterSpacing:'0.08em' }}>{data.word_count} words</span>
             </>
           )}
@@ -317,18 +322,11 @@ function PoetryPage({ data={}, showAnnotations=false }) {
 // ─── 22. COLLAB SPREAD — COMMUNITY ───────────────────────────────────────────
 // Open global collaboration. Left: dark header + 3 images. Right: paper + 3 images + credits.
 function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
-  const entries     = data.entries || [
-    { title:'River Fog',    contributor:{ name:'A. Chen',     city:'Shanghai' }, focal_x:50, focal_y:50 },
-    { title:'Market Gate',  contributor:{ name:'M. Osei',     city:'Accra'    }, focal_x:55, focal_y:45 },
-    { title:'Patina I',     contributor:{ name:'L. Varga',    city:'Budapest' }, focal_x:50, focal_y:50 },
-    { title:'Marine Lines', contributor:{ name:'R. Patel',    city:'Mumbai'   }, focal_x:50, focal_y:60 },
-    { title:'Mitte 06:00',  contributor:{ name:'S. Müller',   city:'Berlin'   }, focal_x:50, focal_y:50 },
-    { title:'Canal Study',  contributor:{ name:'T. Nakamura', city:'Osaka'    }, focal_x:50, focal_y:50 },
-  ];
+  const entries     = data.entries || [];
   const season      = data.season       || 'Spring 2026';
-  const collabTitle = data.collab_title || 'Shared Light';
-  const mode        = data.mode         || 'Community';
-  const displayText = data.display_text || 'Contributors responding to a shared theme across cities, disciplines, and ways of seeing.';
+  const collabTitle = data.collab_title || '';
+  const mode        = data.mode         || '';
+  const displayText = data.display_text || '';
   const spreadW     = AW * 2;
 
   const leftEntries  = entries.slice(0, 3);
@@ -388,12 +386,14 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
         }}>
           <div>
             <div style={{ marginBottom:5 }}><SectionMark>Collaboration</SectionMark></div>
-            <div style={{ fontFamily:F.serif, fontSize:38, color:C.paper, letterSpacing:'-0.01em', lineHeight:0.92 }}>
-              {collabTitle}
-            </div>
+            {collabTitle && (
+              <div style={{ fontFamily:F.serif, fontSize:38, color:C.paper, letterSpacing:'-0.01em', lineHeight:0.92 }}>
+                {collabTitle}
+              </div>
+            )}
           </div>
           <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4 }}>
-            <GoldMark>{mode}</GoldMark>
+            {mode && <GoldMark>{mode}</GoldMark>}
             <span style={{ fontFamily:F.mono, fontSize:8, color:C.paper4, letterSpacing:'0.08em' }}>
               {uniqueContributors.length} contributors
             </span>
@@ -402,13 +402,15 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
         </div>
 
         {/* Description */}
-        <div style={{
-          position:'absolute', top:bandH+14, left:BLEED+ML, right:BLEED+MR,
-          fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.paper3, lineHeight:1.6,
-          height:descH, overflow:'hidden',
-        }}>
-          {displayText}
-        </div>
+        {displayText && (
+          <div style={{
+            position:'absolute', top:bandH+14, left:BLEED+ML, right:BLEED+MR,
+            fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.paper3, lineHeight:1.6,
+            height:descH, overflow:'hidden',
+          }}>
+            {displayText}
+          </div>
+        )}
 
         {/* TerraRule below description */}
         <div style={{ position:'absolute', top:bandH+14+descH, left:BLEED+ML, right:BLEED+MR, height:ruleH, background:C.terra }}/>
@@ -421,7 +423,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:colW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={colW} h={imgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                    <ImageFrame w={colW} h={imgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                       {String(i+1).padStart(2,'0')}
                     </div>
@@ -464,7 +466,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:colW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={colW} h={rightImgH} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                    <ImageFrame w={colW} h={rightImgH} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                       {String(i+4).padStart(2,'0')}
                     </div>
@@ -490,7 +492,7 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', columnGap:8, rowGap:2 }}>
             {rosterShown.map((c, i) => (
               <div key={i} style={{ display:'flex', alignItems:'baseline', gap:10, minWidth:0, height:16, lineHeight:'16px' }}>
-                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||'Contributor'}</span>
+                <span style={{ fontFamily:F.serif, fontSize:13, color:C.ground, minWidth:0, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{c.name||''}</span>
                 <span style={{ fontFamily:F.mono, fontSize:7.5, color:C.paper4, letterSpacing:'0.08em', flexShrink:0 }}>{c.city||''}</span>
               </div>
             ))}
@@ -530,19 +532,12 @@ function CollabSpreadCommunity({ data={}, showAnnotations=false }) {
 // ─── 23. COLLAB SPREAD — LOCAL ────────────────────────────────────────────────
 // City-specific collaboration. Left: dark. Right: paper.
 function CollabSpreadLocal({ data={}, showAnnotations=false }) {
-  const entries     = data.entries || [
-    { title:'Before Noon',   contributor:{ name:'J. Walsh',  city:'Pensacola' }, focal_x:50, focal_y:45 },
-    { title:'The Pier',      contributor:{ name:'C. Rivers', city:'Pensacola' }, focal_x:48, focal_y:55 },
-    { title:'Sand Study',    contributor:{ name:'M. Alcott', city:'Pensacola' }, focal_x:52, focal_y:50 },
-    { title:'Fort Pickens',  contributor:{ name:'J. Walsh',  city:'Pensacola' }, focal_x:50, focal_y:50 },
-    { title:'Dusk, Palafox', contributor:{ name:'C. Rivers', city:'Pensacola' }, focal_x:50, focal_y:60 },
-    { title:'The Sound',     contributor:{ name:'M. Alcott', city:'Pensacola' }, focal_x:45, focal_y:50 },
-  ];
+  const entries     = data.entries || [];
   const season      = data.season       || 'Spring 2026';
-  const collabTitle = data.collab_title || 'Gulf Light';
-  const mode        = data.mode         || 'Local';
-  const city        = data.city         || 'Pensacola';
-  const displayText = data.display_text || 'A local collaboration documenting the particular quality of light along the Gulf Coast in late winter.';
+  const collabTitle = data.collab_title || '';
+  const mode        = data.mode         || '';
+  const city        = data.city         || '';   // empty → no watermark, no city labels, no footer note
+  const displayText = data.display_text || '';
   const spreadW     = AW * 2;
 
   const leftEntries  = entries.slice(0, 3);
@@ -599,25 +594,29 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
       <div style={{ width:AW, height:AH, background:C.ground, position:'relative', flexShrink:0 }}>
 
         {/* City watermark */}
-        <div style={{
-          position:'absolute', top:'50%', left:'50%',
-          transform:'translate(-50%, -50%)',
-          fontFamily:F.serif, fontSize:180, color:'rgba(240,235,226,0.04)',
-          letterSpacing:'-0.03em', lineHeight:1, whiteSpace:'nowrap',
-          pointerEvents:'none', userSelect:'none', zIndex:1,
-        }}>
-          {city}
-        </div>
+        {city && (
+          <div style={{
+            position:'absolute', top:'50%', left:'50%',
+            transform:'translate(-50%, -50%)',
+            fontFamily:F.serif, fontSize:180, color:'rgba(240,235,226,0.04)',
+            letterSpacing:'-0.03em', lineHeight:1, whiteSpace:'nowrap',
+            pointerEvents:'none', userSelect:'none', zIndex:1,
+          }}>
+            {city}
+          </div>
+        )}
 
         {/* Header — above watermark */}
         <div style={{ position:'absolute', top:BLEED+MT, left:BLEED+ML, right:BLEED+MR, zIndex:2 }}>
           <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', marginBottom:8 }}>
             Local Collaboration
           </div>
-          <div style={{ fontFamily:F.serif, fontSize:34, color:C.paper, lineHeight:0.92, marginBottom:6 }}>
-            {collabTitle}
-          </div>
-          <div style={{ marginBottom:4, fontFamily:F.mono, fontSize:8, lineHeight:'9px' }}><GoldMark>{city}</GoldMark></div>
+          {collabTitle && (
+            <div style={{ fontFamily:F.serif, fontSize:34, color:C.paper, lineHeight:0.92, marginBottom:6 }}>
+              {collabTitle}
+            </div>
+          )}
+          {city && <div style={{ marginBottom:4, fontFamily:F.mono, fontSize:8, lineHeight:'9px' }}><GoldMark>{city}</GoldMark></div>}
           <div style={{ fontFamily:F.mono, fontSize:8, lineHeight:'9px', color:C.paper4, letterSpacing:'0.08em' }}>
             {uniqueContributors.length} contributors
           </div>
@@ -634,7 +633,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:colW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={colW} h={imgHLeft} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                  <ImageFrame w={colW} h={imgHLeft} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                     {String(i+1).padStart(2,'0')}
                   </div>
@@ -668,13 +667,15 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
       <div style={{ width:AW, height:AH, background:C.paper, position:'relative', flexShrink:0 }}>
 
         {/* Description */}
-        <div style={{
-          position:'absolute', top:rightDescTop, left:BLEED+ML, right:BLEED+MR,
-          fontFamily:F.serif, fontStyle:'italic', fontSize:11, color:C.paper3, lineHeight:1.65,
-        }}>
-          {displayText}
-          {showAnnotations && <Annotation label="display_text" style={{ top:0, right:0 }}/>}
-        </div>
+        {displayText && (
+          <div style={{
+            position:'absolute', top:rightDescTop, left:BLEED+ML, right:BLEED+MR,
+            fontFamily:F.serif, fontStyle:'italic', fontSize:11, color:C.paper3, lineHeight:1.65,
+          }}>
+            {displayText}
+            {showAnnotations && <Annotation label="display_text" style={{ top:0, right:0 }}/>}
+          </div>
+        )}
 
         {/* TerraRule */}
         <div style={{ position:'absolute', top:rightDescTop+descH, left:BLEED+ML, right:BLEED+MR, height:ruleH, background:C.terra }}/>
@@ -689,7 +690,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:colW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={colW} h={imgHRight} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                  <ImageFrame w={colW} h={imgHRight} label={entry.title||`image ${i+4}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:6, left:6, fontFamily:F.mono, fontSize:11, color:C.gold }}>
                     {String(i+4).padStart(2,'0')}
                   </div>
@@ -706,7 +707,7 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
         {/* Credits section — explicit height + overflow hidden: metric drift clips, never collides */}
         <div style={{ position:'absolute', top:creditsTop, left:BLEED+ML, right:BLEED+MR, height:creditsH, overflow:'hidden' }}>
           <div style={{ fontFamily:F.mono, fontSize:8, color:C.terra, textTransform:'uppercase', letterSpacing:'0.16em', lineHeight:'9px', marginBottom:4 }}>
-            Contributors — {city}
+            Contributors{city ? ` — ${city}` : ''}
           </div>
           <GoldRule/>
           <div style={{ height:4 }}/>
@@ -725,9 +726,11 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
             )}
           </div>
           {/* Footer note */}
-          <div style={{ marginTop:8, fontFamily:F.serif, fontStyle:'italic', fontSize:9, color:C.paper4, lineHeight:'15px' }}>
-            This collaboration was open to contributors based in {city} during {season}.
-          </div>
+          {city && (
+            <div style={{ marginTop:8, fontFamily:F.serif, fontStyle:'italic', fontSize:9, color:C.paper4, lineHeight:'15px' }}>
+              This collaboration was open to contributors based in {city} during {season}.
+            </div>
+          )}
           {showAnnotations && <Annotation label="contributors / footer note" style={{ top:0, left:0 }}/>}
         </div>
 
@@ -747,17 +750,10 @@ function CollabSpreadLocal({ data={}, showAnnotations=false }) {
 // ─── 24. COLLAB SPREAD — PRIVATE ─────────────────────────────────────────────
 // Invite-only. Fully dark both pages. Editorial, considered.
 function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
-  const entries     = data.entries || [
-    { title:'The Study',      contributor:{ name:'A. Chen',     city:'Shanghai' }, focal_x:50, focal_y:50 },
-    { title:'Kitchen, 06:00', contributor:{ name:'M. Osei',     city:'Accra'    }, focal_x:55, focal_y:45 },
-    { title:'The Hallway',    contributor:{ name:'L. Varga',    city:'Budapest' }, focal_x:50, focal_y:50 },
-    { title:'Bedroom Light',  contributor:{ name:'R. Patel',    city:'Mumbai'   }, focal_x:50, focal_y:60 },
-    { title:'The Archive',    contributor:{ name:'S. Müller',   city:'Berlin'   }, focal_x:50, focal_y:50 },
-    { title:'Waiting Room',   contributor:{ name:'T. Nakamura', city:'Osaka'    }, focal_x:48, focal_y:52 },
-  ];
+  const entries     = data.entries || [];
   const season      = data.season       || 'Spring 2026';
-  const collabTitle = data.collab_title || 'The Interior';
-  const displayText = data.display_text || 'An invited group working with the theme of interior spaces — rooms, thresholds, the architecture of private life. Each contributor worked independently and submitted without seeing the others.';
+  const collabTitle = data.collab_title || '';
+  const displayText = data.display_text || '';
   const spreadW     = AW * 2;
 
   const leftEntries  = entries.slice(0, 2);
@@ -796,24 +792,28 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
           </div>
 
           {/* Title */}
-          <div style={{
-            fontFamily:F.serif, fontSize:42, color:C.paper,
-            lineHeight:0.88, letterSpacing:'-0.01em', marginBottom:10,
-          }}>
-            {collabTitle}
-          </div>
+          {collabTitle && (
+            <div style={{
+              fontFamily:F.serif, fontSize:42, color:C.paper,
+              lineHeight:0.88, letterSpacing:'-0.01em', marginBottom:10,
+            }}>
+              {collabTitle}
+            </div>
+          )}
 
           {/* Thin paper5 rule + short gold rule */}
           <div style={{ height:0.5, background:C.paper5, marginBottom:6 }}/>
           <div style={{ width:28, height:1.5, background:C.gold, marginBottom:14 }}/>
 
           {/* Description */}
-          <div style={{
-            fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.paper3,
-            maxWidth:480, lineHeight:1.7, marginBottom:20,
-          }}>
-            {displayText}
-          </div>
+          {displayText && (
+            <div style={{
+              fontFamily:F.serif, fontStyle:'italic', fontSize:10, color:C.paper3,
+              maxWidth:480, lineHeight:1.7, marginBottom:20,
+            }}>
+              {displayText}
+            </div>
+          )}
 
           {showAnnotations && <Annotation label="collab_title / displayText" style={{ top:0, left:0 }}/>}
         </div>
@@ -830,7 +830,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
             return (
               <div key={i} style={{ width:leftImgW, flexShrink:0 }}>
                 <div style={{ position:'relative' }}>
-                  <ImageFrame w={leftImgW} h={leftImgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                  <ImageFrame w={leftImgW} h={leftImgH} label={entry.title||`image ${i+1}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                   <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                     {String(i+1).padStart(2,'0')}
                   </div>
@@ -899,7 +899,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:rightCellW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                       {String(globalIdx+1).padStart(2,'0')}
                     </div>
@@ -920,7 +920,7 @@ function CollabSpreadPrivate({ data={}, showAnnotations=false }) {
               return (
                 <div key={i} style={{ width:rightCellW, flexShrink:0 }}>
                   <div style={{ position:'relative' }}>
-                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x||50} focal_y={entry.focal_y||50} media_url={entry.media_url}/>
+                    <ImageFrame w={rightCellW} h={rightCellH} label={entry.title||`image ${globalIdx+1}`} focal_x={entry.focal_x??50} focal_y={entry.focal_y??50} media_url={entry.media_url}/>
                     <div style={{ position:'absolute', bottom:8, left:8, fontFamily:F.mono, fontSize:12, color:C.gold }}>
                       {String(globalIdx+1).padStart(2,'0')}
                     </div>
