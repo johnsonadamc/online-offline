@@ -1,0 +1,830 @@
+{
+  "curatorId": "185f8c7c-9837-425a-ac1c-ebf18d1af1b9",
+  "periodId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "totalPages": 29,
+  "colophonPage": 29,
+  "pages": [
+    {
+      "page": 1,
+      "pages": [
+        1
+      ],
+      "templateName": "CoverA",
+      "pageCount": 1,
+      "dataPage": 1,
+      "data": {
+        "page": 1,
+        "season": "Spring",
+        "volume": "I",
+        "issue": 1
+      }
+    },
+    {
+      "page": 2,
+      "pages": [
+        2
+      ],
+      "templateName": "BlankPage",
+      "pageCount": 1,
+      "dataPage": null,
+      "data": {
+        "season": "Spring"
+      }
+    },
+    {
+      "page": 3,
+      "pages": [
+        3
+      ],
+      "templateName": "FrontMatter",
+      "pageCount": 1,
+      "dataPage": 3,
+      "data": {
+        "page": 3,
+        "curator": {
+          "name": "Lena Vasquez",
+          "city": "New York"
+        },
+        "season": "Spring",
+        "toc": [
+          {
+            "page": 4,
+            "contributor": "Maya Torres",
+            "type": "Photography",
+            "title": "After the Rain"
+          },
+          {
+            "page": 6,
+            "contributor": "Maya Patel",
+            "type": "Art",
+            "title": "Paper Studies"
+          },
+          {
+            "page": 11,
+            "contributor": "Daniel Osei",
+            "type": "Essay",
+            "title": "The Slow Channel"
+          },
+          {
+            "page": 12,
+            "contributor": "Leila Hassan",
+            "type": "Essay",
+            "title": "Against the Feed"
+          },
+          {
+            "page": 14,
+            "contributor": "Maya Torres",
+            "type": "Photography",
+            "title": "The Salt Line"
+          },
+          {
+            "page": 16,
+            "contributor": "Emma Zhang",
+            "type": "Art",
+            "title": "Field Notes"
+          },
+          {
+            "page": 20,
+            "contributor": "Olivia Martinez",
+            "type": "Poetry",
+            "title": "Inventory of a Rented Room"
+          },
+          {
+            "page": 22,
+            "contributor": "Sarah Chen",
+            "type": "Photography",
+            "title": "What the Tide Left"
+          },
+          {
+            "page": 24,
+            "contributor": "James Wilson",
+            "type": "Photography",
+            "title": "Two Mornings"
+          },
+          {
+            "page": 26,
+            "contributor": "Carlos Rodriguez",
+            "type": "Photography",
+            "title": "Neighborhood Index"
+          }
+        ]
+      }
+    },
+    {
+      "page": 4,
+      "pages": [
+        4,
+        5
+      ],
+      "templateName": "SpreadPanorama",
+      "pageCount": 2,
+      "dataPage": 4,
+      "data": {
+        "page": 4,
+        "type": "photography",
+        "page_title": "After the Rain",
+        "season": "Spring",
+        "contributor": {
+          "name": "Maya Torres",
+          "city": "Pensacola"
+        },
+        "entries": [
+          {
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/content-media/0.3849370166079853.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 6,
+      "pages": [
+        6,
+        7
+      ],
+      "templateName": "Spread4",
+      "pageCount": 2,
+      "dataPage": 6,
+      "data": {
+        "page": 6,
+        "type": "art",
+        "page_title": "Paper Studies",
+        "season": "Spring",
+        "contributor": {
+          "name": "Maya Patel",
+          "city": "Austin"
+        },
+        "entries": [
+          {
+            "title": "Study I — Fold",
+            "caption": "A single sheet, folded until it refused.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/four-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Study II — Weight",
+            "caption": "What the paper does when you stop helping it.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/four-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Study III — Return",
+            "caption": "Unfolded. The creases are the record.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/four-03.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Study IV — Discard",
+            "caption": "The one that would not hold. Kept anyway.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/four-04.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 8,
+      "pages": [
+        8,
+        9
+      ],
+      "templateName": "CollabSpreadCommunity",
+      "pageCount": 2,
+      "dataPage": 8,
+      "data": {
+        "page": 8,
+        "collab_title": "Somewhere Else Entirely",
+        "mode": "community",
+        "season": "Spring",
+        "display_text": "A shared archive of manufactured wonder. Contributors document the places built specifically to be nowhere near where they live.",
+        "city": "",
+        "entries": [
+          {
+            "title": "Ninety minutes for four. Worth it, reportedly.",
+            "caption": "Ninety minutes for four. Worth it, reportedly.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-01.JPG",
+            "contributor": {
+              "name": "Miguel Garcia",
+              "city": "Phoenix"
+            }
+          },
+          {
+            "title": "The castle from the angle nobody photographs.",
+            "caption": "The castle from the angle nobody photographs.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-02.JPG",
+            "contributor": {
+              "name": "Fatima Al-Sayegh",
+              "city": "Houston"
+            }
+          },
+          {
+            "title": "Someone's whole day, in one frame.",
+            "caption": "Someone's whole day, in one frame.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-03.JPG",
+            "contributor": {
+              "name": "Tomas Reyes",
+              "city": "San Antonio"
+            }
+          },
+          {
+            "title": "Manufactured, and it worked anyway.",
+            "caption": "Manufactured, and it worked anyway.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-04.JPG",
+            "contributor": {
+              "name": "Helena Novak",
+              "city": "Boston"
+            }
+          },
+          {
+            "title": "The parade goes past regardless of who is watching.",
+            "caption": "The parade goes past regardless of who is watching.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-05.JPG",
+            "contributor": {
+              "name": "David Okafor",
+              "city": "Atlanta"
+            }
+          },
+          {
+            "title": "Leaving. Everyone leaves eventually.",
+            "caption": "Leaving. Everyone leaves eventually.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-06.JPG",
+            "contributor": {
+              "name": "Kai Tanaka",
+              "city": "San Francisco"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 10,
+      "pages": [
+        10
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 10,
+      "data": {
+        "page": 10,
+        "campaign_name": "Moleskine",
+        "tagline": "Notebooks for people who still write things down before they mean them.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-01.PNG"
+      }
+    },
+    {
+      "page": 11,
+      "pages": [
+        11
+      ],
+      "templateName": "TextSubmission",
+      "pageCount": 1,
+      "dataPage": 11,
+      "data": {
+        "page": 11,
+        "type": "essay",
+        "page_title": "The Slow Channel",
+        "season": "Spring",
+        "contributor": {
+          "name": "Daniel Osei",
+          "city": "Boston"
+        },
+        "entries": [
+          {
+            "caption": "My father wrote letters. Not as a practice or a statement — there simply wasn't another way, and by the time there was, he had gotten used to the shape of it.\n\nI have most of them. They are not interesting. He describes weather, the state of a car he no longer owns, a dispute with a neighbor about a tree. He asks questions and then, because the answers were six weeks out, he answers them himself, badly, and the next letter corrects the guess. Reading them in order is like watching someone think slowly in public.\n\nWhat strikes me now is not the content but the drag. Every letter had to survive the gap. He had six weeks to decide whether a sentence was worth the stamp, and the ones that made it through had been sanded down by waiting. There is nothing in that box he regretted sending. I cannot say the same about a single week of my own outgoing messages.\n\nThe argument for slowness usually arrives as an argument against speed, which is why nobody listens to it. Speed is not the enemy. Speed is extraordinary. The problem is that speed removed the gap, and the gap was doing work nobody had bothered to name — it was the part of the process where you found out whether you actually meant it.\n\nWe have replaced the gap with volume. This is not a trade anyone consciously made. It happened the way most things happen, one convenient decision at a time, and now I produce more sentences in a morning than my father produced in a decade, and I would not defend one of them in a box someone opens in forty years.\n\nI am not proposing we go back. I don't want the six weeks. I want the sanding.\n\nThe interesting question is whether the drag can be manufactured — whether you can install a gap on purpose, artificially, and get the same result. My instinct is no. My father's patience wasn't a virtue; it was infrastructure. He wasn't waiting because waiting was good for him. He was waiting because the mail was slow.\n\nBut I keep the box on the shelf where I can see it, which is its own kind of argument, and every so often I write something and don't send it, and watch what happens to it overnight.\n\nUsually it dies. That is the point.",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ],
+        "body": "My father wrote letters. Not as a practice or a statement — there simply wasn't another way, and by the time there was, he had gotten used to the shape of it.\n\nI have most of them. They are not interesting. He describes weather, the state of a car he no longer owns, a dispute with a neighbor about a tree. He asks questions and then, because the answers were six weeks out, he answers them himself, badly, and the next letter corrects the guess. Reading them in order is like watching someone think slowly in public.\n\nWhat strikes me now is not the content but the drag. Every letter had to survive the gap. He had six weeks to decide whether a sentence was worth the stamp, and the ones that made it through had been sanded down by waiting. There is nothing in that box he regretted sending. I cannot say the same about a single week of my own outgoing messages.\n\nThe argument for slowness usually arrives as an argument against speed, which is why nobody listens to it. Speed is not the enemy. Speed is extraordinary. The problem is that speed removed the gap, and the gap was doing work nobody had bothered to name — it was the part of the process where you found out whether you actually meant it.\n\nWe have replaced the gap with volume. This is not a trade anyone consciously made. It happened the way most things happen, one convenient decision at a time, and now I produce more sentences in a morning than my father produced in a decade, and I would not defend one of them in a box someone opens in forty years.\n\nI am not proposing we go back. I don't want the six weeks. I want the sanding.\n\nThe interesting question is whether the drag can be manufactured — whether you can install a gap on purpose, artificially, and get the same result. My instinct is no. My father's patience wasn't a virtue; it was infrastructure. He wasn't waiting because waiting was good for him. He was waiting because the mail was slow.\n\nBut I keep the box on the shelf where I can see it, which is its own kind of argument, and every so often I write something and don't send it, and watch what happens to it overnight.\n\nUsually it dies. That is the point.",
+        "word_count": 403,
+        "body_para1": "My father wrote letters. Not as a practice or a statement — there simply wasn't another way, and by the time there was, he had gotten used to the shape of it.",
+        "body_para2": "I have most of them. They are not interesting. He describes weather, the state of a car he no longer owns, a dispute with a neighbor about a tree. He asks questions and then, because the answers were six weeks out, he answers them himself, badly, and the next letter corrects the guess. Reading them in order is like watching someone think slowly in public.",
+        "body_para3": "What strikes me now is not the content but the drag. Every letter had to survive the gap. He had six weeks to decide whether a sentence was worth the stamp, and the ones that made it through had been sanded down by waiting. There is nothing in that box he regretted sending. I cannot say the same about a single week of my own outgoing messages."
+      }
+    },
+    {
+      "page": 12,
+      "pages": [
+        12,
+        13
+      ],
+      "templateName": "TextSpread",
+      "pageCount": 2,
+      "dataPage": 12,
+      "data": {
+        "page": 12,
+        "type": "essay",
+        "page_title": "Against the Feed",
+        "season": "Spring",
+        "contributor": {
+          "name": "Leila Hassan",
+          "city": "New York"
+        },
+        "entries": [
+          {
+            "caption": "There is a particular sound a magazine makes when you drop it on a table. It is not a good sound or a bad sound. It is a sound that means something arrived and is now here, in the room, taking up space, and will continue taking up space until somebody deals with it.\n\nNothing on my phone makes that sound. Nothing on my phone takes up space. This is presented as the central achievement of the last twenty years and I have come to believe it is the central problem.\n\nConsider what it costs to publish a photograph. Online: nothing. Not approximately nothing — actually nothing, to a rounding error, forever, at infinite scale. In print: paper, ink, a press, a person who decides, a person who ships, and a hard edge at page forty where the thing simply stops. The online photograph is free and therefore weightless. The printed photograph cost something and therefore has to be worth something, and somebody had to decide it was, and that decision is legible on the page in a way that no amount of engagement metrics can reproduce.\n\nThis is not nostalgia. I am not arguing that print is better. I am arguing that scarcity is a mechanism, and we removed it without building a replacement, and the thing it was doing turns out to have been most of the value.\n\nThe feed's fundamental promise is that nothing ever has to end. There is always another. This sounds like abundance and is actually a kind of poverty, because a thing that never ends can never be finished, and a thing that can never be finished can never be considered. You cannot contemplate a river. You can only stand in it.\n\nWhat a magazine does — what any bounded object does — is stop. It has a last page. The last page is not a limitation of the format; it is the format's entire argument. It says: this much, and no more, and somebody chose. Everything inside those covers was chosen against everything that could have been there instead. That's what makes it worth your attention. Not that it's good, necessarily. That it's finite, and the finitude implies a choosing, and the choosing implies a person.\n\nThe counterargument is obvious and I want to take it seriously: gatekeeping. Scarcity in publishing has historically meant a small number of people deciding what a large number of people were allowed to see, and those people were, overwhelmingly, the same kind of person. The feed broke that, genuinely, and the breaking was good. I am not interested in restoring the gate.\n\nBut there is a difference between removing the gatekeeper and removing the gate. What we built instead is not an absence of curation — it is curation performed by a system optimizing for time spent, which is to say curation by an entity with a financial interest in your never being satisfied. We didn't democratize the decision. We automated it, and handed it to something that does not want what you want.\n\nThe alternative I'm interested in is not fewer gatekeepers but more of them — everyone their own editor, everyone assembling their own bounded object, everyone forced by the physical limits of paper to say: this and not that. Not because your choices are better than an algorithm's. Because they're yours, and you'll remember making them, and the object on your table will be evidence that you did.\n\nThere is a version of this that is precious and insufferable and I want to name it before someone else does. The fetishization of the analog is a genuine aesthetic failure — the person who bought a typewriter to be a certain kind of person, the vinyl that never gets played. If the argument for print is that it feels better, the argument is worthless. Feelings about objects are cheap and available for purchase.\n\nThe argument has to be structural or it isn't an argument. And structurally it's this: the constraint produces the attention. Not the paper. Not the smell. The constraint. Forty pages means somebody had to decide, and deciding is the whole job, and any medium that removes the necessity of deciding has removed the job while keeping the title.\n\nMy father used to get a magazine in the mail every month. He read it — all of it, including the parts he didn't care about, because it was there and it was finite and finishing it was possible. He could not do that with the internet. Nobody can do that with the internet. Not because the internet is worse but because it is not a thing, it's a condition, and you don't finish a condition, you just eventually stop.\n\nI would like to finish something. That's all this is. I would like there to be a last page, and to reach it, and to put the thing down on the table and hear the sound it makes.",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ],
+        "body": "There is a particular sound a magazine makes when you drop it on a table. It is not a good sound or a bad sound. It is a sound that means something arrived and is now here, in the room, taking up space, and will continue taking up space until somebody deals with it.\n\nNothing on my phone makes that sound. Nothing on my phone takes up space. This is presented as the central achievement of the last twenty years and I have come to believe it is the central problem.\n\nConsider what it costs to publish a photograph. Online: nothing. Not approximately nothing — actually nothing, to a rounding error, forever, at infinite scale. In print: paper, ink, a press, a person who decides, a person who ships, and a hard edge at page forty where the thing simply stops. The online photograph is free and therefore weightless. The printed photograph cost something and therefore has to be worth something, and somebody had to decide it was, and that decision is legible on the page in a way that no amount of engagement metrics can reproduce.\n\nThis is not nostalgia. I am not arguing that print is better. I am arguing that scarcity is a mechanism, and we removed it without building a replacement, and the thing it was doing turns out to have been most of the value.\n\nThe feed's fundamental promise is that nothing ever has to end. There is always another. This sounds like abundance and is actually a kind of poverty, because a thing that never ends can never be finished, and a thing that can never be finished can never be considered. You cannot contemplate a river. You can only stand in it.\n\nWhat a magazine does — what any bounded object does — is stop. It has a last page. The last page is not a limitation of the format; it is the format's entire argument. It says: this much, and no more, and somebody chose. Everything inside those covers was chosen against everything that could have been there instead. That's what makes it worth your attention. Not that it's good, necessarily. That it's finite, and the finitude implies a choosing, and the choosing implies a person.\n\nThe counterargument is obvious and I want to take it seriously: gatekeeping. Scarcity in publishing has historically meant a small number of people deciding what a large number of people were allowed to see, and those people were, overwhelmingly, the same kind of person. The feed broke that, genuinely, and the breaking was good. I am not interested in restoring the gate.\n\nBut there is a difference between removing the gatekeeper and removing the gate. What we built instead is not an absence of curation — it is curation performed by a system optimizing for time spent, which is to say curation by an entity with a financial interest in your never being satisfied. We didn't democratize the decision. We automated it, and handed it to something that does not want what you want.\n\nThe alternative I'm interested in is not fewer gatekeepers but more of them — everyone their own editor, everyone assembling their own bounded object, everyone forced by the physical limits of paper to say: this and not that. Not because your choices are better than an algorithm's. Because they're yours, and you'll remember making them, and the object on your table will be evidence that you did.\n\nThere is a version of this that is precious and insufferable and I want to name it before someone else does. The fetishization of the analog is a genuine aesthetic failure — the person who bought a typewriter to be a certain kind of person, the vinyl that never gets played. If the argument for print is that it feels better, the argument is worthless. Feelings about objects are cheap and available for purchase.\n\nThe argument has to be structural or it isn't an argument. And structurally it's this: the constraint produces the attention. Not the paper. Not the smell. The constraint. Forty pages means somebody had to decide, and deciding is the whole job, and any medium that removes the necessity of deciding has removed the job while keeping the title.\n\nMy father used to get a magazine in the mail every month. He read it — all of it, including the parts he didn't care about, because it was there and it was finite and finishing it was possible. He could not do that with the internet. Nobody can do that with the internet. Not because the internet is worse but because it is not a thing, it's a condition, and you don't finish a condition, you just eventually stop.\n\nI would like to finish something. That's all this is. I would like there to be a last page, and to reach it, and to put the thing down on the table and hear the sound it makes.",
+        "word_count": 825,
+        "body_para1": "There is a particular sound a magazine makes when you drop it on a table. It is not a good sound or a bad sound. It is a sound that means something arrived and is now here, in the room, taking up space, and will continue taking up space until somebody deals with it.",
+        "body_para2": "Nothing on my phone makes that sound. Nothing on my phone takes up space. This is presented as the central achievement of the last twenty years and I have come to believe it is the central problem.",
+        "body_para3": "Consider what it costs to publish a photograph. Online: nothing. Not approximately nothing — actually nothing, to a rounding error, forever, at infinite scale. In print: paper, ink, a press, a person who decides, a person who ships, and a hard edge at page forty where the thing simply stops. The online photograph is free and therefore weightless. The printed photograph cost something and therefore has to be worth something, and somebody had to decide it was, and that decision is legible on the page in a way that no amount of engagement metrics can reproduce."
+      }
+    },
+    {
+      "page": 14,
+      "pages": [
+        14,
+        15
+      ],
+      "templateName": "SpreadPanorama",
+      "pageCount": 2,
+      "dataPage": 14,
+      "data": {
+        "page": 14,
+        "type": "photography",
+        "page_title": "The Salt Line",
+        "season": "Spring",
+        "contributor": {
+          "name": "Maya Torres",
+          "city": "Pensacola"
+        },
+        "entries": [
+          {
+            "title": "Low Tide, Facing East",
+            "caption": "The line the water leaves is never the same twice, but it is always a line. I have photographed it for six years and it has never once been straight.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/panorama-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 16,
+      "pages": [
+        16,
+        17
+      ],
+      "templateName": "Spread6",
+      "pageCount": 2,
+      "dataPage": 16,
+      "data": {
+        "page": 16,
+        "type": "art",
+        "page_title": "Field Notes",
+        "season": "Spring",
+        "contributor": {
+          "name": "Emma Zhang",
+          "city": "Seattle"
+        },
+        "entries": [
+          {
+            "title": "Note 01",
+            "caption": "Begin anywhere.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 02",
+            "caption": "Collected, not composed.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 03",
+            "caption": "The order arrived later.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-03.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 04",
+            "caption": "Kept because it wouldn't resolve.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-04.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 05",
+            "caption": "Out of sequence on purpose.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-05.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 06",
+            "caption": "Nearly discarded twice.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-06.JPG",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 07",
+            "caption": "End anywhere.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-07.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 18,
+      "pages": [
+        18,
+        19
+      ],
+      "templateName": "CollabSpreadLocal",
+      "pageCount": 2,
+      "dataPage": 18,
+      "data": {
+        "page": 18,
+        "collab_title": "The Water Is Always There",
+        "mode": "local",
+        "season": "Spring",
+        "display_text": "Pensacola contributors document the Gulf on ordinary days. Not the postcard — the Tuesday.",
+        "location": "Pensacola",
+        "city": "Pensacola",
+        "entries": [
+          {
+            "title": "Before the parking lot fills.",
+            "caption": "Before the parking lot fills.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-01.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "Same water. Different Tuesday.",
+            "caption": "Same water. Different Tuesday.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-03.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "The Gulf, unbothered.",
+            "caption": "The Gulf, unbothered.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-05.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "Still there tomorrow.",
+            "caption": "Still there tomorrow.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-06.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "The sand does this on its own.",
+            "caption": "The fff",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/collab-media/d7100000-0000-4000-a000-000000000002/2ad6af92-279d-4eb7-a1b6-b51ec042aa85/1789329849713.jpeg",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "Center stage swimmers",
+            "caption": "",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-04.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 20,
+      "pages": [
+        20
+      ],
+      "templateName": "PoetryPage",
+      "pageCount": 1,
+      "dataPage": 20,
+      "data": {
+        "page": 20,
+        "type": "poetry",
+        "page_title": "Inventory of a Rented Room",
+        "season": "Spring",
+        "contributor": {
+          "name": "Olivia Martinez",
+          "city": "Miami"
+        },
+        "entries": [
+          {
+            "caption": "One chair, which is enough.\nOne window, which is not.\n\nThe landlord painted over the hinges\nso the whole thing opens\nlike a decision you regret.\n\nAugust comes in anyway.\nAugust does not need the window.\n\nI have a table and a lamp\nand the particular arrangement\nof a person who does not expect\nto be here long,\nand has been here\nfour years.\n\nDownstairs, someone's radio.\nUpstairs, someone's floor.\n\nIn the drawer: a key\nto an apartment in another city\nthat has by now been rented\nto somebody else,\nwho found the drawer empty\nand did not wonder.\n\nI am not lonely.\nI am inventoried.\n\nThere is a difference\nand I have four years\nto explain it.",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ],
+        "body": "One chair, which is enough.\nOne window, which is not.\n\nThe landlord painted over the hinges\nso the whole thing opens\nlike a decision you regret.\n\nAugust comes in anyway.\nAugust does not need the window.\n\nI have a table and a lamp\nand the particular arrangement\nof a person who does not expect\nto be here long,\nand has been here\nfour years.\n\nDownstairs, someone's radio.\nUpstairs, someone's floor.\n\nIn the drawer: a key\nto an apartment in another city\nthat has by now been rented\nto somebody else,\nwho found the drawer empty\nand did not wonder.\n\nI am not lonely.\nI am inventoried.\n\nThere is a difference\nand I have four years\nto explain it.",
+        "word_count": 118
+      }
+    },
+    {
+      "page": 21,
+      "pages": [
+        21
+      ],
+      "templateName": "CommunicationsPage",
+      "pageCount": 1,
+      "dataPage": 21,
+      "data": {
+        "page": 21,
+        "season": "Spring",
+        "messages": [
+          {
+            "from": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            },
+            "to": {
+              "name": "Lena Vasquez"
+            },
+            "date": "Jul 18, 2026",
+            "subject": "On the salt line",
+            "body": "I've been shooting this same stretch for six years and I still can't tell you why. If it makes the issue, put it early — it's a beginning, not an ending."
+          },
+          {
+            "from": {
+              "name": "Daniel Osei",
+              "city": "Boston"
+            },
+            "to": {
+              "name": "Lena Vasquez"
+            },
+            "date": "Jul 18, 2026",
+            "subject": "Re: the essay",
+            "body": "Cut it if it runs long. I'd rather be short and land than complete and drift. You have my permission to be ruthless."
+          },
+          {
+            "from": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            },
+            "to": {
+              "name": "Lena Vasquez"
+            },
+            "date": "Apr 29, 2026",
+            "subject": "About my submission",
+            "body": "Hi Lena — I wanted to give you context for the series I submitted this quarter. All shots were taken on a single evening walk. Let me know if you have questions."
+          },
+          {
+            "from": {
+              "name": "Daniel Osei",
+              "city": "Boston"
+            },
+            "to": {
+              "name": "Lena Vasquez"
+            },
+            "date": "Apr 29, 2026",
+            "subject": "Collab idea for next season",
+            "body": "Thinking about a chain collaboration centered on silence. Long exposures, quiet writing. Would you want to co-organize?"
+          }
+        ]
+      }
+    },
+    {
+      "page": 22,
+      "pages": [
+        22,
+        23
+      ],
+      "templateName": "Spread",
+      "pageCount": 2,
+      "dataPage": 22,
+      "data": {
+        "page": 22,
+        "type": "photography",
+        "page_title": "What the Tide Left",
+        "season": "Spring",
+        "contributor": {
+          "name": "Sarah Chen",
+          "city": "Portland"
+        },
+        "entries": [
+          {
+            "title": "Inventory, Morning After",
+            "caption": "My grandmother collected what the water gave back. Bottle glass worn soft, a doll's arm, once a wedding ring with no name inside it. She kept everything in a coffee tin on the windowsill and never explained the system, if there was one. When she died we found the tin exactly where it had always been, and none of us could throw it out, and none of us could say why. I photograph the shoreline now the way she walked it — slowly, without a plan, looking down. This is what was there on a Tuesday. It is not important. That is precisely the point, and I have stopped apologizing for it.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/spread-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 45,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 24,
+      "pages": [
+        24,
+        25
+      ],
+      "templateName": "Spread2",
+      "pageCount": 2,
+      "dataPage": 24,
+      "data": {
+        "page": 24,
+        "type": "photography",
+        "page_title": "Two Mornings",
+        "season": "Spring",
+        "contributor": {
+          "name": "James Wilson",
+          "city": "Chicago"
+        },
+        "entries": [
+          {
+            "title": "Tuesday, 6:14",
+            "caption": "Same chair, same window, eleven degrees colder than the day before.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/two-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 40,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Wednesday, 6:11",
+            "caption": "Three minutes earlier. The difference is the whole photograph.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/two-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 40,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 26,
+      "pages": [
+        26,
+        27
+      ],
+      "templateName": "SpreadMosaic",
+      "pageCount": 2,
+      "dataPage": 26,
+      "data": {
+        "page": 26,
+        "type": "photography",
+        "page_title": "Neighborhood Index",
+        "season": "Spring",
+        "contributor": {
+          "name": "Carlos Rodriguez",
+          "city": "New Orleans"
+        },
+        "entries": [
+          {
+            "title": "Corner, North",
+            "caption": "The same corner, the ninth year.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Fence",
+            "caption": "It was blue when I moved here.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Afternoon",
+            "caption": "Nobody home. Nobody ever home at this hour.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-03.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Utility",
+            "caption": "Somebody's job to paint that number.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-04.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Corner, South",
+            "caption": "Four blocks is enough. It has always been enough.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-05.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 28,
+      "pages": [
+        28
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 28,
+      "data": {
+        "page": 28,
+        "campaign_name": "Gulf Coast Film Lab",
+        "tagline": "Develop, scan, mail back. Two weeks, sometimes three. We are not sorry.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-03-v2.PNG"
+      }
+    },
+    {
+      "page": 29,
+      "pages": [
+        29
+      ],
+      "templateName": "ColophonPage",
+      "pageCount": 1,
+      "dataPage": 29,
+      "data": {
+        "page": 29,
+        "season": "Spring",
+        "contributors": [
+          {
+            "name": "Maya Torres",
+            "city": "Pensacola"
+          },
+          {
+            "name": "Maya Torres",
+            "city": "Pensacola"
+          },
+          {
+            "name": "Sarah Chen",
+            "city": "Portland"
+          },
+          {
+            "name": "James Wilson",
+            "city": "Chicago"
+          },
+          {
+            "name": "Carlos Rodriguez",
+            "city": "New Orleans"
+          },
+          {
+            "name": "Maya Patel",
+            "city": "Austin"
+          },
+          {
+            "name": "Emma Zhang",
+            "city": "Seattle"
+          },
+          {
+            "name": "Daniel Osei",
+            "city": "Boston"
+          },
+          {
+            "name": "Leila Hassan",
+            "city": "New York"
+          },
+          {
+            "name": "Olivia Martinez",
+            "city": "Miami"
+          }
+        ],
+        "printer": "Magcloud",
+        "edition_number": 1,
+        "edition_total": 1
+      }
+    }
+  ]
+}

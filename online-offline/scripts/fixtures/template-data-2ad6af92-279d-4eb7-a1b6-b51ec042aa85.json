@@ -1,0 +1,733 @@
+{
+  "curatorId": "2ad6af92-279d-4eb7-a1b6-b51ec042aa85",
+  "periodId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "totalPages": 28,
+  "colophonPage": 28,
+  "pages": [
+    {
+      "page": 1,
+      "pages": [
+        1
+      ],
+      "templateName": "CoverA",
+      "pageCount": 1,
+      "dataPage": 1,
+      "data": {
+        "page": 1,
+        "season": "Spring",
+        "volume": "I",
+        "issue": 1
+      }
+    },
+    {
+      "page": 2,
+      "pages": [
+        2
+      ],
+      "templateName": "BlankPage",
+      "pageCount": 1,
+      "dataPage": null,
+      "data": {
+        "season": "Spring"
+      }
+    },
+    {
+      "page": 3,
+      "pages": [
+        3
+      ],
+      "templateName": "FrontMatter",
+      "pageCount": 1,
+      "dataPage": 3,
+      "data": {
+        "page": 3,
+        "curator": {
+          "name": "Adam Johnson",
+          "city": ""
+        },
+        "season": "Spring",
+        "toc": [
+          {
+            "page": 6,
+            "contributor": "Maya Torres",
+            "type": "Photography",
+            "title": "After the Rain"
+          },
+          {
+            "page": 9,
+            "contributor": "Olivia Martinez",
+            "type": "Poetry",
+            "title": "Inventory of a Rented Room"
+          },
+          {
+            "page": 10,
+            "contributor": "Emma Zhang",
+            "type": "Art",
+            "title": "Field Notes"
+          },
+          {
+            "page": 14,
+            "contributor": "Maya Torres",
+            "type": "Photography",
+            "title": "The Salt Line"
+          },
+          {
+            "page": 20,
+            "contributor": "Carlos Rodriguez",
+            "type": "Photography",
+            "title": "Neighborhood Index"
+          }
+        ]
+      }
+    },
+    {
+      "page": 4,
+      "pages": [
+        4,
+        5
+      ],
+      "templateName": "CollabSpreadLocal",
+      "pageCount": 2,
+      "dataPage": 4,
+      "data": {
+        "page": 4,
+        "collab_title": "The Water Is Always There",
+        "mode": "local",
+        "season": "Spring",
+        "display_text": "Pensacola contributors document the Gulf on ordinary days. Not the postcard — the Tuesday.",
+        "location": "Pensacola",
+        "city": "Pensacola",
+        "entries": [
+          {
+            "title": "Before the parking lot fills.",
+            "caption": "Before the parking lot fills.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-01.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "Same water. Different Tuesday.",
+            "caption": "Same water. Different Tuesday.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-03.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "The Gulf, unbothered.",
+            "caption": "The Gulf, unbothered.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-05.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "Still there tomorrow.",
+            "caption": "Still there tomorrow.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-06.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "The sand does this on its own.",
+            "caption": "The fff",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/collab-media/d7100000-0000-4000-a000-000000000002/2ad6af92-279d-4eb7-a1b6-b51ec042aa85/1789329849713.jpeg",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "Center stage swimmers",
+            "caption": "",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-community-04.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 6,
+      "pages": [
+        6,
+        7
+      ],
+      "templateName": "SpreadPanorama",
+      "pageCount": 2,
+      "dataPage": 6,
+      "data": {
+        "page": 6,
+        "type": "photography",
+        "page_title": "After the Rain",
+        "season": "Spring",
+        "contributor": {
+          "name": "Maya Torres",
+          "city": "Pensacola"
+        },
+        "entries": [
+          {
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/content-media/0.3849370166079853.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 8,
+      "pages": [
+        8
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 8,
+      "data": {
+        "page": 8,
+        "campaign_name": "Moleskine",
+        "tagline": "Notebooks for people who still write things down before they mean them.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-01.PNG"
+      }
+    },
+    {
+      "page": 9,
+      "pages": [
+        9
+      ],
+      "templateName": "PoetryPage",
+      "pageCount": 1,
+      "dataPage": 9,
+      "data": {
+        "page": 9,
+        "type": "poetry",
+        "page_title": "Inventory of a Rented Room",
+        "season": "Spring",
+        "contributor": {
+          "name": "Olivia Martinez",
+          "city": "Miami"
+        },
+        "entries": [
+          {
+            "caption": "One chair, which is enough.\nOne window, which is not.\n\nThe landlord painted over the hinges\nso the whole thing opens\nlike a decision you regret.\n\nAugust comes in anyway.\nAugust does not need the window.\n\nI have a table and a lamp\nand the particular arrangement\nof a person who does not expect\nto be here long,\nand has been here\nfour years.\n\nDownstairs, someone's radio.\nUpstairs, someone's floor.\n\nIn the drawer: a key\nto an apartment in another city\nthat has by now been rented\nto somebody else,\nwho found the drawer empty\nand did not wonder.\n\nI am not lonely.\nI am inventoried.\n\nThere is a difference\nand I have four years\nto explain it.",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ],
+        "body": "One chair, which is enough.\nOne window, which is not.\n\nThe landlord painted over the hinges\nso the whole thing opens\nlike a decision you regret.\n\nAugust comes in anyway.\nAugust does not need the window.\n\nI have a table and a lamp\nand the particular arrangement\nof a person who does not expect\nto be here long,\nand has been here\nfour years.\n\nDownstairs, someone's radio.\nUpstairs, someone's floor.\n\nIn the drawer: a key\nto an apartment in another city\nthat has by now been rented\nto somebody else,\nwho found the drawer empty\nand did not wonder.\n\nI am not lonely.\nI am inventoried.\n\nThere is a difference\nand I have four years\nto explain it.",
+        "word_count": 118
+      }
+    },
+    {
+      "page": 10,
+      "pages": [
+        10,
+        11
+      ],
+      "templateName": "Spread6",
+      "pageCount": 2,
+      "dataPage": 10,
+      "data": {
+        "page": 10,
+        "type": "art",
+        "page_title": "Field Notes",
+        "season": "Spring",
+        "contributor": {
+          "name": "Emma Zhang",
+          "city": "Seattle"
+        },
+        "entries": [
+          {
+            "title": "Note 01",
+            "caption": "Begin anywhere.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 02",
+            "caption": "Collected, not composed.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 03",
+            "caption": "The order arrived later.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-03.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 04",
+            "caption": "Kept because it wouldn't resolve.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-04.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 05",
+            "caption": "Out of sequence on purpose.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-05.jpg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 06",
+            "caption": "Nearly discarded twice.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-06.JPG",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Note 07",
+            "caption": "End anywhere.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/six-07.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 12,
+      "pages": [
+        12,
+        13
+      ],
+      "templateName": "CollabSpreadPrivate",
+      "pageCount": 2,
+      "dataPage": 12,
+      "data": {
+        "page": 12,
+        "collab_title": "Everyone Who Was There",
+        "mode": "private",
+        "season": "Spring",
+        "display_text": "A closed circle documenting the people they'd otherwise only photograph on their phones.",
+        "city": "",
+        "entries": [
+          {
+            "title": "Nobody arranged this.",
+            "caption": "Nobody arranged this.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-01.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "The good camera stayed in the bag.",
+            "caption": "The good camera stayed in the bag.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-02.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "Taken by someone who was invited.",
+            "caption": "Taken by someone who was invited.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-03.JPG",
+            "contributor": {
+              "name": "Maya Torres",
+              "city": "Pensacola"
+            }
+          },
+          {
+            "title": "Evidence, not portrait.",
+            "caption": "Evidence, not portrait.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-04.JPG",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          },
+          {
+            "title": "Everyone who was there.",
+            "caption": "Everyone who was there.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-05.JPG",
+            "contributor": {
+              "name": "Sarah Chen",
+              "city": "Portland"
+            }
+          },
+          {
+            "title": "And then it was over.",
+            "caption": "And then it was over.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-private-06.JPG",
+            "contributor": {
+              "name": "Benjamin Lee",
+              "city": "Nashville"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 14,
+      "pages": [
+        14,
+        15
+      ],
+      "templateName": "SpreadPanorama",
+      "pageCount": 2,
+      "dataPage": 14,
+      "data": {
+        "page": 14,
+        "type": "photography",
+        "page_title": "The Salt Line",
+        "season": "Spring",
+        "contributor": {
+          "name": "Maya Torres",
+          "city": "Pensacola"
+        },
+        "entries": [
+          {
+            "title": "Low Tide, Facing East",
+            "caption": "The line the water leaves is never the same twice, but it is always a line. I have photographed it for six years and it has never once been straight.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/panorama-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 16,
+      "pages": [
+        16
+      ],
+      "templateName": "CommunicationsPage",
+      "pageCount": 1,
+      "dataPage": 16,
+      "data": {
+        "page": 16,
+        "season": "Spring",
+        "messages": [
+          {
+            "from": {
+              "name": "Olivia Martinez",
+              "city": "Miami"
+            },
+            "to": {
+              "name": "Adam Johnson"
+            },
+            "date": "Jul 18, 2026",
+            "subject": "About the poem",
+            "body": "Four years in the same room and it took me all four to write nine lines about it. Print it small. It wants to be small."
+          },
+          {
+            "from": {
+              "name": "Emma Zhang",
+              "city": "Seattle"
+            },
+            "to": {
+              "name": "Adam Johnson"
+            },
+            "date": "Jul 18, 2026",
+            "subject": "Field notes, sequencing",
+            "body": "The order doesn't matter. I mean that — if the layout wants a different sequence, take it. The notes were never sequential."
+          }
+        ]
+      }
+    },
+    {
+      "page": 17,
+      "pages": [
+        17
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 17,
+      "data": {
+        "page": 17,
+        "campaign_name": "Risograph Press Co.",
+        "tagline": "Small-run printing in impossible colors. Fluorescent pink is not a phase.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-02.PNG"
+      }
+    },
+    {
+      "page": 18,
+      "pages": [
+        18,
+        19
+      ],
+      "templateName": "CollabSpreadCommunity",
+      "pageCount": 2,
+      "dataPage": 18,
+      "data": {
+        "page": 18,
+        "collab_title": "Somewhere Else Entirely",
+        "mode": "community",
+        "season": "Spring",
+        "display_text": "A shared archive of manufactured wonder. Contributors document the places built specifically to be nowhere near where they live.",
+        "city": "",
+        "entries": [
+          {
+            "title": "Ninety minutes for four. Worth it, reportedly.",
+            "caption": "Ninety minutes for four. Worth it, reportedly.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-01.JPG",
+            "contributor": {
+              "name": "Miguel Garcia",
+              "city": "Phoenix"
+            }
+          },
+          {
+            "title": "The castle from the angle nobody photographs.",
+            "caption": "The castle from the angle nobody photographs.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-02.JPG",
+            "contributor": {
+              "name": "Fatima Al-Sayegh",
+              "city": "Houston"
+            }
+          },
+          {
+            "title": "Someone's whole day, in one frame.",
+            "caption": "Someone's whole day, in one frame.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-03.JPG",
+            "contributor": {
+              "name": "Tomas Reyes",
+              "city": "San Antonio"
+            }
+          },
+          {
+            "title": "Manufactured, and it worked anyway.",
+            "caption": "Manufactured, and it worked anyway.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-04.JPG",
+            "contributor": {
+              "name": "Helena Novak",
+              "city": "Boston"
+            }
+          },
+          {
+            "title": "The parade goes past regardless of who is watching.",
+            "caption": "The parade goes past regardless of who is watching.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-05.JPG",
+            "contributor": {
+              "name": "David Okafor",
+              "city": "Atlanta"
+            }
+          },
+          {
+            "title": "Leaving. Everyone leaves eventually.",
+            "caption": "Leaving. Everyone leaves eventually.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/collab-local-06.JPG",
+            "contributor": {
+              "name": "Kai Tanaka",
+              "city": "San Francisco"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 20,
+      "pages": [
+        20,
+        21
+      ],
+      "templateName": "SpreadMosaic",
+      "pageCount": 2,
+      "dataPage": 20,
+      "data": {
+        "page": 20,
+        "type": "photography",
+        "page_title": "Neighborhood Index",
+        "season": "Spring",
+        "contributor": {
+          "name": "Carlos Rodriguez",
+          "city": "New Orleans"
+        },
+        "entries": [
+          {
+            "title": "Corner, North",
+            "caption": "The same corner, the ninth year.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-01.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Fence",
+            "caption": "It was blue when I moved here.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-02.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Afternoon",
+            "caption": "Nobody home. Nobody ever home at this hour.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-03.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Utility",
+            "caption": "Somebody's job to paint that number.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-04.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          },
+          {
+            "title": "Corner, South",
+            "caption": "Four blocks is enough. It has always been enough.",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/mosaic-05.jpeg",
+            "focal_x": 50,
+            "focal_y": 50,
+            "aspect_ratio": null
+          }
+        ]
+      }
+    },
+    {
+      "page": 22,
+      "pages": [
+        22
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 22,
+      "data": {
+        "page": 22,
+        "campaign_name": "Gulf Coast Film Lab",
+        "tagline": "Develop, scan, mail back. Two weeks, sometimes three. We are not sorry.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-03-v2.PNG"
+      }
+    },
+    {
+      "page": 23,
+      "pages": [
+        23
+      ],
+      "templateName": "CampaignPage",
+      "pageCount": 1,
+      "dataPage": 23,
+      "data": {
+        "page": 23,
+        "campaign_name": "The Standing Desk",
+        "tagline": "Furniture built to outlast the person who bought it.",
+        "discount": 2,
+        "avatar_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/seed/campaign-04.PNG"
+      }
+    },
+    {
+      "page": 24,
+      "pages": [
+        24,
+        25
+      ],
+      "templateName": "CollabSpreadPrivate",
+      "pageCount": 2,
+      "dataPage": 24,
+      "data": {
+        "page": 24,
+        "collab_title": "One Hundred Mornings",
+        "mode": "private",
+        "season": "Spring",
+        "display_text": "A chain of morning scenes — each contributor photographs their first moments of waking.",
+        "city": "",
+        "entries": [
+          {
+            "title": "These faces",
+            "caption": "",
+            "media_url": "https://cbdiujvqpirrvzodfujm.supabase.co/storage/v1/object/public/collab-media/df662a9f-6f49-413c-bf6f-4398f91fe0dd/2ad6af92-279d-4eb7-a1b6-b51ec042aa85/1789329714206.jpeg",
+            "contributor": {
+              "name": "Adam Johnson",
+              "city": ""
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 26,
+      "pages": [
+        26,
+        27
+      ],
+      "templateName": "CollabSpreadCommunity",
+      "pageCount": 2,
+      "dataPage": 26,
+      "data": {
+        "page": 26,
+        "collab_title": "One Hundred Mornings",
+        "mode": "community",
+        "season": "Spring",
+        "display_text": "A chain of morning scenes — each contributor photographs their first moments of waking.",
+        "city": "",
+        "entries": [
+          {
+            "title": "First light through the blinds",
+            "caption": "Couldn't sleep. Was already watching the room change.",
+            "media_url": "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1200",
+            "contributor": {
+              "name": "Daniel Osei",
+              "city": "Boston"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "page": 28,
+      "pages": [
+        28
+      ],
+      "templateName": "ColophonPage",
+      "pageCount": 1,
+      "dataPage": 28,
+      "data": {
+        "page": 28,
+        "season": "Spring",
+        "contributors": [
+          {
+            "name": "Maya Torres",
+            "city": "Pensacola"
+          },
+          {
+            "name": "Maya Torres",
+            "city": "Pensacola"
+          },
+          {
+            "name": "Carlos Rodriguez",
+            "city": "New Orleans"
+          },
+          {
+            "name": "Emma Zhang",
+            "city": "Seattle"
+          },
+          {
+            "name": "Olivia Martinez",
+            "city": "Miami"
+          }
+        ],
+        "printer": "Magcloud",
+        "edition_number": 1,
+        "edition_total": 1
+      }
+    }
+  ]
+}
