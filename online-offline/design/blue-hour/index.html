@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<title>online//offline — Dusk issue</title>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>*{box-sizing:border-box}body{margin:0}a{color:inherit}a:hover{opacity:.7}p{margin:0}</style>
+</head>
+<body>
+
+<div id="root"></div>
+<script type="text/babel" src="00-theme-primitives-batch1.jsx"></script>
+<script type="text/babel" src="01-shared-marks.jsx"></script>
+<script type="text/babel" src="02-sample-text.js"></script>
+<script type="text/babel" src="03-batch2-mosaic-spread6-spread.jsx"></script>
+<script type="text/babel" src="04-batch3-text-poetry-letters.jsx"></script>
+<script type="text/babel" src="05-batch4-collabs.jsx"></script>
+<script type="text/babel" src="06-batch5-frontmatter-endpaper-colophon.jsx"></script>
+<script type="text/babel">
+const { THEME, Wordmark, alpha, SPREAD_W } = window;
+function Preview() {
+  const [fit, setFit] = React.useState(true);
+  const wrap = React.useRef(null);
+  React.useLayoutEffect(() => {
+    const el = wrap.current; if (!el) return;
+    const apply = () => { const w = el.parentElement.clientWidth - 64; el.style.zoom = fit && w > 0 ? String(Math.max(.2, Math.min(1, w / SPREAD_W))) : '1'; };
+    apply(); const raf = requestAnimationFrame(apply);
+    const ro = new ResizeObserver(apply); ro.observe(el.parentElement);
+    const iv = setInterval(apply, 400); window.addEventListener('resize', apply);
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); clearInterval(iv); window.removeEventListener('resize', apply); };
+  }, [fit]);
+  const c = THEME.colors;
+  return <div style={{ background: `color-mix(in srgb, ${c.paper} 55%, black)`, minHeight: '100vh', padding: 32, fontFamily: THEME.fonts.label, color: c.muted }}>
+    <style>{THEME.fontCss}</style>
+    <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 24 }}>
+      <Wordmark size={14} /><span style={{ fontSize: 11 }}>{THEME.name} · complete template · {window.DUSK_STATES.length} states</span>
+      <button onClick={() => setFit(!fit)} style={{ marginLeft: 'auto', background: 'transparent', color: c.ink, border: `1px solid ${alpha(c.ink, 40)}`, fontFamily: THEME.fonts.label, fontSize: 11, padding: '6px 12px', cursor: 'pointer' }}>{fit ? 'View at 100%' : 'Fit to width'}</button>
+    </div>
+    <div ref={wrap} style={{ display: 'flex', flexDirection: 'column', gap: 56 }}>
+      {window.DUSK_STATES.map(([label, C, d]) => <div key={label}><div style={{ fontSize: 13, marginBottom: 10, color: c.muted }}>{label}</div><C data={d} /></div>)}
+    </div>
+  </div>;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Preview />);
+</script>
+
+
+</body></html>
